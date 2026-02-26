@@ -1,26 +1,192 @@
 @import "tailwindcss";
 
+/* ===============================
+   LIGHT MODE (Default)
+================================ */
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --bg: #f3f4f6;                /* page background */
+  --surface: #ffffff;           /* cards, calendar surface */
+  --sidebar: #ffffff;
+  --sidebar-border: #e5e7eb;
+  --hover: #f9fafb;
+  --border: #e5e7eb;
+
+  --text: #111827;
+  --text-muted: #6b7280;
+
+  --grid-light: #e5e7eb;
+  --grid-strong: #d1d5db;
 }
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+/* ===============================
+   DARK MODE
+================================ */
+.dark {
+  --bg: #0f172a;                /* slate-900 */
+  --surface: #1e293b;           /* slate-800 */
+  --sidebar: #0f172a;
+  --sidebar-border: #1f2937;
+  --hover: #1e293b;
+  --border: #334155;
+
+  --text: #f8fafc;
+  --text-muted: #94a3b8;
+
+  --grid-light: #1f2937;
+  --grid-strong: #334155;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
-}
-
+/* ===============================
+   BASE
+================================ */
+html,
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  transition: background 0.25s ease, color 0.25s ease;
+}
+
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+select {
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  appearance: none;
+  background-image: none;
+}
+
+.logo-dark {
+  display: none;
+}
+
+.dark .logo-light {
+  display: none;
+}
+
+.dark .logo-dark {
+  display: inline-block;
+}
+
+/* ===============================
+   PRINT STYLES
+================================ */
+/* =========================================
+   PROFESSIONAL PRINT STYLES – FINANCIAL
+========================================= */
+
+@media print {
+
+  /* Hide application layout */
+  nav,
+  aside,
+  header,
+  footer,
+  .no-print {
+    display: none !important;
+  }
+
+  html,
+  body {
+    background: #ffffff !important;
+    margin: 0 !important;
+    padding: 0 !important;
+  }
+
+  body {
+    font-family: "Georgia", "Times New Roman", serif;
+    font-size: 12px;
+    line-height: 1.5;
+    color: #000000;
+  }
+
+  /* Main printable container */
+  .print-container {
+    width: 100% !important;
+    max-width: 100% !important;
+    margin: 0 auto !important;
+    padding: 40px 60px !important;
+  }
+
+  /* Remove rounded UI look */
+  .print-container * {
+    border-radius: 0 !important;
+    box-shadow: none !important;
+  }
+
+  /* Organization page separation */
+  .print-page {
+    page-break-after: always;
+  }
+
+  /* Headers */
+  .print-container h1 {
+    font-size: 20px;
+    font-weight: 700;
+    margin-bottom: 8px;
+    letter-spacing: 0.5px;
+  }
+
+  .print-container h2 {
+    font-size: 16px;
+    font-weight: 700;
+    margin-top: 30px;
+    margin-bottom: 12px;
+    border-bottom: 1px solid #000;
+    padding-bottom: 4px;
+  }
+
+  .print-container h3 {
+    font-size: 12px;
+    font-weight: 700;
+    margin-top: 18px;
+    margin-bottom: 6px;
+    text-transform: uppercase;
+    letter-spacing: 0.4px;
+  }
+
+  /* Transaction rows */
+  .print-container .transaction-row {
+    display: flex;
+    justify-content: space-between;
+    padding: 2px 0;
+  }
+
+  /* Totals styling */
+  .print-container .category-total {
+    margin-top: 6px;
+    padding-top: 4px;
+    border-top: 1px solid #999;
+    font-weight: 600;
+  }
+
+  .print-container .organization-total {
+    margin-top: 18px;
+    padding-top: 6px;
+    border-top: 2px solid #000;
+    font-weight: 700;
+  }
+
+  .print-container .grand-total {
+    margin-top: 30px;
+    padding-top: 10px;
+    border-top: 3px double #000;
+    font-weight: 800;
+    font-size: 14px;
+  }
+
+  /* Depreciable label */
+  .print-container .depreciable {
+    font-size: 10px;
+    font-style: italic;
+    opacity: 0.7;
+    margin-left: 6px;
+  }
+
 }

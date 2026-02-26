@@ -1,0 +1,129 @@
+"use client";
+
+import { useState } from "react";
+import { useRouter } from "next/navigation";
+import { DollarSign } from "lucide-react";
+
+export default function RecordPaymentButton({
+  invoiceId,
+  tenantId,
+  organizationId,
+}: {
+  invoiceId: string;
+  tenantId: string;
+  organizationId: string;
+}) {
+  const [open, setOpen] = useState(false);
+  const [amount, setAmount] = useState("");
+  const [method, setMethod] = useState("cash");
+  const [notes, setNotes] = useState("");
+  const [loading, setLoading] = useState(false);
+
+  const router = useRouter();
+
+  async function handleSubmit() {
+    if (!amount || Number(amount) <= 0) return;
+
+    setLoading(true);
+
+    const res = await fetch("/api/payments", {
+      method: "POST",
+      body: JSON.stringify({
+        invoiceId,
+        tenantId,
+        organizationId,
+        amount,
+        method,
+        notes,
+      }),
+    });
+
+    setLoading(false);
+
+    if (res.ok) {
+      setOpen(false);
+      router.refresh();
+    }
+  }
+
+  return (
+    <>
+      <button
+        onClick={() => setOpen(true)}
+        className="inline-flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition hover:opacity-90"
+        style={{
+          background: "var(--primary)",
+          color: "var(--primary-foreground)",
+        }}
+      >
+        <DollarSign size={16} />
+        Record
+      </button>
+
+      {open && (
+        <div className="fixed inset-0 flex items-center justify-center bg-black/40 z-50">
+          <div
+            className="rounded-2xl p-6 w-96"
+            style={{
+              background: "var(--surface)",
+              border: "1px solid var(--border)",
+            }}
+          >
+            <h2 className="text-lg font-semibold mb-4">
+              Record Payment
+            </h2>
+
+            <input
+              type="number"
+              placeholder="Amount"
+              value={amount}
+              onChange={(e) => setAmount(e.target.value)}
+              className="w-full mb-3 px-3 py-2 rounded border"
+            />
+
+            <select
+              value={method}
+              onChange={(e) => setMethod(e.target.value)}
+              className="w-full mb-3 px-3 py-2 rounded border"
+            >
+              <option value="cash">Cash</option>
+              <option value="check">Check</option>
+              <option value="zelle">Zelle</option>
+              <option value="stripe">Stripe</option>
+              <option value="other">Other</option>
+            </select>
+
+            <textarea
+              placeholder="Notes (optional)"
+              value={notes}
+              onChange={(e) => setNotes(e.target.value)}
+              className="w-full mb-4 px-3 py-2 rounded border"
+            />
+
+            <div className="flex justify-end gap-2">
+              <button
+                onClick={() => setOpen(false)}
+                className="px-3 py-2 text-sm"
+              >
+                Cancel
+              </button>
+
+              <button
+                onClick={handleSubmit}
+                disabled={loading}
+                className="px-4 py-2 rounded-lg text-sm font-medium transition"
+                style={{
+                  background: "var(--primary)",
+                  color: "var(--primary-foreground)",
+                  opacity: loading ? 0.6 : 1,
+                }}
+              >
+                {loading ? "Saving..." : "Save"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </>
+  );
+}
