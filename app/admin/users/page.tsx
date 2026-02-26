@@ -1,4 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
+import InviteUserForm from "@/components/admin/InviteUserForm";
 
 export default async function AdminUsersPage() {
   const supabase = await createClient();
