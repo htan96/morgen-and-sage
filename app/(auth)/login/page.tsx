@@ -16,7 +16,8 @@ export default function LoginPage() {
     setLoading(true);
 
     try {
-      const { error } = await supabase.auth.signInWithPassword({
+      // 1️⃣ Sign in
+      const { data, error } = await supabase.auth.signInWithPassword({
         email,
         password,
       });
@@ -27,10 +28,35 @@ export default function LoginPage() {
         return;
       }
 
-      router.push("/dashboard");
+      if (!data.user) {
+        alert("User not found.");
+        setLoading(false);
+        return;
+      }
+
+      // 2️⃣ Fetch role from profiles table
+      const { data: profile, error: profileError } = await supabase
+        .from("profiles")
+        .select("role")
+        .eq("user_id", data.user.id)
+        .single();
+
+      if (profileError || !profile) {
+        // If profile missing, send to dashboard
+        router.push("/dashboard");
+        return;
+      }
+
+      // 3️⃣ Redirect based on role
+      if (profile.role === "admin") {
+        router.push("/admin");
+      } else {
+        router.push("/dashboard");
+      }
     } catch (err) {
       console.error(err);
       alert("Unexpected error. Check console.");
+    } finally {
       setLoading(false);
     }
   };
