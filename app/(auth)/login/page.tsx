@@ -43,7 +43,7 @@ export default function LoginPage() {
 
       if (profileError || !profile) {
         // If profile missing, send to dashboard
-        router.push("/dashboard");
+        router.push("/login");
         return;
       }
 
