@@ -9,6 +9,7 @@ export default async function AdminLayout({
   children: React.ReactNode;
 }) {
   const supabase = await createClient();
+
   const {
     data: { user },
   } = await supabase.auth.getUser();
@@ -26,16 +27,16 @@ export default async function AdminLayout({
 
   return (
     <div className="flex min-h-screen">
-      {/* Desktop */}
+      {/* Desktop Sidebar */}
       <div className="hidden md:flex fixed left-0 top-0 h-screen">
         <Sidebar variant="full" />
       </div>
 
-      {/* Mobile */}
+      {/* Mobile Sidebar (Compact Rail + Drawer) */}
       <MobileSidebar />
 
-      {/* Content */}
-      <main className="flex-1 md:ml-64 ml-16 px-4 py-6">
+      {/* Main Content */}
+      <main className="flex-1 md:ml-64 ml-14 px-2 sm:px-4 md:px-6 py-4 md:py-6">
         {children}
       </main>
     </div>

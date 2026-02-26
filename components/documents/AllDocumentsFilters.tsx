@@ -29,7 +29,13 @@ export default function AllDocumentsFilters({
 }: Props) {
   return (
     <div
-      className="rounded-xl p-5 flex flex-wrap gap-4"
+      className="
+        rounded-xl
+        p-3 sm:p-4 md:p-5
+        flex flex-col
+        md:flex-row
+        gap-3 md:gap-4
+      "
       style={{
         background: "var(--surface)",
         border: "1px solid var(--border)",
@@ -41,7 +47,7 @@ export default function AllDocumentsFilters({
         placeholder="Search vendor..."
         value={search}
         onChange={(e) => setSearch(e.target.value)}
-        className="px-4 py-2 rounded-lg min-w-[200px]"
+        className="w-full md:w-auto px-3 py-2 rounded-lg text-sm"
         style={{
           background: "var(--bg)",
           border: "1px solid var(--border)",
@@ -53,7 +59,7 @@ export default function AllDocumentsFilters({
       <select
         value={status}
         onChange={(e) => setStatus(e.target.value)}
-        className="px-4 py-2 rounded-lg min-w-[160px]"
+        className="w-full md:w-auto px-3 py-2 rounded-lg text-sm"
         style={{
           background: "var(--bg)",
           border: "1px solid var(--border)",
@@ -73,7 +79,7 @@ export default function AllDocumentsFilters({
         placeholder="Category..."
         value={category}
         onChange={(e) => setCategory(e.target.value)}
-        className="px-4 py-2 rounded-lg min-w-[160px]"
+        className="w-full md:w-auto px-3 py-2 rounded-lg text-sm"
         style={{
           background: "var(--bg)",
           border: "1px solid var(--border)",
@@ -85,7 +91,7 @@ export default function AllDocumentsFilters({
       <select
         value={organizationId}
         onChange={(e) => setOrganizationId(e.target.value)}
-        className="px-4 py-2 rounded-lg min-w-[200px]"
+        className="w-full md:w-auto px-3 py-2 rounded-lg text-sm"
         style={{
           background: "var(--bg)",
           border: "1px solid var(--border)",
@@ -109,7 +115,12 @@ export default function AllDocumentsFilters({
           setCategory("");
           setOrganizationId("");
         }}
-        className="px-4 py-2 rounded-lg"
+        className="
+          w-full md:w-auto
+          px-3 py-2
+          rounded-lg
+          text-sm
+        "
         style={{
           background: "var(--hover)",
           border: "1px solid var(--border)",

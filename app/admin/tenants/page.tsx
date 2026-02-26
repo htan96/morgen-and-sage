@@ -77,19 +77,19 @@ export default function TenantsPage() {
 
   if (loading) {
     return (
-      <div className="p-8 text-[var(--text)]">
+      <div className="px-4 py-10 text-[var(--text)]">
         Loading tenants...
       </div>
     );
   }
 
   return (
-    <div className="p-8 space-y-8">
+    <div className="w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
 
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4">
         <div>
-          <h1 className="text-2xl font-semibold text-[var(--text)]">
+          <h1 className="text-2xl md:text-3xl font-semibold text-[var(--text)]">
             Tenants
           </h1>
           <p className="text-sm text-[var(--text-muted)]">
@@ -99,25 +99,25 @@ export default function TenantsPage() {
 
         <button
           onClick={() => setShowModal(true)}
-          className="px-4 py-2 rounded-lg border border-[var(--border)] bg-[var(--surface)] text-[var(--text)] hover:bg-[var(--hover)] transition"
+          className="w-full sm:w-auto px-4 py-2 rounded-lg border border-[var(--border)] bg-[var(--surface)] text-[var(--text)] hover:bg-[var(--hover)] transition"
         >
           + Add Tenant
         </button>
       </div>
 
       {/* Search + Filter */}
-      <div className="flex gap-4">
+      <div className="flex flex-col sm:flex-row gap-4">
         <input
           placeholder="Search tenants..."
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          className="px-4 py-2 rounded-lg border border-[var(--border)] bg-[var(--surface)] text-[var(--text)] w-64 focus:outline-none"
+          className="w-full sm:w-64 px-4 py-2 rounded-lg border border-[var(--border)] bg-[var(--surface)] text-[var(--text)] focus:outline-none"
         />
 
         <select
           value={statusFilter}
           onChange={(e) => setStatusFilter(e.target.value)}
-          className="px-4 py-2 rounded-lg border border-[var(--border)] bg-[var(--surface)] text-[var(--text)] focus:outline-none"
+          className="w-full sm:w-40 px-4 py-2 rounded-lg border border-[var(--border)] bg-[var(--surface)] text-[var(--text)] focus:outline-none"
         >
           <option value="all">All</option>
           <option value="active">Active</option>
@@ -126,7 +126,7 @@ export default function TenantsPage() {
       </div>
 
       {/* Grid */}
-      <div className="grid gap-6 grid-cols-1 md:grid-cols-2 xl:grid-cols-3">
+      <div className="grid gap-6 grid-cols-1 sm:grid-cols-2 xl:grid-cols-3">
         {filteredTenants.map((tenant) => (
           <div
             key={tenant.id}
@@ -157,8 +157,8 @@ export default function TenantsPage() {
 
       {/* Modal */}
       {showModal && (
-        <div className="fixed inset-0 flex items-center justify-center z-50 bg-[var(--bg)]/80 backdrop-blur-sm">
-          <div className="bg-[var(--surface)] border border-[var(--border)] rounded-xl p-8 w-full max-w-md space-y-6">
+        <div className="fixed inset-0 z-50 bg-[var(--bg)]/80 backdrop-blur-sm flex items-center justify-center">
+          <div className="bg-[var(--surface)] border border-[var(--border)] rounded-xl p-6 sm:p-8 w-full max-w-md space-y-6 mx-4">
 
             <h2 className="text-lg font-semibold text-[var(--text)]">
               Add Tenant
@@ -196,17 +196,17 @@ export default function TenantsPage() {
               </label>
             </div>
 
-            <div className="flex justify-end gap-3">
+            <div className="flex flex-col sm:flex-row justify-end gap-3">
               <button
                 onClick={() => setShowModal(false)}
-                className="px-4 py-2 rounded-lg border border-[var(--border)] text-[var(--text)]"
+                className="w-full sm:w-auto px-4 py-2 rounded-lg border border-[var(--border)] text-[var(--text)]"
               >
                 Cancel
               </button>
 
               <button
                 onClick={handleCreateTenant}
-                className="px-4 py-2 rounded-lg bg-[var(--hover)] text-[var(--text)]"
+                className="w-full sm:w-auto px-4 py-2 rounded-lg bg-[var(--hover)] text-[var(--text)]"
               >
                 Create
               </button>

@@ -8,12 +8,19 @@ export default function MobileSidebar() {
 
   return (
     <>
-      {/* Compact rail */}
+      {/* Compact Rail */}
       <div className="md:hidden fixed left-0 top-0 h-screen z-40">
         <Sidebar variant="compact" />
         <button
           onClick={() => setOpen(true)}
-          className="absolute top-4 right-[-12px] bg-black text-white w-6 h-6 rounded-full text-xs"
+          className="absolute top-4 right-[-10px] 
+                     w-8 h-8 rounded-full 
+                     flex items-center justify-center
+                     shadow-lg"
+          style={{
+            background: "var(--sidebar)",
+            border: "1px solid var(--sidebar-border)",
+          }}
         >
           →
         </button>
@@ -27,7 +34,7 @@ export default function MobileSidebar() {
         />
       )}
 
-      {/* Expanded drawer */}
+      {/* Expanded Drawer */}
       <div
         className={`fixed top-0 left-0 h-screen z-50 transform transition-transform duration-300 ${
           open ? "translate-x-0" : "-translate-x-full"

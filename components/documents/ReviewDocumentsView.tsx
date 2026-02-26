@@ -29,21 +29,21 @@ export default function ReviewDocumentsView() {
   }, []);
 
   useEffect(() => {
-  if (loading) return;
+    if (loading) return;
 
-  const hasProcessing = documents.some(
-    (doc) => doc.status === "processing"
-  );
+    const hasProcessing = documents.some(
+      (doc) => doc.status === "processing"
+    );
 
-  if (!hasProcessing) return;
+    if (!hasProcessing) return;
 
-  const interval = setInterval(() => {
-    fetchDocs();
-  }, 5000);
+    const interval = setInterval(() => {
+      fetchDocs();
+    }, 5000);
 
-  return () => clearInterval(interval);
-}, [documents, loading]);
-  // Generate signed URL when doc selected
+    return () => clearInterval(interval);
+  }, [documents, loading]);
+
   useEffect(() => {
     if (!selectedDoc) return;
 
@@ -52,9 +52,7 @@ export default function ReviewDocumentsView() {
         .from("documents")
         .createSignedUrl(selectedDoc.storage_path, 120);
 
-      if (data?.signedUrl) {
-        setImageUrl(data.signedUrl);
-      }
+      if (data?.signedUrl) setImageUrl(data.signedUrl);
     }
 
     loadImage();
@@ -69,9 +67,8 @@ export default function ReviewDocumentsView() {
         .select("id")
         .eq("status", "pending");
 
-      if (!pendingDocs || pendingDocs.length === 0) {
+      if (!pendingDocs?.length) {
         alert("No pending documents.");
-        setRunningOcr(false);
         return;
       }
 
@@ -83,10 +80,9 @@ export default function ReviewDocumentsView() {
         });
       }
 
-      alert("OCR started.");
       fetchDocs();
     } catch (err) {
-      console.error("OCR batch error:", err);
+      console.error(err);
       alert("Error running OCR.");
     } finally {
       setRunningOcr(false);
@@ -101,16 +97,16 @@ export default function ReviewDocumentsView() {
   if (loading) return <div>Loading...</div>;
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-6 md:space-y-8">
 
       {/* TOP BAR */}
-      <div className="flex justify-between items-center">
+      <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4">
         <h2 className="text-xl font-semibold">Review Queue</h2>
 
         <button
           onClick={runOcrBatch}
           disabled={runningOcr}
-          className="px-4 py-2 rounded-lg text-white"
+          className="w-full sm:w-auto px-4 py-2 rounded-lg text-white"
           style={{
             background: "#10b981",
             opacity: runningOcr ? 0.7 : 1,
@@ -121,7 +117,7 @@ export default function ReviewDocumentsView() {
       </div>
 
       {/* KPI CARDS */}
-      <div className="grid grid-cols-4 gap-6">
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 md:gap-6">
         <KpiCard label="Pending" value={pendingCount} />
         <KpiCard label="Processing" value={processingCount} />
         <KpiCard label="Needs Review" value={reviewCount} />
@@ -131,7 +127,7 @@ export default function ReviewDocumentsView() {
       {/* DOCUMENT LIST */}
       {documents.length === 0 ? (
         <div
-          className="rounded-xl p-8 text-center"
+          className="rounded-xl p-6 text-center"
           style={{
             background: "var(--surface)",
             border: "1px solid var(--border)",
@@ -148,10 +144,8 @@ export default function ReviewDocumentsView() {
             return (
               <div
                 key={doc.id}
-                onClick={() => {
-                  if (editable) setSelectedDoc(doc);
-                }}
-                className={`p-4 rounded-xl transition ${
+                onClick={() => editable && setSelectedDoc(doc)}
+                className={`p-4 md:p-5 rounded-xl transition ${
                   editable
                     ? "cursor-pointer hover:opacity-80"
                     : "opacity-50 cursor-not-allowed"
@@ -182,22 +176,28 @@ export default function ReviewDocumentsView() {
         </div>
       )}
 
-      {/* SIDE-BY-SIDE REVIEW MODAL */}
+      {/* REVIEW MODAL */}
       {selectedDoc && (
         <div
-          className="fixed inset-0 bg-black/60 flex items-center justify-center z-50"
+          className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center"
           onClick={() => setSelectedDoc(null)}
         >
           <div
-            className="w-full max-w-6xl h-[85vh] rounded-xl overflow-hidden flex"
+            className="
+              w-full h-full
+              md:h-[85vh] md:max-w-6xl
+              bg-[var(--surface)]
+              md:rounded-xl
+              overflow-hidden
+              flex flex-col md:flex-row
+            "
             style={{
-              background: "var(--surface)",
               border: "1px solid var(--border)",
             }}
             onClick={(e) => e.stopPropagation()}
           >
-            {/* LEFT: IMAGE */}
-            <div className="w-1/2 bg-black flex items-center justify-center p-4 overflow-auto">
+            {/* IMAGE */}
+            <div className="w-full md:w-1/2 h-1/2 md:h-full bg-black flex items-center justify-center p-4 overflow-auto">
               {imageUrl ? (
                 <img
                   src={imageUrl}
@@ -209,8 +209,8 @@ export default function ReviewDocumentsView() {
               )}
             </div>
 
-            {/* RIGHT: FORM */}
-            <div className="w-1/2 p-8 overflow-y-auto space-y-6">
+            {/* FORM */}
+            <div className="w-full md:w-1/2 flex-1 p-4 md:p-8 overflow-y-auto space-y-6">
               <h3 className="text-xl font-semibold">Review Document</h3>
 
               <FormField
@@ -239,10 +239,10 @@ export default function ReviewDocumentsView() {
                 }
               />
 
-              <div className="flex justify-end gap-4 pt-6">
+              <div className="flex flex-col sm:flex-row justify-end gap-4 pt-6">
                 <button
                   onClick={() => setSelectedDoc(null)}
-                  className="px-4 py-2 rounded-lg"
+                  className="w-full sm:w-auto px-4 py-2 rounded-lg"
                   style={{
                     background: "var(--hover)",
                     border: "1px solid var(--border)",
@@ -270,7 +270,7 @@ export default function ReviewDocumentsView() {
                     fetchDocs();
                   }}
                   disabled={saving}
-                  className="px-6 py-2 rounded-lg text-white"
+                  className="w-full sm:w-auto px-6 py-2 rounded-lg text-white"
                   style={{
                     background: "#10b981",
                     opacity: saving ? 0.7 : 1,
@@ -290,14 +290,14 @@ export default function ReviewDocumentsView() {
 function KpiCard({ label, value }: { label: string; value: number }) {
   return (
     <div
-      className="p-6 rounded-xl"
+      className="p-4 md:p-6 rounded-xl"
       style={{
         background: "var(--surface)",
         border: "1px solid var(--border)",
       }}
     >
       <div className="text-sm opacity-70">{label}</div>
-      <div className="text-2xl font-bold mt-2">{value}</div>
+      <div className="text-xl md:text-2xl font-bold mt-2">{value}</div>
     </div>
   );
 }
@@ -320,7 +320,7 @@ function FormField({
         type={type}
         value={value || ""}
         onChange={(e) => onChange(e.target.value)}
-        className="w-full px-3 py-2 rounded-lg"
+        className="w-full px-3 py-2 rounded-lg mt-1"
         style={{
           background: "var(--bg)",
           border: "1px solid var(--border)",

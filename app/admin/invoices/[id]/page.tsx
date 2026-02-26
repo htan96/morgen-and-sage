@@ -38,14 +38,14 @@ export default async function InvoiceDetailPage({
   const balance = totalAmount - totalPaid;
 
   return (
-    <div className="space-y-8 max-w-5xl mx-auto">
+    <div className="w-full px-3 sm:px-5 md:px-8 py-5 md:py-6 space-y-6 md:space-y-8">
 
       {/* TOP BAR */}
-      <div className="flex justify-between items-center">
+      <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4">
 
         <Link
           href="/admin/invoices"
-          className="inline-flex items-center gap-2 px-3 py-2 rounded-lg text-sm transition"
+          className="inline-flex items-center gap-2 px-3 py-2 rounded-lg text-sm transition w-fit"
           style={{
             background: "var(--hover)",
             border: "1px solid var(--border)",
@@ -55,22 +55,19 @@ export default async function InvoiceDetailPage({
           ← Back
         </Link>
 
-        <div className="flex items-center gap-3">
-
+        <div className="flex flex-col sm:flex-row gap-3 w-full sm:w-auto">
           <RecordPaymentButton
             invoiceId={invoice.id}
             tenantId={invoice.tenant_id}
             organizationId={invoice.organization_id}
           />
-
           <InvoiceActions invoiceId={invoice.id} />
-
         </div>
       </div>
 
       {/* HEADER */}
       <div>
-        <h1 className="text-3xl font-semibold">
+        <h1 className="text-xl sm:text-2xl md:text-3xl font-semibold">
           Invoice #{invoice.invoice_number}
         </h1>
         <p
@@ -83,7 +80,7 @@ export default async function InvoiceDetailPage({
 
       {/* SUMMARY */}
       <div
-        className="rounded-2xl p-6 grid grid-cols-3 gap-6 text-center"
+        className="rounded-2xl p-4 sm:p-6 grid grid-cols-1 sm:grid-cols-3 gap-4 sm:gap-6 text-center"
         style={{
           background: "var(--surface)",
           border: "1px solid var(--border)",
@@ -91,21 +88,21 @@ export default async function InvoiceDetailPage({
       >
         <div>
           <p style={{ color: "var(--text-muted)" }}>Total</p>
-          <p className="text-2xl font-semibold mt-2">
+          <p className="text-lg sm:text-2xl font-semibold mt-2">
             ${totalAmount.toFixed(2)}
           </p>
         </div>
 
         <div>
           <p style={{ color: "var(--text-muted)" }}>Paid</p>
-          <p className="text-2xl font-semibold mt-2 text-green-500">
+          <p className="text-lg sm:text-2xl font-semibold mt-2 text-green-500">
             ${totalPaid.toFixed(2)}
           </p>
         </div>
 
         <div>
           <p style={{ color: "var(--text-muted)" }}>Balance</p>
-          <p className="text-2xl font-semibold mt-2 text-red-500">
+          <p className="text-lg sm:text-2xl font-semibold mt-2 text-red-500">
             ${balance.toFixed(2)}
           </p>
         </div>
@@ -113,13 +110,13 @@ export default async function InvoiceDetailPage({
 
       {/* LINE ITEMS */}
       <div
-        className="rounded-2xl p-6"
+        className="rounded-2xl p-4 sm:p-6"
         style={{
           background: "var(--surface)",
           border: "1px solid var(--border)",
         }}
       >
-        <h2 className="text-lg font-semibold mb-4">
+        <h2 className="text-base sm:text-lg font-semibold mb-4">
           Line Items
         </h2>
 
@@ -128,52 +125,59 @@ export default async function InvoiceDetailPage({
             No line items.
           </p>
         ) : (
-          <table className="w-full text-sm">
-            <thead
-              style={{
-                background: "var(--hover)",
-                borderBottom: "1px solid var(--border)",
-                color: "var(--text-muted)",
-              }}
-            >
-              <tr>
-                <th className="p-4 text-left">Description</th>
-                <th className="p-4 text-left">Service Date</th>
-                <th className="p-4 text-left">Qty</th>
-                <th className="p-4 text-left">Rate</th>
-                <th className="p-4 text-left">Amount</th>
-              </tr>
-            </thead>
-            <tbody>
-              {invoice.invoice_line_items.map((item: any) => (
-                <tr key={item.id} style={{ borderBottom: "1px solid var(--border)" }}>
-                  <td className="p-4">{item.description}</td>
-                  <td className="p-4">
-                    {item.service_date
-                      ? new Date(item.service_date).toLocaleDateString()
-                      : "-"}
-                  </td>
-                  <td className="p-4">{item.quantity}</td>
-                  <td className="p-4">${Number(item.rate).toFixed(2)}</td>
-                  <td className="p-4 font-medium">
-                    ${Number(item.amount).toFixed(2)}
-                  </td>
+          <div className="overflow-x-auto">
+            <table className="min-w-[520px] w-full text-xs sm:text-sm">
+              <thead
+                style={{
+                  background: "var(--hover)",
+                  borderBottom: "1px solid var(--border)",
+                  color: "var(--text-muted)",
+                }}
+              >
+                <tr>
+                  <th className="p-3 text-left">Description</th>
+                  <th className="p-3 text-left">Service Date</th>
+                  <th className="p-3 text-left">Qty</th>
+                  <th className="p-3 text-left">Rate</th>
+                  <th className="p-3 text-left">Amount</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {invoice.invoice_line_items.map((item: any) => (
+                  <tr
+                    key={item.id}
+                    style={{ borderBottom: "1px solid var(--border)" }}
+                  >
+                    <td className="p-3">{item.description}</td>
+                    <td className="p-3">
+                      {item.service_date
+                        ? new Date(item.service_date).toLocaleDateString()
+                        : "-"}
+                    </td>
+                    <td className="p-3">{item.quantity}</td>
+                    <td className="p-3">
+                      ${Number(item.rate).toFixed(2)}
+                    </td>
+                    <td className="p-3 font-medium">
+                      ${Number(item.amount).toFixed(2)}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         )}
       </div>
 
       {/* PAYMENTS */}
       <div
-        className="rounded-2xl p-6"
+        className="rounded-2xl p-4 sm:p-6"
         style={{
           background: "var(--surface)",
           border: "1px solid var(--border)",
         }}
       >
-        <h2 className="text-lg font-semibold mb-4">
+        <h2 className="text-base sm:text-lg font-semibold mb-4">
           Payments
         </h2>
 
@@ -182,42 +186,53 @@ export default async function InvoiceDetailPage({
             No payments recorded.
           </p>
         ) : (
-          <table className="w-full text-sm">
-            <thead
-              style={{
-                background: "var(--hover)",
-                borderBottom: "1px solid var(--border)",
-                color: "var(--text-muted)",
-              }}
-            >
-              <tr>
-                <th className="p-4 text-left">Date</th>
-                <th className="p-4 text-left">Method</th>
-                <th className="p-4 text-left">Amount</th>
-                <th className="p-4 text-left">Notes</th>
-                <th className="p-4 text-right"></th>
-              </tr>
-            </thead>
-            <tbody>
-              {invoice.payments.map((payment: any) => (
-                <tr key={payment.id} style={{ borderBottom: "1px solid var(--border)" }}>
-                  <td className="p-4">
-                    {payment.payment_date
-                      ? new Date(payment.payment_date).toLocaleDateString()
-                      : "-"}
-                  </td>
-                  <td className="p-4">{payment.payment_method ?? "-"}</td>
-                  <td className="p-4 font-medium text-green-500">
-                    ${Number(payment.amount).toFixed(2)}
-                  </td>
-                  <td className="p-4">{payment.notes ?? "-"}</td>
-                  <td className="p-4 text-right">
-                    <DeletePaymentButton paymentId={payment.id} />
-                  </td>
+          <div className="overflow-x-auto">
+            <table className="min-w-[520px] w-full text-xs sm:text-sm">
+              <thead
+                style={{
+                  background: "var(--hover)",
+                  borderBottom: "1px solid var(--border)",
+                  color: "var(--text-muted)",
+                }}
+              >
+                <tr>
+                  <th className="p-3 text-left">Date</th>
+                  <th className="p-3 text-left">Method</th>
+                  <th className="p-3 text-left">Amount</th>
+                  <th className="p-3 text-left">Notes</th>
+                  <th className="p-3 text-right"></th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {invoice.payments.map((payment: any) => (
+                  <tr
+                    key={payment.id}
+                    style={{ borderBottom: "1px solid var(--border)" }}
+                  >
+                    <td className="p-3">
+                      {payment.payment_date
+                        ? new Date(payment.payment_date).toLocaleDateString()
+                        : "-"}
+                    </td>
+                    <td className="p-3">
+                      {payment.payment_method ?? "-"}
+                    </td>
+                    <td className="p-3 font-medium text-green-500">
+                      ${Number(payment.amount).toFixed(2)}
+                    </td>
+                    <td className="p-3">
+                      {payment.notes ?? "-"}
+                    </td>
+                    <td className="p-3 text-right">
+                      <DeletePaymentButton
+                        paymentId={payment.id}
+                      />
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         )}
       </div>
 

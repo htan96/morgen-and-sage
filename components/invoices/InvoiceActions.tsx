@@ -33,13 +33,21 @@ export default function InvoiceActions({
   }
 
   return (
-    <div className="flex items-center gap-3">
+    <div className="flex flex-col sm:flex-row gap-2 sm:gap-3 w-full sm:w-auto">
 
       {/* PDF BUTTON */}
       <Link
         href={`/admin/invoices/${invoiceId}/pdf`}
         target="_blank"
-        className="inline-flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition"
+        className="
+          w-full sm:w-auto
+          inline-flex items-center justify-center gap-2
+          px-3 sm:px-4
+          py-2
+          rounded-lg
+          text-sm font-medium
+          transition
+        "
         style={{
           background: "var(--hover)",
           border: "1px solid var(--border)",
@@ -47,13 +55,21 @@ export default function InvoiceActions({
         }}
       >
         <Printer size={16} />
-        PDF
+        <span className="sm:inline">PDF</span>
       </Link>
 
       {/* VOID BUTTON */}
       <button
         onClick={handleVoid}
-        className="inline-flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition"
+        className="
+          w-full sm:w-auto
+          inline-flex items-center justify-center gap-2
+          px-3 sm:px-4
+          py-2
+          rounded-lg
+          text-sm font-medium
+          transition
+        "
         style={{
           background: "rgba(239,68,68,0.1)",
           border: "1px solid rgba(239,68,68,0.3)",
@@ -61,7 +77,7 @@ export default function InvoiceActions({
         }}
       >
         <Ban size={16} />
-        Void
+        <span className="sm:inline">Void</span>
       </button>
 
     </div>

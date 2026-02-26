@@ -40,15 +40,14 @@ export default function DocumentsAnalytics() {
     fetchData();
   }, []);
 
-  if (loading) return <div>Loading analytics...</div>;
+  if (loading)
+    return <div className="px-3 py-5">Loading analytics...</div>;
 
-  // ---------- Filtered Documents ----------
   const filteredDocs =
     selectedOrg === "all"
       ? documents
       : documents.filter(d => d.organization_id === selectedOrg);
 
-  // ---------- KPI Calculations ----------
   const totalSpend = filteredDocs.reduce(
     (sum, d) => sum + (d.amount || 0),
     0
@@ -65,18 +64,14 @@ export default function DocumentsAnalytics() {
 
   const docCount = filteredDocs.length;
 
-  // ---------- Category Grouping ----------
   const categoryMap: Record<string, number> = {};
-
   filteredDocs.forEach(doc => {
     const key = doc.category || "Uncategorized";
     categoryMap[key] =
       (categoryMap[key] || 0) + (doc.amount || 0);
   });
 
-  // ---------- Vendor Grouping ----------
   const vendorMap: Record<string, number> = {};
-
   filteredDocs.forEach(doc => {
     const vendor = doc.vendor_name || "Unknown Vendor";
     vendorMap[vendor] =
@@ -84,24 +79,24 @@ export default function DocumentsAnalytics() {
   });
 
   return (
-    <div className="space-y-10">
+    <div className="space-y-5 md:space-y-10">
 
       {/* FILTER */}
       <div
-        className="p-6 rounded-xl"
+        className="p-3 sm:p-4 md:p-6 rounded-xl"
         style={{
           background: "var(--surface)",
           border: "1px solid var(--border)"
         }}
       >
-        <label className="block text-sm mb-2 opacity-70">
+        <label className="block text-xs md:text-sm mb-1 opacity-70">
           Filter by Organization
         </label>
 
         <select
           value={selectedOrg}
           onChange={(e) => setSelectedOrg(e.target.value)}
-          className="px-4 py-2 rounded-lg"
+          className="w-full md:w-auto px-3 py-2 rounded-lg text-sm"
           style={{
             background: "var(--bg)",
             border: "1px solid var(--border)",
@@ -117,12 +112,12 @@ export default function DocumentsAnalytics() {
         </select>
       </div>
 
-      {/* KPI ROW */}
-      <div className="grid grid-cols-4 gap-6">
+      {/* KPI GRID */}
+      <div className="grid grid-cols-2 gap-2 sm:gap-3 md:grid-cols-4 md:gap-6">
         <AnalyticsCard label="Total Spend" value={`$${totalSpend.toFixed(2)}`} />
-        <AnalyticsCard label="Depreciable Total" value={`$${depreciableTotal.toFixed(2)}`} />
-        <AnalyticsCard label="Average Document" value={`$${averageAmount.toFixed(2)}`} />
-        <AnalyticsCard label="Document Count" value={docCount} />
+        <AnalyticsCard label="Depreciable" value={`$${depreciableTotal.toFixed(2)}`} />
+        <AnalyticsCard label="Average" value={`$${averageAmount.toFixed(2)}`} />
+        <AnalyticsCard label="Count" value={docCount} />
       </div>
 
       {/* CATEGORY BREAKDOWN */}
@@ -145,14 +140,18 @@ export default function DocumentsAnalytics() {
 function AnalyticsCard({ label, value }: { label: string; value: any }) {
   return (
     <div
-      className="p-6 rounded-xl"
+      className="p-3 sm:p-4 md:p-6 rounded-xl"
       style={{
         background: "var(--surface)",
         border: "1px solid var(--border)"
       }}
     >
-      <div className="text-sm opacity-70">{label}</div>
-      <div className="text-2xl font-bold mt-2">{value}</div>
+      <div className="text-[11px] md:text-sm opacity-70">
+        {label}
+      </div>
+      <div className="text-base sm:text-lg md:text-2xl font-bold mt-1">
+        {value}
+      </div>
     </div>
   );
 }
@@ -160,13 +159,15 @@ function AnalyticsCard({ label, value }: { label: string; value: any }) {
 function Section({ title, children }: any) {
   return (
     <div
-      className="p-6 rounded-xl space-y-4"
+      className="p-3 sm:p-4 md:p-6 rounded-xl space-y-2 md:space-y-4"
       style={{
         background: "var(--surface)",
         border: "1px solid var(--border)"
       }}
     >
-      <h2 className="text-lg font-semibold">{title}</h2>
+      <h2 className="text-sm md:text-lg font-semibold">
+        {title}
+      </h2>
       {children}
     </div>
   );
@@ -174,9 +175,9 @@ function Section({ title, children }: any) {
 
 function Row({ label, value }: { label: string; value: string }) {
   return (
-    <div className="flex justify-between">
-      <span>{label}</span>
-      <span className="font-semibold">{value}</span>
+    <div className="flex justify-between text-xs sm:text-sm md:text-base">
+      <span className="truncate">{label}</span>
+      <span className="font-semibold ml-3">{value}</span>
     </div>
   );
 }

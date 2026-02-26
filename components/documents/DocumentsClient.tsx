@@ -22,7 +22,9 @@ export default function DocumentsClient() {
   const [isUploadOpen, setIsUploadOpen] = useState(false);
   const [organizations, setOrganizations] = useState<any[]>([]);
 
-  // Fetch organizations for upload dropdown
+  /* ------------------------------------
+     Fetch Organizations (Upload Modal)
+  ------------------------------------ */
   useEffect(() => {
     async function fetchOrganizations() {
       const { data, error } = await supabase
@@ -43,18 +45,24 @@ export default function DocumentsClient() {
 
   return (
     <div
-      className="min-h-screen py-8"
+      className="min-h-screen py-6 md:py-8"
       style={{ background: "var(--bg)", color: "var(--text)" }}
     >
-      <div className="max-w-6xl mx-auto px-6">
-        <DocumentsHeader onUploadClick={() => setIsUploadOpen(true)} />
+      <div className="w-full max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
+        
+        {/* Header */}
+        <DocumentsHeader
+          onUploadClick={() => setIsUploadOpen(true)}
+        />
 
+        {/* Tabs */}
         <DocumentsTabs
           activeTab={activeTab}
           setActiveTab={setActiveTab}
         />
 
-        <div className="mt-8">
+        {/* Content */}
+        <div className="mt-6 md:mt-8">
           {activeTab === "all" && <AllDocumentsView />}
           {activeTab === "review" && <ReviewDocumentsView />}
           {activeTab === "analytics" && <DocumentsAnalytics />}

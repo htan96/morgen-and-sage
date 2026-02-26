@@ -9,59 +9,76 @@ export default function DocumentsTabs({
   activeTab,
   setActiveTab,
 }: Props) {
-  const tabBase =
-    "px-4 py-2 rounded-lg text-sm font-medium transition cursor-pointer";
-
-  const getTabStyle = (tab: TabType) => {
-    const isActive = activeTab === tab;
-
-    return {
-      background: isActive ? "var(--bg)" : "transparent",
-      border: isActive
-        ? "1px solid var(--border)"
-        : "1px solid transparent",
-      color: "var(--text)",
-    };
-  };
+  const tabs = [
+    { key: "all", label: "All Documents" },
+    { key: "review", label: "Review" },
+    { key: "analytics", label: "Analytics" },
+    { key: "reports", label: "Reports" },
+  ];
 
   return (
-    <div
-      className="flex gap-2 p-2 rounded-xl mt-8"
-      style={{
-        background: "var(--surface)",
-        border: "1px solid var(--border)",
-      }}
-    >
-      <div
-        className={tabBase}
-        style={getTabStyle("all")}
-        onClick={() => setActiveTab("all")}
-      >
-        All Documents
+    <div className="mt-4 md:mt-8">
+      
+      {/* MOBILE — Floating Tabs */}
+      <div className="flex gap-6 overflow-x-auto md:hidden pb-2">
+        {tabs.map((tab) => {
+          const isActive = activeTab === tab.key;
+
+          return (
+            <button
+              key={tab.key}
+              onClick={() => setActiveTab(tab.key as TabType)}
+              className="relative text-sm font-medium whitespace-nowrap transition"
+              style={{
+                color: isActive
+                  ? "var(--text)"
+                  : "var(--text-muted)",
+              }}
+            >
+              {tab.label}
+
+              {/* Active underline */}
+              {isActive && (
+                <div
+                  className="absolute left-0 right-0 -bottom-2 h-[2px]"
+                  style={{
+                    background: "var(--text)",
+                  }}
+                />
+              )}
+            </button>
+          );
+        })}
       </div>
 
+      {/* DESKTOP — Segmented Container */}
       <div
-        className={tabBase}
-        style={getTabStyle("review")}
-        onClick={() => setActiveTab("review")}
+        className="hidden md:flex gap-2 p-2 rounded-xl"
+        style={{
+          background: "var(--surface)",
+          border: "1px solid var(--border)",
+        }}
       >
-        Review
-      </div>
+        {tabs.map((tab) => {
+          const isActive = activeTab === tab.key;
 
-      <div
-        className={tabBase}
-        style={getTabStyle("analytics")}
-        onClick={() => setActiveTab("analytics")}
-      >
-        Analytics
-      </div>
-
-      <div
-        className={tabBase}
-        style={getTabStyle("reports")}
-        onClick={() => setActiveTab("reports")}
-      >
-        Reports
+          return (
+            <button
+              key={tab.key}
+              onClick={() => setActiveTab(tab.key as TabType)}
+              className="px-4 py-2 rounded-lg text-sm font-medium transition"
+              style={{
+                background: isActive ? "var(--bg)" : "transparent",
+                border: isActive
+                  ? "1px solid var(--border)"
+                  : "1px solid transparent",
+                color: "var(--text)",
+              }}
+            >
+              {tab.label}
+            </button>
+          );
+        })}
       </div>
     </div>
   );
