@@ -3,14 +3,16 @@ import { NextRequest, NextResponse } from "next/server";
 
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  context: { params: Promise<{ id: string }> }
 ) {
+  const { id } = await context.params;
+
   const supabase = await createClient();
 
   const { error } = await supabase
     .from("payments")
     .delete()
-    .eq("id", params.id);
+    .eq("id", id);
 
   if (error) {
     return NextResponse.json(
