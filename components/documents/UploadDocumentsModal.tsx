@@ -24,7 +24,7 @@ export default function UploadDocumentsModal({
   const [uploading, setUploading] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
 
-  // ESC key closes modal
+  // ESC closes modal
   useEffect(() => {
     const handleKey = (e: KeyboardEvent) => {
       if (e.key === "Escape" && !uploading) {
@@ -40,30 +40,47 @@ export default function UploadDocumentsModal({
 
   const handleFiles = (fileList: FileList | null) => {
     if (!fileList) return;
-    setFiles(Array.from(fileList));
+    const fileArray = Array.from(fileList);
+    console.log("Files selected:", fileArray);
+    setFiles(fileArray);
   };
 
   const handleUpload = async () => {
-    if (!selectedOrg || files.length === 0) return;
+    console.log("Upload button clicked");
+
+    if (!selectedOrg) {
+      alert("Please select an organization.");
+      return;
+    }
+
+    if (files.length === 0) {
+      alert("Please select at least one file.");
+      return;
+    }
 
     setUploading(true);
 
     try {
       for (const file of files) {
-        const ext = file.name.split(".").pop();
-        const fileName = `${crypto.randomUUID()}.${ext}`;
+        console.log("Uploading file:", file.name);
 
-        // 1️⃣ Upload to Storage
+        const ext = file.name.split(".").pop();
+        const fileName = `${Date.now()}-${Math.random()
+        .toString(36)
+        .substring(2, 9)}.${ext}`;
+        // Upload to storage
         const { error: uploadError } = await supabase.storage
           .from("documents")
           .upload(fileName, file);
 
         if (uploadError) {
           console.error("Storage upload failed:", uploadError);
-          continue; // skip this file
+          continue;
         }
 
-        // 2️⃣ Insert into documents table
+        console.log("Storage upload successful:", fileName);
+
+        // Insert into database
         const { error: insertError } = await supabase
           .from("documents")
           .insert({
@@ -78,15 +95,16 @@ export default function UploadDocumentsModal({
           continue;
         }
 
-        console.log("Uploaded successfully:", file.name);
+        console.log("Database insert successful:", file.name);
       }
 
-      // Reset state
+      alert("Upload complete.");
       setFiles([]);
       onUploadComplete();
       onClose();
     } catch (err) {
       console.error("Unexpected upload error:", err);
+      alert("Unexpected error occurred. Check console.");
     } finally {
       setUploading(false);
     }
@@ -118,6 +136,11 @@ export default function UploadDocumentsModal({
         </button>
 
         <h2 className="text-lg font-semibold">Upload Documents</h2>
+
+        {/* Debug Upload State */}
+        <div style={{ fontSize: 12, opacity: 0.6 }}>
+          Uploading state: {uploading ? "TRUE" : "FALSE"}
+        </div>
 
         {/* Organization Select */}
         <select
@@ -211,6 +234,8 @@ export default function UploadDocumentsModal({
             style={{
               background: "#10b981",
               color: "#fff",
+              opacity: uploading ? 0.7 : 1,
+              cursor: uploading ? "not-allowed" : "pointer",
             }}
           >
             {uploading ? "Uploading..." : "Upload"}
