@@ -23,10 +23,15 @@ export default async function AdminLayout({
 
   if (!profile || profile.role !== "admin") redirect("/dashboard");
 
-  return (
-    <div className="min-h-screen">
+return (
+  <div className="min-h-screen">
+    <div className="fixed left-0 top-0 h-screen w-64 border-r border-zinc-800">
       <Sidebar />
-      <main>{children}</main>
     </div>
-  );
+
+    <main className="ml-64 p-8 min-h-screen">
+      {children}
+    </main>
+  </div>
+);
 }
