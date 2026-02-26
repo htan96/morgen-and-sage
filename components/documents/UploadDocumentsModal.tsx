@@ -48,31 +48,48 @@ export default function UploadDocumentsModal({
 
     setUploading(true);
 
-    for (const file of files) {
-      const ext = file.name.split(".").pop();
-      const fileName = `${crypto.randomUUID()}.${ext}`;
+    try {
+      for (const file of files) {
+        const ext = file.name.split(".").pop();
+        const fileName = `${crypto.randomUUID()}.${ext}`;
 
-      const { error } = await supabase.storage
-        .from("documents")
-        .upload(fileName, file);
+        // 1️⃣ Upload to Storage
+        const { error: uploadError } = await supabase.storage
+          .from("documents")
+          .upload(fileName, file);
 
-      if (error) {
-        console.error(error);
-        continue;
+        if (uploadError) {
+          console.error("Storage upload failed:", uploadError);
+          continue; // skip this file
+        }
+
+        // 2️⃣ Insert into documents table
+        const { error: insertError } = await supabase
+          .from("documents")
+          .insert({
+            organization_id: selectedOrg,
+            storage_path: fileName,
+            original_filename: file.name,
+            status: "processing",
+          });
+
+        if (insertError) {
+          console.error("Database insert failed:", insertError);
+          continue;
+        }
+
+        console.log("Uploaded successfully:", file.name);
       }
 
-      await supabase.from("documents").insert({
-        organization_id: selectedOrg,
-        storage_path: fileName,
-        original_filename: file.name,
-        status: "processing",
-      });
+      // Reset state
+      setFiles([]);
+      onUploadComplete();
+      onClose();
+    } catch (err) {
+      console.error("Unexpected upload error:", err);
+    } finally {
+      setUploading(false);
     }
-
-    setUploading(false);
-    setFiles([]);
-    onUploadComplete();
-    onClose();
   };
 
   return (
@@ -90,7 +107,7 @@ export default function UploadDocumentsModal({
         }}
         onClick={(e) => e.stopPropagation()}
       >
-        {/* X Close Button */}
+        {/* Close Button */}
         <button
           onClick={onClose}
           disabled={uploading}
@@ -100,11 +117,9 @@ export default function UploadDocumentsModal({
           ✕
         </button>
 
-        <h2 className="text-lg font-semibold">
-          Upload Documents
-        </h2>
+        <h2 className="text-lg font-semibold">Upload Documents</h2>
 
-        {/* Organization */}
+        {/* Organization Select */}
         <select
           value={selectedOrg}
           onChange={(e) => setSelectedOrg(e.target.value)}
@@ -138,17 +153,13 @@ export default function UploadDocumentsModal({
           onClick={() => fileInputRef.current?.click()}
           className="border-2 border-dashed rounded-lg p-10 text-center cursor-pointer transition"
           style={{
-            borderColor: isDragging
-              ? "#10b981"
-              : "var(--border)",
+            borderColor: isDragging ? "#10b981" : "var(--border)",
             background: isDragging
               ? "rgba(16,185,129,0.05)"
               : "var(--bg)",
           }}
         >
-          <p className="font-medium">
-            Drag & drop files here
-          </p>
+          <p className="font-medium">Drag & drop files here</p>
           <p
             className="text-sm mt-1"
             style={{ color: "var(--text-muted)" }}
