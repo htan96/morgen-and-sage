@@ -1,13 +1,16 @@
 "use client";
 
 import Link from "next/link";
-import Image from "next/image";
 import { usePathname, useRouter } from "next/navigation";
-import { Sun, Moon } from "lucide-react";
+import { Sun, Moon, Calendar, FileText, Users, Activity, File, Shield } from "lucide-react";
 import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 
-export default function Sidebar() {
+type SidebarProps = {
+  variant?: "full" | "compact";
+};
+
+export default function Sidebar({ variant = "full" }: SidebarProps) {
   const pathname = usePathname();
   const router = useRouter();
   const supabase = createClient();
@@ -16,38 +19,28 @@ export default function Sidebar() {
   const [initials, setInitials] = useState("MS");
   const [role, setRole] = useState<string | null>(null);
 
-  /* -----------------------------
-     Theme Logic
-  ------------------------------ */
+  const isCompact = variant === "compact";
+
+  /* ---------------- Theme ---------------- */
+
   useEffect(() => {
     const savedTheme = localStorage.getItem("theme");
-
     if (savedTheme === "dark") {
       document.documentElement.classList.add("dark");
       setIsDark(true);
-    } else {
-      document.documentElement.classList.remove("dark");
-      setIsDark(false);
     }
   }, []);
 
   const toggleTheme = () => {
     const html = document.documentElement;
-
-    if (isDark) {
-      html.classList.remove("dark");
-      localStorage.setItem("theme", "light");
-      setIsDark(false);
-    } else {
-      html.classList.add("dark");
-      localStorage.setItem("theme", "dark");
-      setIsDark(true);
-    }
+    html.classList.toggle("dark");
+    const darkMode = html.classList.contains("dark");
+    localStorage.setItem("theme", darkMode ? "dark" : "light");
+    setIsDark(darkMode);
   };
 
-  /* -----------------------------
-     Auth + Role Fetch
-  ------------------------------ */
+  /* ---------------- Auth ---------------- */
+
   useEffect(() => {
     const getUserData = async () => {
       const {
@@ -78,124 +71,108 @@ export default function Sidebar() {
     router.push("/login");
   };
 
-  /* -----------------------------
-     Navigation
-  ------------------------------ */
+  /* ---------------- Nav ---------------- */
 
-  const baseNav = [
-    { name: "Bookings", href: "/admin/bookings" },
-    { name: "Invoices", href: "/admin/invoices" },
-  ];
-
-  const adminNav = [
-    { name: "Tenants", href: "/admin/tenants" },
-    { name: "Activity", href: "/admin/activity" },
-    { name: "Documents", href: "/admin/documents" },
-    { name: "User Management", href: "/admin/users"
-    }
+  const navItems = [
+    { name: "Bookings", href: "/admin/bookings", icon: Calendar },
+    { name: "Invoices", href: "/admin/invoices", icon: FileText },
+    { name: "Tenants", href: "/admin/tenants", icon: Users, admin: true },
+    { name: "Activity", href: "/admin/activity", icon: Activity, admin: true },
+    { name: "Documents", href: "/admin/documents", icon: File, admin: true },
+    { name: "Users", href: "/admin/users", icon: Shield, admin: true },
   ];
 
   return (
     <aside
-      className="fixed left-0 top-0 h-screen w-64 flex flex-col"
+      className={`h-screen flex flex-col ${
+        isCompact ? "w-16 items-center" : "w-64"
+      }`}
       style={{
         background: "var(--sidebar)",
         borderRight: "1px solid var(--sidebar-border)",
       }}
     >
-      {/* TOP SECTION */}
-      <div className="flex-1">
+      {/* Logo */}
+      {!isCompact && (
+        <div
+          className="p-6 flex items-center justify-center"
+          style={{ borderBottom: "1px solid var(--sidebar-border)" }}
+        >
+          <img
+            src={
+              isDark
+                ? "/logos/morgens-kitchen-light.svg"
+                : "/logos/morgens-kitchen-dark.svg"
+            }
+            alt="Morgen's Kitchen"
+            className="h-12"
+          />
+        </div>
+      )}
 
-        {/* LOGO */}
-    <div
-  className="p-6 flex items-center justify-center"
-  style={{
-    borderBottom: "1px solid var(--sidebar-border)",
-  }}
->
-  {isDark ? (
-    <img
-      src="/logos/morgens-kitchen-light.svg"
-      alt="Morgen's Kitchen"
-      className="h-12 w-auto object-contain"
-    />
-  ) : (
-    <img
-      src="/logos/morgens-kitchen-dark.svg"
-      alt="Morgen's Kitchen"
-      className="h-12 w-auto object-contain"
-    />
-  )}
-</div>
+      {/* Nav */}
+      <nav className={`flex-1 p-2 space-y-2`}>
+        {navItems.map((item) => {
+          if (item.admin && role !== "admin") return null;
 
-        {/* NAV */}
-        <nav className="p-4 space-y-2">
-          {baseNav.map((item) => (
+          const Icon = item.icon;
+          const active = pathname.startsWith(item.href);
+
+          return (
             <Link
               key={item.href}
               href={item.href}
-              className="block px-4 py-2 rounded-lg transition"
+              className={`flex items-center ${
+                isCompact ? "justify-center" : "gap-3"
+              } px-3 py-2 rounded-lg transition`}
               style={{
-                background: pathname.startsWith(item.href)
+                background: active
                   ? "var(--sidebar-hover)"
                   : "transparent",
               }}
             >
-              {item.name}
+              <Icon size={18} />
+              {!isCompact && <span>{item.name}</span>}
             </Link>
-          ))}
+          );
+        })}
+      </nav>
 
-          {role === "admin" &&
-            adminNav.map((item) => (
-              <Link
-                key={item.href}
-                href={item.href}
-                className="block px-4 py-2 rounded-lg transition"
-                style={{
-                  background: pathname.startsWith(item.href)
-                    ? "var(--sidebar-hover)"
-                    : "transparent",
-                }}
-              >
-                {item.name}
-              </Link>
-            ))}
-        </nav>
-      </div>
-
-      {/* BOTTOM SECTION */}
-      <div
-        className="p-4 space-y-4"
-        style={{ borderTop: "1px solid var(--sidebar-border)" }}
-      >
-        <button
-          onClick={toggleTheme}
-          className="w-full flex items-center justify-center gap-2 px-4 py-2 rounded-lg transition"
-          style={{ background: "var(--sidebar-hover)" }}
-        >
-          {isDark ? <Sun size={18} /> : <Moon size={18} />}
-          {isDark ? "Light Mode" : "Dark Mode"}
-        </button>
-
+      {/* Bottom */}
+      {!isCompact && (
         <div
-          className="flex items-center gap-3 p-3 rounded-lg"
-          style={{ background: "var(--sidebar-hover)" }}
+          className="p-4 space-y-4"
+          style={{ borderTop: "1px solid var(--sidebar-border)" }}
         >
-          <div className="w-10 h-10 rounded-full bg-black text-white flex items-center justify-center font-bold">
-            {initials}
-          </div>
-          <div style={{ color: "var(--text-muted)" }}>
-            {role ?? "Loading..."}
-          </div>
-        </div>
+          <button
+            onClick={toggleTheme}
+            className="w-full flex items-center justify-center gap-2 px-4 py-2 rounded-lg"
+            style={{ background: "var(--sidebar-hover)" }}
+          >
+            {isDark ? <Sun size={16} /> : <Moon size={16} />}
+            {isDark ? "Light Mode" : "Dark Mode"}
+          </button>
 
-        <button
-          onClick={logout}
-          className="w-full px-4 py-2 rounded-lg bg-black text-white hover:opacity-80 transition"
-        >
-          Logout
-        </button>
-      </div>
+          <div
+            className="flex items-center gap-3 p-3 rounded-lg"
+            style={{ background: "var(--sidebar-hover)" }}
+          >
+            <div className="w-8 h-8 rounded-full bg-black text-white flex items-center justify-center font-bold text-sm">
+              {initials}
+            </div>
+            <div style={{ color: "var(--text-muted)" }}>
+              {role ?? "Loading"}
+            </div>
+          </div>
+
+          <button
+            onClick={logout}
+            className="w-full px-4 py-2 rounded-lg bg-black text-white"
+          >
+            Logout
+          </button>
+        </div>
+      )}
     </aside>
   );
 }
