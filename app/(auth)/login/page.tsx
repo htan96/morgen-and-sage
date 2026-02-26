@@ -12,54 +12,23 @@ export default function LoginPage() {
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
 
-  const handleLogin = async () => {
-    setLoading(true);
+const handleLogin = async () => {
+  setLoading(true);
 
-    try {
-      // 1️⃣ Sign in
-      const { data, error } = await supabase.auth.signInWithPassword({
-        email,
-        password,
-      });
+  const { error } = await supabase.auth.signInWithPassword({
+    email,
+    password,
+  });
 
-      if (error) {
-        alert(error.message);
-        setLoading(false);
-        return;
-      }
+  if (error) {
+    alert(error.message);
+    setLoading(false);
+    return;
+  }
 
-      if (!data.user) {
-        alert("User not found.");
-        setLoading(false);
-        return;
-      }
+  router.push("/admin/bookings");
+};
 
-      // 2️⃣ Fetch role from profiles table
-      const { data: profile, error: profileError } = await supabase
-        .from("profiles")
-        .select("role")
-        .eq("id", data.user.id)
-        .single();
-
-      if (profileError || !profile) {
-        // If profile missing, send to dashboard
-        router.push("/login");
-        return;
-      }
-
-      // 3️⃣ Redirect based on role
-      if (profile.role === "admin") {
-        router.push("/admin/bookings");
-      } else {
-        router.push("/dashboard");
-      }
-    } catch (err) {
-      console.error(err);
-      alert("Unexpected error. Check console.");
-    } finally {
-      setLoading(false);
-    }
-  };
 
   return (
     <div className="bg-white shadow-2xl rounded-2xl p-10 w-full max-w-md">
