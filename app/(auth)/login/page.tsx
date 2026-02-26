@@ -49,7 +49,7 @@ export default function LoginPage() {
 
       // 3️⃣ Redirect based on role
       if (profile.role === "admin") {
-        router.push("/admin");
+        router.push("/admin/bookings");
       } else {
         router.push("/dashboard");
       }

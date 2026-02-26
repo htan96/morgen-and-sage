@@ -91,6 +91,8 @@ export default function Sidebar() {
     { name: "Tenants", href: "/admin/tenants" },
     { name: "Activity", href: "/admin/activity" },
     { name: "Documents", href: "/admin/documents" },
+    { name: "User Management", href: "/admin/Users"
+    }
   ];
 
   return (
