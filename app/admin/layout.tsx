@@ -1,38 +1,42 @@
-"use client";
-
 import Sidebar from "@/components/Sidebar";
-import { usePathname } from "next/navigation";
+import { createClient } from "@/lib/supabase/server";
+import { redirect } from "next/navigation";
 
-export default function AdminLayout({
+export default async function AdminLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
-  const pathname = usePathname();
+  const supabase = await createClient();
 
-  const isPrintPage =
-    pathname?.endsWith("/pdf") ||
-    pathname?.includes("/reports/statement");
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  // Not logged in → send to login
+  if (!user) {
+    redirect("/login");
+  }
+
+  // Get role from profiles table
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("role")
+    .eq("user_id", user.id)
+    .single();
+
+  // Not admin → block access
+  if (!profile || profile.role !== "admin") {
+    redirect("/");
+  }
 
   return (
-    <div
-      className="min-h-screen"
-      style={{
-        background: isPrintPage ? "white" : "var(--bg)",
-      }}
-    >
-      {/* Hide Sidebar on print pages */}
-      {!isPrintPage && (
-        <div className="fixed left-0 top-0 h-screen w-64 border-r border-zinc-800">
-          <Sidebar />
-        </div>
-      )}
+    <div className="min-h-screen" style={{ background: "var(--bg)" }}>
+      <div className="fixed left-0 top-0 h-screen w-64 border-r border-zinc-800">
+        <Sidebar />
+      </div>
 
-      <main
-        className={`min-h-screen ${
-          !isPrintPage ? "ml-64 p-8" : "p-0"
-        }`}
-      >
+      <main className="ml-64 p-8 min-h-screen">
         {children}
       </main>
     </div>
