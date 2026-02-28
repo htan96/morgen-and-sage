@@ -3,27 +3,35 @@
 import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase/supabase-admin";
 
-const ORGANIZATION_ID = "49c3ef02-cb09-4fde-82d8-2012e5945ba2";
-
 export async function POST(req: Request) {
   try {
-    const { entity_id } = await req.json();
+    const { type, person_id } = await req.json();
 
-    if (!entity_id) {
+    if (!type || !person_id) {
       return NextResponse.json(
-        { error: "Missing entity_id" },
+        { error: "Missing required fields" },
         { status: 400 }
       );
     }
 
-    // Find open session
-    const { data: session, error: findError } = await supabaseAdmin
+    // =========================
+    // FIND OPEN SESSION
+    // =========================
+
+    const query = supabaseAdmin
       .from("sessions")
       .select("id")
-      .eq("organization_id", ORGANIZATION_ID)
-      .eq("entity_id", entity_id)
-      .is("check_out_time", null)
-      .maybeSingle();
+      .eq("entity_type", type)
+      .is("check_out_time", null);
+
+    if (type === "tenant") {
+      query.eq("tenant_id", person_id);
+    } else {
+      query.eq("employee_id", person_id);
+    }
+
+    const { data: session, error: findError } =
+      await query.maybeSingle();
 
     if (findError) {
       return NextResponse.json(
@@ -39,7 +47,10 @@ export async function POST(req: Request) {
       );
     }
 
-    // Update session
+    // =========================
+    // UPDATE SESSION
+    // =========================
+
     const { error: updateError } = await supabaseAdmin
       .from("sessions")
       .update({

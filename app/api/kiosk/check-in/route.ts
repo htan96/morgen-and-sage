@@ -21,13 +21,13 @@ export async function POST(req: Request) {
   // =========================
 
   if (type === "tenant") {
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from("tenants")
       .select("organization_id")
       .eq("id", person_id)
       .single();
 
-    if (!data) {
+    if (error || !data) {
       return NextResponse.json(
         { error: "Tenant not found" },
         { status: 404 }
@@ -38,13 +38,13 @@ export async function POST(req: Request) {
   }
 
   if (type === "employee") {
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from("employees")
       .select("organization_id")
       .eq("id", person_id)
       .single();
 
-    if (!data) {
+    if (error || !data) {
       return NextResponse.json(
         { error: "Employee not found" },
         { status: 404 }
@@ -83,25 +83,29 @@ export async function POST(req: Request) {
   const insertPayload =
     type === "tenant"
       ? {
+          entity_type: "tenant", // 🔥 REQUIRED
           organization_id,
           tenant_id: person_id,
+          employee_id: null,
           kitchen_space_id,
           check_in_time: new Date().toISOString(),
         }
       : {
+          entity_type: "employee", // 🔥 REQUIRED
           organization_id,
           employee_id: person_id,
+          tenant_id: null,
           kitchen_space_id,
           check_in_time: new Date().toISOString(),
         };
 
-  const { error } = await supabase
+  const { error: insertError } = await supabase
     .from("sessions")
     .insert(insertPayload);
 
-  if (error) {
+  if (insertError) {
     return NextResponse.json(
-      { error: error.message },
+      { error: insertError.message },
       { status: 500 }
     );
   }
