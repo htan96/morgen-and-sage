@@ -28,6 +28,7 @@ export default function ReviewDocumentsView() {
     fetchDocs();
   }, []);
 
+  // Auto-refresh while processing
   useEffect(() => {
     if (loading) return;
 
@@ -44,6 +45,7 @@ export default function ReviewDocumentsView() {
     return () => clearInterval(interval);
   }, [documents, loading]);
 
+  // Load image when modal opens
   useEffect(() => {
     if (!selectedDoc) return;
 
@@ -72,17 +74,27 @@ export default function ReviewDocumentsView() {
         return;
       }
 
-      for (const doc of pendingDocs) {
-        await fetch("/api/ocr/process", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ documentId: doc.id }),
-        });
-      }
+      await Promise.all(
+        pendingDocs.map(async (doc) => {
+          try {
+            const res = await fetch("/api/ocr/process", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ documentId: doc.id }),
+            });
+
+            if (!res.ok) {
+              console.error("OCR failed for:", doc.id);
+            }
+          } catch (err) {
+            console.error("Network error for:", doc.id);
+          }
+        })
+      );
 
       fetchDocs();
     } catch (err) {
-      console.error(err);
+      console.error("Batch OCR error:", err);
       alert("Error running OCR.");
     } finally {
       setRunningOcr(false);
@@ -183,17 +195,8 @@ export default function ReviewDocumentsView() {
           onClick={() => setSelectedDoc(null)}
         >
           <div
-            className="
-              w-full h-full
-              md:h-[85vh] md:max-w-6xl
-              bg-[var(--surface)]
-              md:rounded-xl
-              overflow-hidden
-              flex flex-col md:flex-row
-            "
-            style={{
-              border: "1px solid var(--border)",
-            }}
+            className="w-full h-full md:h-[85vh] md:max-w-6xl bg-[var(--surface)] md:rounded-xl overflow-hidden flex flex-col md:flex-row"
+            style={{ border: "1px solid var(--border)" }}
             onClick={(e) => e.stopPropagation()}
           >
             {/* IMAGE */}
@@ -261,7 +264,7 @@ export default function ReviewDocumentsView() {
                         vendor_name: selectedDoc.vendor_name,
                         document_date: selectedDoc.document_date,
                         amount: selectedDoc.amount,
-                        status: "review",
+                        status: "completed",
                       })
                       .eq("id", selectedDoc.id);
 
@@ -276,7 +279,7 @@ export default function ReviewDocumentsView() {
                     opacity: saving ? 0.7 : 1,
                   }}
                 >
-                  {saving ? "Saving..." : "Save Changes"}
+                  {saving ? "Completing..." : "Complete"}
                 </button>
               </div>
             </div>

@@ -57,7 +57,7 @@ export default function KitchenCards() {
     <div
       style={{
         display: "grid",
-        gridTemplateColumns: "repeat(3, 1fr)",
+        gridTemplateColumns: "1fr",
         gap: 20,
         padding: "24px 40px",
       }}

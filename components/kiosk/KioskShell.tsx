@@ -26,24 +26,40 @@ export default function KioskShell() {
     >
       <TopBar now={now} />
 
+      {/* Main Portrait Layout */}
       <div
         style={{
-          padding: "24px 40px 0 40px",
-        }}
-      >
-        <KitchenCards />
-      </div>
-
-      <div
-        style={{
-          display: "flex",
           flex: 1,
-          padding: "32px 40px 40px 40px",
+          display: "flex",
+          flexDirection: "column",
+          padding: "24px 24px 32px 24px",
           gap: 32,
         }}
       >
-        <CheckInPanel />
-        <LiveFeed now={now} />
+        {/* Kitchen Status */}
+        <KitchenCards />
+
+        {/* Check-In Section */}
+        <div
+          style={{
+            background: "var(--surface)",
+            border: "1px solid var(--border)",
+            borderRadius: 24,
+          }}
+        >
+          <CheckInPanel />
+        </div>
+
+        {/* Live Feed */}
+        <div
+          style={{
+            background: "var(--surface)",
+            border: "1px solid var(--border)",
+            borderRadius: 24,
+          }}
+        >
+          <LiveFeed now={now} />
+        </div>
       </div>
     </div>
   );
