@@ -16,18 +16,15 @@ export async function POST(req: Request) {
 
   let organization_id: string | null = null;
 
-  // =========================
-  // RESOLVE ORGANIZATION
-  // =========================
-
+  // Resolve organization
   if (type === "tenant") {
-    const { data, error } = await supabase
+    const { data } = await supabase
       .from("tenants")
       .select("organization_id")
       .eq("id", person_id)
       .single();
 
-    if (error || !data) {
+    if (!data) {
       return NextResponse.json(
         { error: "Tenant not found" },
         { status: 404 }
@@ -38,13 +35,13 @@ export async function POST(req: Request) {
   }
 
   if (type === "employee") {
-    const { data, error } = await supabase
+    const { data } = await supabase
       .from("employees")
       .select("organization_id")
       .eq("id", person_id)
       .single();
 
-    if (error || !data) {
+    if (!data) {
       return NextResponse.json(
         { error: "Employee not found" },
         { status: 404 }
@@ -54,19 +51,13 @@ export async function POST(req: Request) {
     organization_id = data.organization_id;
   }
 
-  // =========================
-  // PREVENT DOUBLE CHECK-IN
-  // =========================
-
+  // Prevent double check-in
   const { data: existing } = await supabase
     .from("sessions")
     .select("id")
+    .eq("entity_type", type)
+    .eq("entity_id", person_id)
     .is("check_out_time", null)
-    .or(
-      type === "tenant"
-        ? `tenant_id.eq.${person_id}`
-        : `employee_id.eq.${person_id}`
-    )
     .maybeSingle();
 
   if (existing) {
@@ -76,36 +67,20 @@ export async function POST(req: Request) {
     );
   }
 
-  // =========================
-  // INSERT SESSION
-  // =========================
-
-  const insertPayload =
-    type === "tenant"
-      ? {
-          entity_type: "tenant", // 🔥 REQUIRED
-          organization_id,
-          tenant_id: person_id,
-          employee_id: null,
-          kitchen_space_id,
-          check_in_time: new Date().toISOString(),
-        }
-      : {
-          entity_type: "employee", // 🔥 REQUIRED
-          organization_id,
-          employee_id: person_id,
-          tenant_id: null,
-          kitchen_space_id,
-          check_in_time: new Date().toISOString(),
-        };
-
-  const { error: insertError } = await supabase
+  // Insert session
+  const { error } = await supabase
     .from("sessions")
-    .insert(insertPayload);
+    .insert({
+      organization_id,
+      entity_type: type,
+      entity_id: person_id,
+      kitchen_space_id,
+      check_in_time: new Date().toISOString(),
+    });
 
-  if (insertError) {
+  if (error) {
     return NextResponse.json(
-      { error: insertError.message },
+      { error: error.message },
       { status: 500 }
     );
   }

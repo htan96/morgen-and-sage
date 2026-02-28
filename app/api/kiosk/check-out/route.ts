@@ -1,5 +1,3 @@
-// /app/api/kiosk/check-out/route.ts
-
 import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase/supabase-admin";
 
@@ -14,28 +12,17 @@ export async function POST(req: Request) {
       );
     }
 
-    // =========================
-    // FIND OPEN SESSION
-    // =========================
-
-    const query = supabaseAdmin
+    const { data: session, error } = await supabaseAdmin
       .from("sessions")
       .select("id")
       .eq("entity_type", type)
-      .is("check_out_time", null);
+      .eq("entity_id", person_id)
+      .is("check_out_time", null)
+      .maybeSingle();
 
-    if (type === "tenant") {
-      query.eq("tenant_id", person_id);
-    } else {
-      query.eq("employee_id", person_id);
-    }
-
-    const { data: session, error: findError } =
-      await query.maybeSingle();
-
-    if (findError) {
+    if (error) {
       return NextResponse.json(
-        { error: findError.message },
+        { error: error.message },
         { status: 500 }
       );
     }
@@ -46,10 +33,6 @@ export async function POST(req: Request) {
         { status: 400 }
       );
     }
-
-    // =========================
-    // UPDATE SESSION
-    // =========================
 
     const { error: updateError } = await supabaseAdmin
       .from("sessions")
@@ -67,7 +50,7 @@ export async function POST(req: Request) {
 
     return NextResponse.json({ success: true });
 
-  } catch (err) {
+  } catch {
     return NextResponse.json(
       { error: "Server error" },
       { status: 500 }
