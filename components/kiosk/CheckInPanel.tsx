@@ -194,17 +194,11 @@ export default function CheckInPanel() {
 
       {/* Kitchen Select */}
       {kitchens.length > 1 && (
-        <select
-          value={selectedKitchen || ""}
-          onChange={(e) => setSelectedKitchen(e.target.value)}
-          style={{
-            marginTop: 20,
-            padding: 12,
-            width: "100%",
-            borderRadius: 12,
-            border: "1px solid var(--border)",
-          }}
-        >
+            <select
+      value={selectedKitchen || ""}
+      onChange={(e) => setSelectedKitchen(e.target.value)}
+      className="w-full mt-5"
+    >
           <option value="">Select Kitchen</option>
           {kitchens.map((k) => (
             <option key={k.id} value={k.id}>
