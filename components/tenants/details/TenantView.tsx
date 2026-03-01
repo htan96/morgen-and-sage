@@ -3,8 +3,8 @@
 import { useState } from "react";
 import TenantHeader from "./TenantHeader";
 import OverviewTab from "./tabs/OverviewTab";
-import RatesTab from "@/components/tenants/tabs/RatesTab";
-import ScheduleTab from "./tabs/ScheduleTab";
+import RatesTab from "./tabs/Rates/RatesTab";
+import PresetScheduleTab from "./tabs/PresetSchedule/PresetScheduleTab";
 import BookingsTab from "./tabs/BookingsTab";
 import InvoicesTab from "./tabs/InvoicesTab";
 
@@ -29,9 +29,10 @@ export default function TenantView({ tenant }: Props) {
       {/* Header */}
       <TenantHeader tenant={tenant} />
 
-      {/* Tabs */}
+      {/* Tabs Container */}
       <div className="bg-[var(--surface)] border border-[var(--border)] rounded-2xl">
 
+        {/* Tab Buttons */}
         <div className="flex gap-6 px-6 pt-6 border-b border-[var(--border)]">
           {tabs.map((tab) => (
             <button
@@ -48,19 +49,24 @@ export default function TenantView({ tenant }: Props) {
           ))}
         </div>
 
+        {/* Tab Content */}
         <div className="p-6">
           {activeTab === "overview" && (
             <OverviewTab tenantId={tenant.id} />
           )}
+
           {activeTab === "rates" && (
             <RatesTab tenantId={tenant.id} />
           )}
+
           {activeTab === "schedule" && (
-            <ScheduleTab tenantId={tenant.id} />
+            <PresetScheduleTab tenantId={tenant.id} />
           )}
+
           {activeTab === "bookings" && (
             <BookingsTab tenantId={tenant.id} />
           )}
+
           {activeTab === "invoices" && (
             <InvoicesTab tenantId={tenant.id} />
           )}

@@ -27,7 +27,9 @@ export default function OverviewTab({ tenantId }: Props) {
     const firstDay = new Date(now.getFullYear(), now.getMonth(), 1);
     const lastDay = new Date(now.getFullYear(), now.getMonth() + 1, 0);
 
-    // Bookings This Month
+    // =========================
+    // BOOKINGS THIS MONTH
+    // =========================
     const { data: bookings } = await supabase
       .from("bookings")
       .select("total_hours")
@@ -41,19 +43,49 @@ export default function OverviewTab({ tenantId }: Props) {
     setHours(totalHours);
     setBookingsCount(bookings?.length || 0);
 
-    // Outstanding Balance
+    // =========================
+    // TOTAL INVOICED
+    // =========================
     const { data: invoices } = await supabase
       .from("invoices")
-      .select("balance_due, status")
+      .select("id, total_amount, invoice_date, status")
       .eq("tenant_id", tenantId);
 
-    const totalBalance =
-      invoices?.reduce((sum, inv) => sum + (inv.balance_due || 0), 0) || 0;
+    const totalInvoiced =
+      invoices?.reduce((sum, inv) => sum + (inv.total_amount || 0), 0) || 0;
 
-    setBalance(totalBalance);
+    // =========================
+    // TOTAL PAYMENTS RECEIVED
+    // =========================
+    const { data: payments } = await supabase
+      .from("payments")
+      .select("amount")
+      .eq("tenant_id", tenantId)
+      .eq("status", "completed");
 
-    const latest = invoices?.[0];
-    if (latest) setInvoiceStatus(latest.status);
+    const totalPaid =
+      payments?.reduce((sum, p) => sum + (p.amount || 0), 0) || 0;
+
+    // =========================
+    // TRUE OUTSTANDING
+    // =========================
+    const outstanding = totalInvoiced - totalPaid;
+
+    setBalance(outstanding > 0 ? outstanding : 0);
+
+    // =========================
+    // LATEST INVOICE STATUS
+    // =========================
+    const latestInvoice = invoices
+      ?.sort(
+        (a, b) =>
+          new Date(b.invoice_date).getTime() -
+          new Date(a.invoice_date).getTime()
+      )[0];
+
+    if (latestInvoice) {
+      setInvoiceStatus(latestInvoice.status);
+    }
 
     setLoading(false);
   }
@@ -62,12 +94,13 @@ export default function OverviewTab({ tenantId }: Props) {
 
   return (
     <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-
       <Card title="Hours This Month" value={hours} />
       <Card title="Bookings This Month" value={bookingsCount} />
-      <Card title="Outstanding Balance" value={`$${balance.toFixed(2)}`} />
+      <Card
+        title="Outstanding Balance"
+        value={`$${balance.toFixed(2)}`}
+      />
       <Card title="Latest Invoice Status" value={invoiceStatus} />
-
     </div>
   );
 }

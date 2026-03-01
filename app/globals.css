@@ -1,11 +1,11 @@
 @import "tailwindcss";
 
-/* ===============================
+/* =====================================================
    LIGHT MODE (Default)
-================================ */
+===================================================== */
 :root {
-  --bg: #f3f4f6;                /* page background */
-  --surface: #ffffff;           /* cards, calendar surface */
+  --bg: #f3f4f6;
+  --surface: #ffffff;
   --sidebar: #ffffff;
   --sidebar-border: #e5e7eb;
   --hover: #f9fafb;
@@ -16,14 +16,25 @@
 
   --grid-light: #e5e7eb;
   --grid-strong: #d1d5db;
+
+  /* BUTTON COLORS */
+  --btn-edit: #2563eb;
+  --btn-delete: #dc2626;
+  --btn-save: #16a34a;
+  --btn-cancel: #6b7280;
+
+  --btn-edit-hover: #1d4ed8;
+  --btn-delete-hover: #b91c1c;
+  --btn-save-hover: #15803d;
+  --btn-cancel-hover: #4b5563;
 }
 
-/* ===============================
+/* =====================================================
    DARK MODE
-================================ */
+===================================================== */
 .dark {
-  --bg: #0f172a;                /* slate-900 */
-  --surface: #1e293b;           /* slate-800 */
+  --bg: #0f172a;
+  --surface: #1e293b;
   --sidebar: #0f172a;
   --sidebar-border: #1f2937;
   --hover: #1e293b;
@@ -34,11 +45,22 @@
 
   --grid-light: #1f2937;
   --grid-strong: #334155;
+
+  /* BUTTON COLORS */
+  --btn-edit: #60a5fa;
+  --btn-delete: #f87171;
+  --btn-save: #4ade80;
+  --btn-cancel: #9ca3af;
+
+  --btn-edit-hover: #3b82f6;
+  --btn-delete-hover: #ef4444;
+  --btn-save-hover: #22c55e;
+  --btn-cancel-hover: #d1d5db;
 }
 
-/* ===============================
+/* =====================================================
    BASE
-================================ */
+===================================================== */
 html,
 body {
   background: var(--bg);
@@ -49,41 +71,128 @@ body {
 .no-scrollbar::-webkit-scrollbar {
   display: none;
 }
-
 .no-scrollbar {
   -ms-overflow-style: none;
   scrollbar-width: none;
 }
 
+/* =====================================================
+   UI SYSTEM
+===================================================== */
+
+/* Card */
+.ui-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+}
+
+/* Table Wrapper */
+.ui-table-wrapper {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+/* Table Head */
+.ui-table-head {
+  background: var(--hover);
+  color: var(--text-muted);
+}
+
+/* Empty Table State */
+.ui-table-empty {
+  padding: 24px;
+  text-align: center;
+  color: var(--text-muted);
+}
+
+/* Inputs */
+.ui-input {
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 4px 8px;
+  background: var(--surface);
+  color: var(--text);
+}
+
+/* =====================================================
+   BUTTON SYSTEM
+===================================================== */
+
+.ui-btn {
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.2px;
+  padding: 4px 6px;
+  border-radius: 6px;
+  transition: all 0.15s ease;
+  background: none;
+  border: none;
+  cursor: pointer;
+}
+
+/* Edit */
+.ui-btn-edit {
+  color: var(--btn-edit);
+}
+.ui-btn-edit:hover {
+  color: var(--btn-edit-hover);
+}
+
+/* Delete */
+.ui-btn-delete {
+  color: var(--btn-delete);
+}
+.ui-btn-delete:hover {
+  color: var(--btn-delete-hover);
+}
+
+/* Save */
+.ui-btn-save {
+  color: var(--btn-save);
+}
+.ui-btn-save:hover {
+  color: var(--btn-save-hover);
+}
+
+/* Cancel */
+.ui-btn-cancel {
+  color: var(--btn-cancel);
+}
+.ui-btn-cancel:hover {
+  color: var(--btn-cancel-hover);
+}
+
+/* =====================================================
+   FORM ELEMENTS
+===================================================== */
+
 select {
-  -webkit-appearance: none;
-  -moz-appearance: none;
-  appearance: none;
-  background-image: none;
+  background: var(--surface);
+  color: var(--text);
+  border: 1px solid var(--border);
+  padding: 12px 14px;
+  border-radius: 12px;
+  font-size: 14px;
+  transition: border 0.2s ease, box-shadow 0.2s ease;
 }
 
-.logo-dark {
-  display: none;
+select:focus {
+  outline: none;
+  border-color: var(--text);
+  box-shadow: 0 0 0 2px rgba(0, 0, 0, 0.05);
 }
 
-.dark .logo-light {
-  display: none;
+.dark select:focus {
+  box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.08);
 }
 
-.dark .logo-dark {
-  display: inline-block;
-}
-
-/* ===============================
+/* =====================================================
    PRINT STYLES
-================================ */
-/* =========================================
-   PROFESSIONAL PRINT STYLES – FINANCIAL
-========================================= */
-
+===================================================== */
 @media print {
-
-  /* Hide application layout */
   nav,
   aside,
   header,
@@ -106,7 +215,6 @@ select {
     color: #000000;
   }
 
-  /* Main printable container */
   .print-container {
     width: 100% !important;
     max-width: 100% !important;
@@ -114,79 +222,32 @@ select {
     padding: 40px 60px !important;
   }
 
-  /* Remove rounded UI look */
   .print-container * {
     border-radius: 0 !important;
     box-shadow: none !important;
   }
 
-  /* Organization page separation */
   .print-page {
     page-break-after: always;
   }
+}
 
-  /* Headers */
-  .print-container h1 {
-    font-size: 20px;
-    font-weight: 700;
-    margin-bottom: 8px;
-    letter-spacing: 0.5px;
-  }
+/* Filled Save Button */
+.ui-btn-filled-save {
+  background: var(--btn-save);
+  color: white;
+  padding: 8px 16px;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  transition: background 0.15s ease, opacity 0.15s ease;
+}
 
-  .print-container h2 {
-    font-size: 16px;
-    font-weight: 700;
-    margin-top: 30px;
-    margin-bottom: 12px;
-    border-bottom: 1px solid #000;
-    padding-bottom: 4px;
-  }
+.ui-btn-filled-save:hover {
+  background: var(--btn-save-hover);
+}
 
-  .print-container h3 {
-    font-size: 12px;
-    font-weight: 700;
-    margin-top: 18px;
-    margin-bottom: 6px;
-    text-transform: uppercase;
-    letter-spacing: 0.4px;
-  }
-
-  /* Transaction rows */
-  .print-container .transaction-row {
-    display: flex;
-    justify-content: space-between;
-    padding: 2px 0;
-  }
-
-  /* Totals styling */
-  .print-container .category-total {
-    margin-top: 6px;
-    padding-top: 4px;
-    border-top: 1px solid #999;
-    font-weight: 600;
-  }
-
-  .print-container .organization-total {
-    margin-top: 18px;
-    padding-top: 6px;
-    border-top: 2px solid #000;
-    font-weight: 700;
-  }
-
-  .print-container .grand-total {
-    margin-top: 30px;
-    padding-top: 10px;
-    border-top: 3px double #000;
-    font-weight: 800;
-    font-size: 14px;
-  }
-
-  /* Depreciable label */
-  .print-container .depreciable {
-    font-size: 10px;
-    font-style: italic;
-    opacity: 0.7;
-    margin-left: 6px;
-  }
-
+.ui-btn-filled-save:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
 }

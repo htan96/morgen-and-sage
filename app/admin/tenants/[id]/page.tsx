@@ -1,6 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import { notFound } from "next/navigation";
-import TenantView from "@/components/tenants/TenantView";
+import TenantView from "@/components/tenants/details/TenantView";
 
 export default async function TenantDetailPage({
   params,
@@ -8,6 +8,13 @@ export default async function TenantDetailPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params; // ✅ required in Next 15
+
+  console.log("ROUTE ID:", id); // ← Add this
+
+  if (!id) {
+    console.log("ID IS UNDEFINED");
+    notFound();
+  }
 
   const supabase = await createClient();
 
