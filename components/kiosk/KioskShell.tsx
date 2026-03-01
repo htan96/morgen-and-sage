@@ -9,9 +9,19 @@ import LiveFeed from "./LiveFeed";
 export default function KioskShell() {
   const [now, setNow] = useState(new Date());
 
+  // Clock update every second
   useEffect(() => {
     const t = setInterval(() => setNow(new Date()), 1000);
     return () => clearInterval(t);
+  }, []);
+
+  // Auto full reload every 5 minutes
+  useEffect(() => {
+    const reloadInterval = setInterval(() => {
+      window.location.reload();
+    }, 5 * 60 * 1000); // 5 minutes
+
+    return () => clearInterval(reloadInterval);
   }, []);
 
   return (
@@ -26,7 +36,6 @@ export default function KioskShell() {
     >
       <TopBar now={now} />
 
-      {/* Main Portrait Layout */}
       <div
         style={{
           flex: 1,
@@ -36,10 +45,8 @@ export default function KioskShell() {
           gap: 32,
         }}
       >
-        {/* Kitchen Status */}
         <KitchenCards />
 
-        {/* Check-In Section */}
         <div
           style={{
             background: "var(--surface)",
@@ -50,7 +57,6 @@ export default function KioskShell() {
           <CheckInPanel />
         </div>
 
-        {/* Live Feed */}
         <div
           style={{
             background: "var(--surface)",

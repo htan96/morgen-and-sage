@@ -24,6 +24,7 @@ export async function GET(req: Request) {
       .from("tenants")
       .select("id, name, is_active")
       .eq("is_active", true)
+      .not("kitchen_space_id", "is", null) // 🔥 Only tenants with kitchens
       .ilike("name", `%${query}%`);
 
     if (tenantError) {
