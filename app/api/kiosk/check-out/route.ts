@@ -12,12 +12,16 @@ export async function POST(req: Request) {
       );
     }
 
-    const { data: session, error } = await supabaseAdmin
+    // Atomic update — only updates if active session exists
+    const { data, error } = await supabaseAdmin
       .from("sessions")
-      .select("id")
+      .update({
+        check_out_time: new Date().toISOString(),
+      })
       .eq("entity_type", type)
       .eq("entity_id", person_id)
       .is("check_out_time", null)
+      .select("id, check_in_time")
       .maybeSingle();
 
     if (error) {
@@ -27,30 +31,19 @@ export async function POST(req: Request) {
       );
     }
 
-    if (!session) {
+    if (!data) {
       return NextResponse.json(
         { error: "No active session found" },
         { status: 400 }
       );
     }
 
-    const { error: updateError } = await supabaseAdmin
-      .from("sessions")
-      .update({
-        check_out_time: new Date().toISOString(),
-      })
-      .eq("id", session.id);
+    return NextResponse.json({
+      success: true,
+      session_id: data.id,
+    });
 
-    if (updateError) {
-      return NextResponse.json(
-        { error: updateError.message },
-        { status: 500 }
-      );
-    }
-
-    return NextResponse.json({ success: true });
-
-  } catch {
+  } catch (err) {
     return NextResponse.json(
       { error: "Server error" },
       { status: 500 }

@@ -7,7 +7,22 @@ export async function GET() {
   try {
     const { data, error } = await supabaseAdmin
       .from("sessions")
-      .select("*")
+      .select(`
+        id,
+        entity_type,
+        entity_id,
+        check_in_time,
+        kitchen_space_id,
+        tenants (
+          name
+        ),
+        employees (
+          name
+        ),
+        kitchen_spaces (
+          name
+        )
+      `)
       .eq("organization_id", ORGANIZATION_ID)
       .is("check_out_time", null);
 
@@ -18,7 +33,18 @@ export async function GET() {
       );
     }
 
-    return NextResponse.json(data);
+    const formatted = data.map((session: any) => ({
+      id: session.id,
+      type: session.entity_type,
+      person_name:
+        session.entity_type === "tenant"
+          ? session.tenants?.name
+          : session.employees?.name,
+      kitchen_name: session.kitchen_spaces?.name || null,
+      check_in_time: session.check_in_time,
+    }));
+
+    return NextResponse.json(formatted);
 
   } catch {
     return NextResponse.json(
