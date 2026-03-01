@@ -9,9 +9,9 @@ type Person = {
   last_name?: string;
 };
 
-type Kitchen = {
-  id: string;
-  name: string;
+type Session = {
+  entity_type: string;
+  entity_id: string;
 };
 
 export default function CheckInPanel() {
@@ -20,23 +20,20 @@ export default function CheckInPanel() {
   const [scheduled, setScheduled] = useState<Person[]>([]);
   const [others, setOthers] = useState<Person[]>([]);
   const [selectedPerson, setSelectedPerson] = useState<Person | null>(null);
-  const [kitchens, setKitchens] = useState<Kitchen[]>([]);
-  const [selectedKitchen, setSelectedKitchen] = useState<string | null>(null);
+  const [isActive, setIsActive] = useState(false);
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
+  const [activeSessions, setActiveSessions] = useState<Session[]>([]);
 
-  // Load kitchens
+  // Load active sessions
+  async function loadActiveSessions() {
+    const res = await fetch("/api/kiosk/active-sessions");
+    const data = await res.json();
+    setActiveSessions(data || []);
+  }
+
   useEffect(() => {
-    async function loadKitchens() {
-      const res = await fetch("/api/kiosk/kitchen-status");
-      const data = await res.json();
-      setKitchens(data.kitchens || []);
-
-      if (data.kitchens?.length === 1) {
-        setSelectedKitchen(data.kitchens[0].id);
-      }
-    }
-    loadKitchens();
+    loadActiveSessions();
   }, []);
 
   // Lookup people
@@ -57,19 +54,35 @@ export default function CheckInPanel() {
     return `${p.first_name} ${p.last_name}`;
   }
 
-  async function handleCheckIn() {
-    if (!selectedPerson || !selectedKitchen) return;
+  // When selecting a person
+  function handleSelect(p: Person) {
+    setSelectedPerson(p);
+
+    const active = activeSessions.some(
+      (s: any) =>
+        s.entity_type === type &&
+        s.entity_id === p.id
+    );
+
+    setIsActive(active);
+  }
+
+  async function handleAction() {
+    if (!selectedPerson) return;
 
     setLoading(true);
     setMessage(null);
 
-    const res = await fetch("/api/kiosk/check-in", {
+    const endpoint = isActive
+      ? "/api/kiosk/check-out"
+      : "/api/kiosk/check-in";
+
+    const res = await fetch(endpoint, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         type,
         person_id: selectedPerson.id,
-        kitchen_space_id: selectedKitchen,
       }),
     });
 
@@ -77,14 +90,23 @@ export default function CheckInPanel() {
     setLoading(false);
 
     if (!res.ok) {
-      setMessage(data.error || "Check-in failed");
+      setMessage(data.error || "Action failed");
       return;
     }
 
-    setMessage("Checked in successfully!");
+    setMessage(
+      isActive
+        ? "Checked out successfully!"
+        : "Checked in successfully!"
+    );
+
+    // Refresh active sessions
+    await loadActiveSessions();
+
+    // Reset panel
     setSelectedPerson(null);
     setQuery("");
-    setSelectedKitchen(null);
+    setIsActive(false);
 
     setTimeout(() => {
       setMessage(null);
@@ -97,27 +119,33 @@ export default function CheckInPanel() {
 
       {/* Toggle */}
       <div style={{ display: "flex", gap: 12, marginBottom: 20 }}>
-        {["tenant", "employee"].map((t) => (
-          <button
-            key={t}
-            onClick={() => {
-              setType(t as any);
-              setSelectedPerson(null);
-              setQuery("");
-            }}
-            style={{
-              padding: "10px 20px",
-              borderRadius: 999,
-              border: "1px solid var(--border)",
-              background:
-                type === t ? "var(--surface)" : "transparent",
-              fontWeight: 600,
-              cursor: "pointer",
-            }}
-          >
-            {t === "tenant" ? "Tenant" : "Employee"}
-          </button>
-        ))}
+        {["tenant", "employee"].map((t) => {
+          const selected = type === t;
+
+          return (
+            <button
+              key={t}
+              onClick={() => {
+                setType(t as any);
+                setSelectedPerson(null);
+                setQuery("");
+                setIsActive(false);
+              }}
+              style={{
+                padding: "10px 20px",
+                borderRadius: 999,
+                border: "1px solid var(--border)",
+                background: selected
+                  ? "var(--surface)"
+                  : "transparent",
+                fontWeight: 700,
+                cursor: "pointer",
+              }}
+            >
+              {t === "tenant" ? "Tenant" : "Employee"}
+            </button>
+          );
+        })}
       </div>
 
       {/* Search */}
@@ -145,24 +173,23 @@ export default function CheckInPanel() {
             Scheduled Now
           </div>
           {scheduled.map((p) => {
-            const isSelected = selectedPerson?.id === p.id;
+            const selected = selectedPerson?.id === p.id;
 
             return (
               <div
                 key={p.id}
-                onClick={() => setSelectedPerson(p)}
+                onClick={() => handleSelect(p)}
                 style={{
                   padding: 16,
                   borderRadius: 16,
                   marginBottom: 10,
                   cursor: "pointer",
-                  border: isSelected
+                  border: selected
                     ? "2px solid var(--text)"
                     : "1px solid var(--border)",
-                  background: isSelected
+                  background: selected
                     ? "var(--hover)"
                     : "var(--surface)",
-                  transition: "all 0.2s ease",
                 }}
               >
                 {displayName(p)}
@@ -179,24 +206,23 @@ export default function CheckInPanel() {
             All
           </div>
           {others.map((p) => {
-            const isSelected = selectedPerson?.id === p.id;
+            const selected = selectedPerson?.id === p.id;
 
             return (
               <div
                 key={p.id}
-                onClick={() => setSelectedPerson(p)}
+                onClick={() => handleSelect(p)}
                 style={{
                   padding: 16,
                   borderRadius: 16,
                   marginBottom: 10,
                   cursor: "pointer",
-                  border: isSelected
+                  border: selected
                     ? "2px solid var(--text)"
                     : "1px solid var(--border)",
-                  background: isSelected
+                  background: selected
                     ? "var(--hover)"
                     : "var(--surface)",
-                  transition: "all 0.2s ease",
                 }}
               >
                 {displayName(p)}
@@ -206,80 +232,10 @@ export default function CheckInPanel() {
         </>
       )}
 
-      {/* Kitchen Card Selector */}
-      {kitchens.length > 0 && (
-        <div style={{ marginTop: 30 }}>
-          <div style={{ marginBottom: 12, fontWeight: 700 }}>
-            Select Kitchen
-          </div>
-
-          <div
-            style={{
-              display: "flex",
-              flexDirection: "column",
-              gap: 12,
-            }}
-          >
-            {kitchens.map((k) => {
-              const isSelected = selectedKitchen === k.id;
-
-              return (
-                <div
-                  key={k.id}
-                  onClick={() => setSelectedKitchen(k.id)}
-                  style={{
-                    padding: 16,
-                    borderRadius: 16,
-                    cursor: "pointer",
-                    border: isSelected
-                      ? "2px solid var(--text)"
-                      : "1px solid var(--border)",
-                    background: isSelected
-                      ? "var(--hover)"
-                      : "var(--surface)",
-                    transition: "all 0.2s ease",
-                    fontWeight: 600,
-                  }}
-                >
-                  {k.name}
-                </div>
-              );
-            })}
-          </div>
-        </div>
-      )}
-
-      {/* Confirmation */}
-      {(selectedPerson || selectedKitchen) && (
-        <div
-          style={{
-            marginTop: 20,
-            fontSize: 14,
-            color: "var(--text-muted)",
-          }}
-        >
-          {selectedPerson && (
-            <div>
-              Person: {displayName(selectedPerson)}
-            </div>
-          )}
-          {selectedKitchen && (
-            <div>
-              Kitchen:{" "}
-              {
-                kitchens.find(
-                  (k) => k.id === selectedKitchen
-                )?.name
-              }
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* Submit */}
+      {/* Submit Button */}
       <button
-        disabled={!selectedPerson || !selectedKitchen || loading}
-        onClick={handleCheckIn}
+        disabled={!selectedPerson || loading}
+        onClick={handleAction}
         style={{
           marginTop: 30,
           width: "100%",
@@ -288,26 +244,28 @@ export default function CheckInPanel() {
           fontWeight: 800,
           borderRadius: 18,
           border: "1px solid var(--border)",
-          background:
-            !selectedPerson || !selectedKitchen
-              ? "var(--hover)"
-              : "var(--text)",
-          color:
-            !selectedPerson || !selectedKitchen
-              ? "var(--text-muted)"
-              : "var(--bg)",
-          cursor:
-            !selectedPerson || !selectedKitchen
-              ? "not-allowed"
-              : "pointer",
-          transition: "all 0.2s ease",
+          background: !selectedPerson
+            ? "var(--hover)"
+            : "var(--text)",
+          color: !selectedPerson
+            ? "var(--text-muted)"
+            : "var(--bg)",
+          cursor: !selectedPerson
+            ? "not-allowed"
+            : "pointer",
         }}
       >
-        {loading ? "Processing..." : "CHECK IN"}
+        {loading
+          ? "Processing..."
+          : isActive
+          ? "CHECK OUT"
+          : "CHECK IN"}
       </button>
 
       {message && (
-        <div style={{ marginTop: 20 }}>{message}</div>
+        <div style={{ marginTop: 20 }}>
+          {message}
+        </div>
       )}
     </div>
   );
