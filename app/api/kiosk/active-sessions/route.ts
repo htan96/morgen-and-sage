@@ -17,7 +17,8 @@ export async function GET() {
           name
         ),
         employees (
-          name
+          first_name,
+          last_name
         ),
         kitchen_spaces (
           name
