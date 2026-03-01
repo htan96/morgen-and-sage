@@ -22,13 +22,15 @@ export default function DocumentDetailPage() {
     async function fetchDocument() {
       const { data, error } = await supabase
         .from("documents")
-        .select(`
+        .select(
+          `
           *,
           organizations:organization_id (
             id,
             name
           )
-        `)
+        `
+        )
         .eq("id", documentId)
         .single();
 
@@ -42,16 +44,11 @@ export default function DocumentDetailPage() {
       setFormData(data);
 
       if (data.storage_path) {
-        const { data: signedData, error: signedError } =
-          await supabase.storage
-            .from(BUCKET_NAME)
-            .createSignedUrl(data.storage_path, 60 * 60);
+        const { data: signedData } = await supabase.storage
+          .from(BUCKET_NAME)
+          .createSignedUrl(data.storage_path, 60 * 60);
 
-        if (signedError) {
-          console.error("Signed URL error:", signedError);
-        } else {
-          setSignedUrl(signedData?.signedUrl || null);
-        }
+        setSignedUrl(signedData?.signedUrl || null);
       }
 
       setLoading(false);
@@ -62,7 +59,7 @@ export default function DocumentDetailPage() {
 
   if (loading) {
     return (
-      <div className="p-10" style={{ color: "var(--text-muted)" }}>
+      <div className="px-4 py-10" style={{ color: "var(--text-muted)" }}>
         Loading document...
       </div>
     );
@@ -70,14 +67,14 @@ export default function DocumentDetailPage() {
 
   if (!document) {
     return (
-      <div className="p-10 text-red-500">
+      <div className="px-4 py-10 text-red-500">
         Document not found.
       </div>
     );
   }
 
   return (
-    <div className="p-6 space-y-6">
+    <div className="w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
 
       {/* Back Button */}
       <button
@@ -92,11 +89,12 @@ export default function DocumentDetailPage() {
         ← Back to Documents
       </button>
 
+      {/* Main Layout */}
       <div className="flex flex-col lg:flex-row gap-6">
 
-        {/* LEFT SIDE — PREVIEW */}
+        {/* LEFT — PREVIEW */}
         <div
-          className="flex-1 rounded-xl p-4"
+          className="w-full lg:w-1/2 rounded-xl p-4"
           style={{
             background: "var(--surface)",
             border: "1px solid var(--border)",
@@ -105,11 +103,13 @@ export default function DocumentDetailPage() {
           <p className="mb-4 font-semibold">Document Preview</p>
 
           {signedUrl ? (
-            <img
-              src={signedUrl}
-              alt="Document"
-              className="w-full rounded-lg"
-            />
+            <div className="overflow-hidden rounded-lg">
+              <img
+                src={signedUrl}
+                alt="Document"
+                className="w-full max-h-[500px] object-contain"
+              />
+            </div>
           ) : (
             <div
               className="h-64 flex items-center justify-center text-center"
@@ -120,17 +120,16 @@ export default function DocumentDetailPage() {
           )}
         </div>
 
-        {/* RIGHT SIDE — DETAILS */}
+        {/* RIGHT — DETAILS */}
         <div
-          className="flex-1 rounded-xl p-6 space-y-6"
+          className="w-full lg:w-1/2 rounded-xl p-6 space-y-6"
           style={{
             background: "var(--surface)",
             border: "1px solid var(--border)",
           }}
         >
-
-          {/* Header + Edit Button */}
-          <div className="flex justify-between items-start">
+          {/* Header */}
+          <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-4">
             <div>
               <h2 className="text-xl font-semibold">
                 {document.vendor_name}
@@ -143,7 +142,7 @@ export default function DocumentDetailPage() {
             {!isEditing && (
               <button
                 onClick={() => setIsEditing(true)}
-                className="px-4 py-2 rounded-lg"
+                className="px-4 py-2 rounded-lg w-full sm:w-auto"
                 style={{
                   background: "var(--hover)",
                   border: "1px solid var(--border)",
@@ -223,7 +222,7 @@ export default function DocumentDetailPage() {
 
           {/* Save / Cancel */}
           {isEditing && (
-            <div className="flex gap-4">
+            <div className="flex flex-col sm:flex-row gap-4">
               <button
                 onClick={async () => {
                   await supabase
@@ -238,7 +237,7 @@ export default function DocumentDetailPage() {
                   setIsEditing(false);
                   router.refresh();
                 }}
-                className="px-4 py-2 rounded-lg"
+                className="px-4 py-2 rounded-lg w-full sm:w-auto"
                 style={{
                   background: "#10b981",
                   color: "#fff",
@@ -252,7 +251,7 @@ export default function DocumentDetailPage() {
                   setFormData(document);
                   setIsEditing(false);
                 }}
-                className="px-4 py-2 rounded-lg"
+                className="px-4 py-2 rounded-lg w-full sm:w-auto"
                 style={{
                   background: "#ef4444",
                   color: "#fff",
@@ -263,9 +262,9 @@ export default function DocumentDetailPage() {
             </div>
           )}
 
-          {/* Approve / Reject (only when not editing & in review) */}
+          {/* Approve / Reject */}
           {!isEditing && document.status === "review" && (
-            <div className="flex gap-4">
+            <div className="flex flex-col sm:flex-row gap-4">
               <button
                 onClick={async () => {
                   await supabase
@@ -275,7 +274,7 @@ export default function DocumentDetailPage() {
 
                   router.refresh();
                 }}
-                className="px-4 py-2 rounded-lg"
+                className="px-4 py-2 rounded-lg w-full sm:w-auto"
                 style={{
                   background: "#10b981",
                   color: "#fff",
@@ -293,7 +292,7 @@ export default function DocumentDetailPage() {
 
                   router.refresh();
                 }}
-                className="px-4 py-2 rounded-lg"
+                className="px-4 py-2 rounded-lg w-full sm:w-auto"
                 style={{
                   background: "#ef4444",
                   color: "#fff",

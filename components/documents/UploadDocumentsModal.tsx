@@ -38,16 +38,16 @@ export default function UploadDocumentsModal({
 
   if (!isOpen) return null;
 
+  // 🔥 Now APPENDS instead of replacing
   const handleFiles = (fileList: FileList | null) => {
     if (!fileList) return;
+
     const fileArray = Array.from(fileList);
-    console.log("Files selected:", fileArray);
-    setFiles(fileArray);
+
+    setFiles((prev) => [...prev, ...fileArray]);
   };
 
   const handleUpload = async () => {
-    console.log("Upload button clicked");
-
     if (!selectedOrg) {
       alert("Please select an organization.");
       return;
@@ -62,13 +62,12 @@ export default function UploadDocumentsModal({
 
     try {
       for (const file of files) {
-        console.log("Uploading file:", file.name);
-
         const ext = file.name.split(".").pop();
         const fileName = `${Date.now()}-${Math.random()
-        .toString(36)
-        .substring(2, 9)}.${ext}`;
-        // Upload to storage
+          .toString(36)
+          .substring(2, 9)}.${ext}`;
+
+        // Upload to Supabase Storage
         const { error: uploadError } = await supabase.storage
           .from("documents")
           .upload(fileName, file);
@@ -78,28 +77,30 @@ export default function UploadDocumentsModal({
           continue;
         }
 
-        console.log("Storage upload successful:", fileName);
-
-        // Insert into database
+        // Insert record into database
         const { error: insertError } = await supabase
           .from("documents")
           .insert({
             organization_id: selectedOrg,
             storage_path: fileName,
             original_filename: file.name,
-            status: "processing",
+            status: "pending",
           });
 
         if (insertError) {
           console.error("Database insert failed:", insertError);
           continue;
         }
-
-        console.log("Database insert successful:", file.name);
       }
 
       alert("Upload complete.");
+
+      // Reset
       setFiles([]);
+      if (fileInputRef.current) {
+        fileInputRef.current.value = "";
+      }
+
       onUploadComplete();
       onClose();
     } catch (err) {
@@ -125,7 +126,7 @@ export default function UploadDocumentsModal({
         }}
         onClick={(e) => e.stopPropagation()}
       >
-        {/* Close Button */}
+        {/* Close */}
         <button
           onClick={onClose}
           disabled={uploading}
@@ -136,11 +137,6 @@ export default function UploadDocumentsModal({
         </button>
 
         <h2 className="text-lg font-semibold">Upload Documents</h2>
-
-        {/* Debug Upload State */}
-        <div style={{ fontSize: 12, opacity: 0.6 }}>
-          Uploading state: {uploading ? "TRUE" : "FALSE"}
-        </div>
 
         {/* Organization Select */}
         <select
@@ -183,20 +179,17 @@ export default function UploadDocumentsModal({
           }}
         >
           <p className="font-medium">Drag & drop files here</p>
-          <p
-            className="text-sm mt-1"
-            style={{ color: "var(--text-muted)" }}
-          >
-            or click to browse / use camera
+          <p className="text-sm mt-1" style={{ color: "var(--text-muted)" }}>
+            or click to browse
           </p>
         </div>
 
+        {/* 🔥 MULTIPLE ENABLED (capture removed) */}
         <input
           ref={fileInputRef}
           type="file"
           multiple
           accept="image/*,application/pdf"
-          capture="environment"
           onChange={(e) => handleFiles(e.target.files)}
           className="hidden"
         />

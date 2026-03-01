@@ -85,7 +85,7 @@ export default function Sidebar({ variant = "full" }: SidebarProps) {
   return (
     <aside
       className={`h-screen flex flex-col ${
-        isCompact ? "w-16 items-center" : "w-64"
+        isCompact ? "w-14 items-center" : "w-64"
       }`}
       style={{
         background: "var(--sidebar)",

@@ -21,18 +21,18 @@ export default function TenantCard({ tenant }: { tenant: Tenant }) {
           </p>
         </div>
 
-<span
-  className={`text-xs px-2.5 py-1 rounded-full 
-  ${
-    tenant.billing_type === "commissary"
-      ? "bg-[var(--hover)] text-[var(--text)]"
-      : "bg-[var(--hover)]/60 text-[var(--text-muted)]"
-  }`}
->
-  {tenant.billing_type === "commissary"
-    ? "Commissary"
-    : "Standard"}
-</span>
+            <span
+            className={`text-xs px-2.5 py-1 rounded-full 
+            ${
+                tenant.billing_type === "commissary"
+                ? "bg-[var(--hover)] text-[var(--text)]"
+                : "bg-[var(--hover)]/60 text-[var(--text-muted)]"
+            }`}
+            >
+            {tenant.billing_type === "commissary"
+                ? "Commissary"
+                : "Standard"}
+            </span>
       </div>
 
       <div className="mt-6 text-sm font-medium text-[var(--text)]">

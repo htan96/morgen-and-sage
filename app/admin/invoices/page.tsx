@@ -32,15 +32,26 @@ export default async function InvoicesPage() {
     })) ?? [];
 
   return (
-    <div className="space-y-8">
+    <div className="w-full px-3 sm:px-5 md:px-8 py-5 md:py-6 space-y-6 md:space-y-8">
+
+      {/* HEADER */}
       <div>
-        <h1 className="text-3xl font-semibold">Invoices</h1>
-        <p className="text-sm mt-1" style={{ color: "var(--text-muted)" }}>
+        <h1 className="text-xl sm:text-2xl md:text-3xl font-semibold">
+          Invoices
+        </h1>
+        <p
+          className="text-sm mt-1"
+          style={{ color: "var(--text-muted)" }}
+        >
           Manage and monitor all invoices.
         </p>
       </div>
 
-      <InvoicesTable invoices={normalizedInvoices} />
+      {/* TABLE WRAPPER */}
+      <div className="overflow-x-auto">
+        <InvoicesTable invoices={normalizedInvoices} />
+      </div>
+
     </div>
   );
 }
