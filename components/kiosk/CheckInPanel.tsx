@@ -117,37 +117,42 @@ export default function CheckInPanel() {
     <div style={{ padding: 32 }}>
       <h2 style={{ marginBottom: 20 }}>Check-In Panel</h2>
 
-      {/* Toggle */}
-      <div style={{ display: "flex", gap: 12, marginBottom: 20 }}>
-        {["tenant", "employee"].map((t) => {
-          const selected = type === t;
+{/* Toggle */}
+<div style={{ display: "flex", gap: 12, marginBottom: 20 }}>
+  {["tenant", "employee"].map((t) => {
+    const selected = type === t;
 
-          return (
-            <button
-              key={t}
-              onClick={() => {
-                setType(t as any);
-                setSelectedPerson(null);
-                setQuery("");
-                setIsActive(false);
-              }}
-              style={{
-                padding: "10px 20px",
-                borderRadius: 999,
-                border: "1px solid var(--border)",
-                background: selected
-                  ? "var(--surface)"
-                  : "transparent",
-                fontWeight: 700,
-                cursor: "pointer",
-              }}
-            >
-              {t === "tenant" ? "Tenant" : "Employee"}
-            </button>
-          );
-        })}
-      </div>
-
+    return (
+      <button
+        key={t}
+        onClick={() => {
+          setType(t as any);
+          setSelectedPerson(null);
+          setQuery("");
+          setIsActive(false);
+        }}
+        style={{
+          padding: "10px 22px",
+          borderRadius: 999,
+          border: selected
+            ? "2px solid var(--text)"
+            : "1px solid var(--border)",
+          background: selected
+            ? "var(--text)"
+            : "transparent",
+          color: selected
+            ? "var(--bg)"
+            : "var(--text-muted)",
+          fontWeight: 700,
+          cursor: "pointer",
+          transition: "all 0.2s ease",
+        }}
+      >
+        {t === "tenant" ? "Tenant" : "Employee"}
+      </button>
+    );
+  })}
+</div>
       {/* Search */}
       <input
         autoFocus
