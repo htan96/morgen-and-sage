@@ -7,32 +7,52 @@ type Props = {
 
 export default function BillingTypeSelector({ value, onChange }: Props) {
   return (
-    <div className="flex rounded-md border border-[var(--border)] overflow-hidden bg-[var(--bg)]">
-      
+    <div
+      className="relative flex rounded-lg border overflow-hidden"
+      style={{
+        borderColor: "var(--border)",
+        background: "var(--bg)",
+      }}
+    >
+      {/* Sliding Background */}
+      <div
+        className="absolute top-0 bottom-0 transition-all duration-300"
+        style={{
+          width: "50%",
+          left: value === "standard" ? "0%" : "50%",
+          background: "var(--surface)",
+        }}
+      />
+
+      {/* Standard */}
       <button
         type="button"
         onClick={() => onChange("standard")}
-        className={`flex-1 px-4 py-2 text-sm font-medium transition ${
-          value === "standard"
-            ? "bg-[var(--primary)] text-[var(--surface)]"
-            : "text-[var(--text-muted)] hover:bg-[var(--hover)]"
-        }`}
+        className="relative z-10 flex-1 py-2 text-sm font-medium transition-colors"
+        style={{
+          color:
+            value === "standard"
+              ? "var(--text)"
+              : "var(--text-muted)",
+        }}
       >
         Standard
       </button>
 
+      {/* Commissary */}
       <button
         type="button"
         onClick={() => onChange("commissary")}
-        className={`flex-1 px-4 py-2 text-sm font-medium transition ${
-          value === "commissary"
-            ? "bg-[var(--primary)] text-[var(--surface)]"
-            : "text-[var(--text-muted)] hover:bg-[var(--hover)]"
-        }`}
+        className="relative z-10 flex-1 py-2 text-sm font-medium transition-colors"
+        style={{
+          color:
+            value === "commissary"
+              ? "var(--text)"
+              : "var(--text-muted)",
+        }}
       >
         Commissary
       </button>
-
     </div>
   );
 }
