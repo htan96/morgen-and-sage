@@ -2,7 +2,12 @@
 
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
-import { useState } from "react";
+import { useEffect, useState } from "react";
+
+type Kitchen = {
+  id: string;
+  name: string;
+};
 
 type Props = {
   tenant: {
@@ -12,12 +17,39 @@ type Props = {
     phone: string | null;
     created_at: string;
     is_active: boolean;
+    kitchen_space_id: string | null;
   };
 };
 
 export default function TenantHeader({ tenant }: Props) {
   const supabase = createClient();
+
   const [isActive, setIsActive] = useState(tenant.is_active);
+  const [isEditing, setIsEditing] = useState(false);
+  const [kitchens, setKitchens] = useState<Kitchen[]>([]);
+
+  const [form, setForm] = useState({
+    name: tenant.name,
+    email: tenant.email || "",
+    phone: tenant.phone || "",
+    kitchen_space_id: tenant.kitchen_space_id,
+  });
+
+  const [saving, setSaving] = useState(false);
+
+  // Load kitchens
+  useEffect(() => {
+    async function loadKitchens() {
+      const { data } = await supabase
+        .from("kitchen_spaces")
+        .select("id, name")
+        .order("name");
+
+      setKitchens(data || []);
+    }
+
+    loadKitchens();
+  }, []);
 
   async function toggleStatus() {
     const { error } = await supabase
@@ -28,6 +60,36 @@ export default function TenantHeader({ tenant }: Props) {
     if (!error) {
       setIsActive(!isActive);
     }
+  }
+
+  async function handleSave() {
+    setSaving(true);
+
+    const { error } = await supabase
+      .from("tenants")
+      .update({
+        name: form.name,
+        email: form.email || null,
+        phone: form.phone || null,
+        kitchen_space_id: form.kitchen_space_id,
+      })
+      .eq("id", tenant.id);
+
+    setSaving(false);
+
+    if (!error) {
+      setIsEditing(false);
+    }
+  }
+
+  function handleCancel() {
+    setForm({
+      name: tenant.name,
+      email: tenant.email || "",
+      phone: tenant.phone || "",
+      kitchen_space_id: tenant.kitchen_space_id,
+    });
+    setIsEditing(false);
   }
 
   return (
@@ -44,9 +106,19 @@ export default function TenantHeader({ tenant }: Props) {
             ← Back to Tenants
           </Link>
 
-          <h1 className="text-2xl font-semibold text-[var(--text)] mt-2">
-            {tenant.name}
-          </h1>
+          {isEditing ? (
+            <input
+              value={form.name}
+              onChange={(e) =>
+                setForm({ ...form, name: e.target.value })
+              }
+              className="text-2xl font-semibold mt-2 bg-[var(--surface)] border border-[var(--border)] rounded-lg px-3 py-2 text-[var(--text)]"
+            />
+          ) : (
+            <h1 className="text-2xl font-semibold text-[var(--text)] mt-2">
+              {tenant.name}
+            </h1>
+          )}
 
           <p className="text-sm text-[var(--text-muted)]">
             Tenant Control Center
@@ -65,18 +137,76 @@ export default function TenantHeader({ tenant }: Props) {
       </div>
 
       {/* Info Row */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 text-sm">
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-6 text-sm">
 
+        {/* Email */}
         <div>
           <div className="text-[var(--text-muted)]">Email</div>
-          <div className="text-[var(--text)]">{tenant.email || "—"}</div>
+          {isEditing ? (
+            <input
+              value={form.email}
+              onChange={(e) =>
+                setForm({ ...form, email: e.target.value })
+              }
+              className="mt-1 w-full bg-[var(--surface)] border border-[var(--border)] rounded-lg px-3 py-2 text-[var(--text)]"
+            />
+          ) : (
+            <div className="text-[var(--text)]">
+              {tenant.email || "—"}
+            </div>
+          )}
         </div>
 
+        {/* Phone */}
         <div>
           <div className="text-[var(--text-muted)]">Phone</div>
-          <div className="text-[var(--text)]">{tenant.phone || "—"}</div>
+          {isEditing ? (
+            <input
+              value={form.phone}
+              onChange={(e) =>
+                setForm({ ...form, phone: e.target.value })
+              }
+              className="mt-1 w-full bg-[var(--surface)] border border-[var(--border)] rounded-lg px-3 py-2 text-[var(--text)]"
+            />
+          ) : (
+            <div className="text-[var(--text)]">
+              {tenant.phone || "—"}
+            </div>
+          )}
         </div>
 
+        {/* Kitchen Assignment */}
+        <div>
+          <div className="text-[var(--text-muted)]">Kitchen</div>
+          {isEditing ? (
+            <select
+              value={form.kitchen_space_id || ""}
+              onChange={(e) =>
+                setForm({
+                  ...form,
+                  kitchen_space_id:
+                    e.target.value || null,
+                })
+              }
+              className="mt-1 w-full bg-[var(--surface)] border border-[var(--border)] rounded-lg px-3 py-2 text-[var(--text)]"
+            >
+              <option value="">Not Assigned</option>
+              {kitchens.map((k) => (
+                <option key={k.id} value={k.id}>
+                  {k.name}
+                </option>
+              ))}
+            </select>
+          ) : (
+            <div className="text-[var(--text)]">
+              {kitchens.find(
+                (k) => k.id === tenant.kitchen_space_id
+              )?.name || "Not Assigned"}
+            </div>
+          )}
+        </div>
+
+        {/* Created */}
         <div>
           <div className="text-[var(--text-muted)]">Created</div>
           <div className="text-[var(--text)]">
@@ -96,22 +226,33 @@ export default function TenantHeader({ tenant }: Props) {
           {isActive ? "Deactivate Tenant" : "Activate Tenant"}
         </button>
 
-        <button
-          disabled
-          className="px-4 py-2 rounded-lg border border-[var(--border)] bg-[var(--surface)] text-sm opacity-60 cursor-not-allowed"
-        >
-          Generate Next Month Bookings
-        </button>
+        {isEditing ? (
+          <>
+            <button
+              onClick={handleSave}
+              disabled={saving}
+              className="px-4 py-2 rounded-lg bg-[var(--text)] text-[var(--bg)] text-sm"
+            >
+              {saving ? "Saving..." : "Save"}
+            </button>
 
-        <button
-          disabled
-          className="px-4 py-2 rounded-lg border border-[var(--border)] bg-[var(--surface)] text-sm opacity-60 cursor-not-allowed"
-        >
-          Generate Monthly Invoice
-        </button>
+            <button
+              onClick={handleCancel}
+              className="px-4 py-2 rounded-lg border border-[var(--border)] bg-[var(--surface)] text-sm"
+            >
+              Cancel
+            </button>
+          </>
+        ) : (
+          <button
+            onClick={() => setIsEditing(true)}
+            className="px-4 py-2 rounded-lg border border-[var(--border)] bg-[var(--surface)] text-sm"
+          >
+            Edit
+          </button>
+        )}
 
       </div>
-
     </div>
   );
 }
