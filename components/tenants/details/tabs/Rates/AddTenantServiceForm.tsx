@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { createClient } from "@/lib/supabase/client";
-import { Service } from "./types";
+import type { Service } from "./types";
 
 type Props = {
   tenantId: string;
