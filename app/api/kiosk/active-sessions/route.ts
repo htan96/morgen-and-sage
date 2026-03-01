@@ -35,7 +35,8 @@ export async function GET() {
 
     const formatted = data.map((session: any) => ({
       id: session.id,
-      type: session.entity_type,
+      entity_type: session.entity_type,
+      entity_id: session.entity_id,
       person_name:
         session.entity_type === "tenant"
           ? session.tenants?.name

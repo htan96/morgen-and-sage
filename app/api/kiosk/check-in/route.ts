@@ -5,9 +5,9 @@ export async function POST(req: Request) {
   const supabase = supabaseAdmin;
   const body = await req.json();
 
-  const { type, person_id, kitchen_space_id } = body;
+  const { type, person_id } = body;
 
-  if (!type || !person_id || !kitchen_space_id) {
+  if (!type || !person_id) {
     return NextResponse.json(
       { error: "Missing required fields" },
       { status: 400 }
@@ -15,43 +15,76 @@ export async function POST(req: Request) {
   }
 
   let organization_id: string | null = null;
+  let kitchen_space_id: string | null = null;
 
-  // Resolve organization
+  // ---------------------------
+  // TENANT LOGIC
+  // ---------------------------
   if (type === "tenant") {
-    const { data } = await supabase
+    const { data: tenant, error } = await supabase
       .from("tenants")
-      .select("organization_id")
+      .select("organization_id, kitchen_space_id")
       .eq("id", person_id)
       .single();
 
-    if (!data) {
+    if (error || !tenant) {
       return NextResponse.json(
         { error: "Tenant not found" },
         { status: 404 }
       );
     }
 
-    organization_id = data.organization_id;
+    if (!tenant.kitchen_space_id) {
+      return NextResponse.json(
+        { error: "Tenant is not assigned to a kitchen" },
+        { status: 400 }
+      );
+    }
+
+    organization_id = tenant.organization_id;
+    kitchen_space_id = tenant.kitchen_space_id;
+
+    // Check if kitchen is occupied by another tenant
+    const { data: activeKitchen } = await supabase
+      .from("sessions")
+      .select("id")
+      .eq("kitchen_space_id", kitchen_space_id)
+      .eq("entity_type", "tenant")
+      .is("check_out_time", null)
+      .maybeSingle();
+
+    if (activeKitchen) {
+      return NextResponse.json(
+        { error: "Kitchen is currently occupied" },
+        { status: 400 }
+      );
+    }
   }
 
+  // ---------------------------
+  // EMPLOYEE LOGIC
+  // ---------------------------
   if (type === "employee") {
-    const { data } = await supabase
+    const { data: employee, error } = await supabase
       .from("employees")
       .select("organization_id")
       .eq("id", person_id)
       .single();
 
-    if (!data) {
+    if (error || !employee) {
       return NextResponse.json(
         { error: "Employee not found" },
         { status: 404 }
       );
     }
 
-    organization_id = data.organization_id;
+    organization_id = employee.organization_id;
+    kitchen_space_id = null;
   }
 
+  // ---------------------------
   // Prevent double check-in
+  // ---------------------------
   const { data: existing } = await supabase
     .from("sessions")
     .select("id")
@@ -67,8 +100,10 @@ export async function POST(req: Request) {
     );
   }
 
+  // ---------------------------
   // Insert session
-  const { error } = await supabase
+  // ---------------------------
+  const { error: insertError } = await supabase
     .from("sessions")
     .insert({
       organization_id,
@@ -78,9 +113,9 @@ export async function POST(req: Request) {
       check_in_time: new Date().toISOString(),
     });
 
-  if (error) {
+  if (insertError) {
     return NextResponse.json(
-      { error: error.message },
+      { error: insertError.message },
       { status: 500 }
     );
   }
