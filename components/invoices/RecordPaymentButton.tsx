@@ -27,17 +27,19 @@ export default function RecordPaymentButton({
     setLoading(true);
 
     const res = await fetch("/api/payments", {
-      method: "POST",
-      body: JSON.stringify({
-        invoiceId,
-        tenantId,
-        organizationId,
-        amount,
-        method,
-        notes,
-      }),
-    });
-
+  method: "POST",
+  headers: {
+    "Content-Type": "application/json",
+  },
+  body: JSON.stringify({
+    invoiceId,
+    tenantId,
+    organizationId,
+    amount: Number(amount),
+    method,
+    notes,
+  }),
+});
     setLoading(false);
 
     if (res.ok) {

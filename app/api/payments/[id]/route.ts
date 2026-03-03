@@ -1,25 +1,42 @@
 import { createClient } from "@/lib/supabase/server";
 import { NextRequest, NextResponse } from "next/server";
 
-export async function DELETE(
-  request: NextRequest,
-  context: { params: Promise<{ id: string }> }
-) {
-  const { id } = await context.params;
+export async function POST(request: NextRequest) {
+  try {
+    const body = await request.json();
+    const { invoiceId, tenantId, organizationId, amount, method, notes } = body;
 
-  const supabase = await createClient();
+    if (!invoiceId || !tenantId || !organizationId || !amount) {
+      return NextResponse.json(
+        { error: "Missing required fields" },
+        { status: 400 }
+      );
+    }
 
-  const { error } = await supabase
-    .from("payments")
-    .delete()
-    .eq("id", id);
+    const supabase = await createClient();
 
-  if (error) {
+    const { error } = await supabase.from("payments").insert({
+      invoice_id: invoiceId,
+      tenant_id: tenantId,
+      organization_id: organizationId,
+      amount: Number(amount),
+      method,
+      notes,
+    });
+
+    if (error) {
+      return NextResponse.json(
+        { error: error.message },
+        { status: 500 }
+      );
+    }
+
+    return NextResponse.json({ success: true });
+
+  } catch (err: any) {
     return NextResponse.json(
-      { success: false, error: error.message },
+      { error: err.message },
       { status: 500 }
     );
   }
-
-  return NextResponse.json({ success: true });
 }

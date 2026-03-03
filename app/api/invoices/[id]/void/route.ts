@@ -1,7 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { NextRequest, NextResponse } from "next/server";
 
-export async function POST(
+export async function DELETE(
   request: NextRequest,
   context: { params: Promise<{ id: string }> }
 ) {
@@ -9,10 +9,17 @@ export async function POST(
 
   const supabase = await createClient();
 
-  await supabase
-    .from("invoices")
-    .update({ status: "void" })
+  const { error } = await supabase
+    .from("payments")
+    .delete()
     .eq("id", id);
+
+  if (error) {
+    return NextResponse.json(
+      { success: false, error: error.message },
+      { status: 500 }
+    );
+  }
 
   return NextResponse.json({ success: true });
 }
