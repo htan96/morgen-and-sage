@@ -9,8 +9,6 @@ export default function DocumentsHeader({
 }: Props) {
   return (
     <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-
-      {/* LEFT SIDE */}
       <div>
         <h1 className="text-2xl sm:text-3xl font-semibold">
           Documents
@@ -24,19 +22,10 @@ export default function DocumentsHeader({
         </p>
       </div>
 
-      {/* BUTTON GROUP */}
       <div className="flex flex-col sm:flex-row gap-3 w-full sm:w-auto">
-
-        {/* Manual Expense (Secondary) */}
         <button
           onClick={onManualClick}
-          className="
-            w-full sm:w-auto
-            px-5 py-2.5
-            rounded-lg
-            text-sm font-medium
-            transition
-          "
+          className="w-full sm:w-auto px-5 py-2.5 rounded-lg text-sm font-medium transition"
           style={{
             background: "transparent",
             color: "var(--text)",
@@ -46,16 +35,9 @@ export default function DocumentsHeader({
           + Manual Expense
         </button>
 
-        {/* Upload Files (Primary) */}
         <button
           onClick={onUploadClick}
-          className="
-            w-full sm:w-auto
-            px-5 py-2.5
-            rounded-lg
-            text-sm font-medium
-            transition
-          "
+          className="w-full sm:w-auto px-5 py-2.5 rounded-lg text-sm font-medium transition"
           style={{
             background: "var(--text)",
             color: "var(--bg)",
@@ -64,7 +46,6 @@ export default function DocumentsHeader({
         >
           Upload Files
         </button>
-
       </div>
     </div>
   );
