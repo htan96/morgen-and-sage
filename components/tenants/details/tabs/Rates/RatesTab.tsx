@@ -56,6 +56,7 @@ export default function RatesTab({ tenantId }: Props) {
       .eq("tenant_id", tenantId)
       .order("created_at", { ascending: false });
 
+console.log("TENANT SERVICES RAW:", JSON.stringify(tenantServiceList, null, 2));
     if (tenantError) {
       console.error("Tenant services fetch error:", tenantError);
     }
