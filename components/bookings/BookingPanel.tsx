@@ -54,7 +54,6 @@ export default function BookingPanel({
   const [tenantId, setTenantId] = useState<string | null>(null);
   const [panelKitchenId, setPanelKitchenId] = useState<string | null>(null);
 
-  // ✅ NEW: invoice preview state
   const [invoicePreview, setInvoicePreview] = useState<any | null>(null);
   const [previewLoading, setPreviewLoading] = useState(false);
 
@@ -64,7 +63,9 @@ export default function BookingPanel({
 
   const isEditMode = !!editingBooking;
 
-  // ✅ NEW: Fetch preview when tenant or draft bookings change
+  // =============================
+  // Invoice Preview Fetch
+  // =============================
   useEffect(() => {
     if (!tenantId || draftBookings.length === 0 || isEditMode) {
       setInvoicePreview(null);
@@ -72,41 +73,64 @@ export default function BookingPanel({
     }
 
     const fetchPreview = async () => {
-      setPreviewLoading(true);
+      try {
+        setPreviewLoading(true);
 
-      const res = await fetch("/api/bookings/preview", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          organizationId,
-          tenantId,
-          bookings: draftBookings.map((d) => ({
-            startTime: new Date(d.startTime).toISOString(),
-            endTime: new Date(d.endTime).toISOString(),
-          })),
-        }),
-      });
+        const res = await fetch("/api/bookings/preview", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            organizationId,
+            tenantId,
+            bookings: draftBookings.map((d) => ({
+              startTime: new Date(d.startTime).toISOString(),
+              endTime: new Date(d.endTime).toISOString(),
+            })),
+          }),
+        });
 
-      const data = await res.json();
-      setInvoicePreview(data);
-      setPreviewLoading(false);
+        const data = await res.json();
+
+        if (!res.ok) {
+          console.error("Preview error:", data);
+          setInvoicePreview(null);
+          return;
+        }
+
+        setInvoicePreview(data);
+      } catch (err) {
+        console.error("Preview failed:", err);
+        setInvoicePreview(null);
+      } finally {
+        setPreviewLoading(false);
+      }
     };
 
     fetchPreview();
   }, [tenantId, draftBookings, isEditMode]);
 
+  // =============================
+  // Submit Handler
+  // =============================
   const handleSubmit = async () => {
+    if (loading || previewLoading) return;
+
     setLoading(true);
 
     try {
       if (isEditMode && editingBooking) {
-        await supabase
+        const { error } = await supabase
           .from("bookings")
           .update({
             start_time: editingBooking.start_time,
             end_time: editingBooking.end_time,
           })
           .eq("id", editingBooking.id);
+
+        if (error) {
+          alert(error.message);
+          return;
+        }
 
         onClose();
         router.refresh();
@@ -118,8 +142,9 @@ export default function BookingPanel({
         return;
       }
 
+      // 🔥 Await properly & catch failures
       for (const draft of draftBookings) {
-        await createBooking({
+        const result = await createBooking({
           organizationId,
           tenantId,
           kitchenSpaceId: panelKitchenId,
@@ -127,11 +152,19 @@ export default function BookingPanel({
           endTime: new Date(draft.endTime).toISOString(),
           notes: "",
         });
+
+        if (!result?.booking) {
+          alert(result?.error || "Failed to create booking");
+          return;
+        }
       }
 
       clearDrafts();
       onClose();
       router.refresh();
+    } catch (err: any) {
+      console.error("Submit failed:", err);
+      alert("Something went wrong");
     } finally {
       setLoading(false);
     }
@@ -141,7 +174,7 @@ export default function BookingPanel({
     <>
       <div
         className="fixed inset-0 bg-black/40 z-40"
-        onClick={onClose}
+        onClick={!loading ? onClose : undefined}
       />
 
       <div
@@ -210,9 +243,7 @@ export default function BookingPanel({
               <div
                 key={draft.id}
                 className="p-4 rounded-lg space-y-3"
-                style={{
-                  border: "1px solid var(--border)",
-                }}
+                style={{ border: "1px solid var(--border)" }}
               >
                 <input
                   type="datetime-local"
@@ -258,15 +289,12 @@ export default function BookingPanel({
             <button
               onClick={addNextDayDraft}
               className="w-full py-2 rounded-lg text-sm"
-              style={{
-                border: "1px dashed var(--border)",
-              }}
+              style={{ border: "1px dashed var(--border)" }}
             >
               + Add Next Day (9AM–1PM)
             </button>
           )}
 
-          {/* ✅ NEW: Invoice Preview Block */}
           {invoicePreview && (
             <div
               className="p-4 rounded-lg space-y-3"
@@ -329,7 +357,7 @@ export default function BookingPanel({
             style={{
               background: "var(--text)",
               color: "var(--bg)",
-              opacity: loading ? 0.7 : 1,
+              opacity: loading || previewLoading ? 0.7 : 1,
             }}
           >
             {loading
