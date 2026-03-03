@@ -24,17 +24,21 @@ export default function RatesTab({ tenantId }: Props) {
   async function fetchData() {
     setLoading(true);
 
-    // Fetch available services
+    /* -----------------------------
+       1️⃣ Fetch ALL services (dropdown)
+    ----------------------------- */
     const { data: serviceList, error: serviceError } = await supabase
       .from("services")
-      .select("id, name, default_amount, default_frequency")
+      .select("*")
       .order("name");
 
     if (serviceError) {
       console.error("Services fetch error:", serviceError);
     }
 
-    // 🚨 EXPLICIT RELATION USING FK NAME
+    /* -----------------------------
+       2️⃣ Fetch tenant services with EXPLICIT FK JOIN
+    ----------------------------- */
     const { data: tenantServiceList, error: tenantError } = await supabase
       .from("tenant_services")
       .select(`
@@ -56,7 +60,9 @@ export default function RatesTab({ tenantId }: Props) {
       console.error("Tenant services fetch error:", tenantError);
     }
 
-    // No normalization needed — this will now return object, not empty
+    /* -----------------------------
+       3️⃣ Format safely
+    ----------------------------- */
     const formatted: TenantService[] = (tenantServiceList || []).map(
       (item: any) => ({
         id: item.id,
@@ -74,6 +80,9 @@ export default function RatesTab({ tenantId }: Props) {
     setLoading(false);
   }
 
+  /* -----------------------------
+     UPDATE
+  ----------------------------- */
   async function updateService(
     id: string,
     amount: number,
@@ -88,6 +97,9 @@ export default function RatesTab({ tenantId }: Props) {
     if (!error) fetchData();
   }
 
+  /* -----------------------------
+     TOGGLE STATUS
+  ----------------------------- */
   async function toggleStatus(id: string, current: boolean) {
     const { error } = await supabase
       .from("tenant_services")
@@ -97,6 +109,9 @@ export default function RatesTab({ tenantId }: Props) {
     if (!error) fetchData();
   }
 
+  /* -----------------------------
+     DELETE
+  ----------------------------- */
   async function deleteService(id: string) {
     const { error } = await supabase
       .from("tenant_services")
@@ -117,6 +132,7 @@ export default function RatesTab({ tenantId }: Props) {
   return (
     <div className="space-y-6">
 
+      {/* HEADER */}
       <div>
         <h2 className="text-lg font-semibold text-[var(--text)]">
           Billing Configuration
@@ -126,6 +142,7 @@ export default function RatesTab({ tenantId }: Props) {
         </p>
       </div>
 
+      {/* SERVICES TABLE */}
       <TenantServicesTable
         tenantServices={tenantServices}
         onUpdate={updateService}
@@ -133,11 +150,13 @@ export default function RatesTab({ tenantId }: Props) {
         onToggleStatus={toggleStatus}
       />
 
+      {/* ADD BILLING SERVICE FORM */}
       <AddTenantServiceForm
         tenantId={tenantId}
         services={services}
         onAdded={fetchData}
       />
+
     </div>
   );
 }
