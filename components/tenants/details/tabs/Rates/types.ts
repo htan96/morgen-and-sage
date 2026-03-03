@@ -7,13 +7,12 @@ export type Service = {
 
 export type TenantService = {
   id: string;
-  service_id: string;
   amount: number;
-  quantity: number;
   frequency: string;
+  quantity: number;
   is_active: boolean;
-  due_date: string | null;
   services: {
+    id: string;
     name: string;
   } | null;
 };

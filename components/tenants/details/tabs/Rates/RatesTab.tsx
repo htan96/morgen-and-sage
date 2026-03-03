@@ -18,31 +18,65 @@ export default function RatesTab({ tenantId }: Props) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    fetchData();
+    if (tenantId) {
+      fetchData();
+    }
   }, [tenantId]);
 
   async function fetchData() {
     setLoading(true);
 
+    // Fetch all available services (for dropdown)
     const { data: serviceList, error: serviceError } = await supabase
       .from("services")
-      .select("*")
+      .select("id, name, default_amount, default_frequency")
       .order("name");
 
+    if (serviceError) {
+      console.error("Services fetch error:", serviceError);
+    }
+
+    // Fetch tenant services with relation join
     const { data: tenantServiceList, error: tenantError } = await supabase
       .from("tenant_services")
-      .select("*, services(name)")
-      .eq("tenant_id", tenantId);
+      .select(`
+        id,
+        amount,
+        frequency,
+        quantity,
+        is_active,
+        service_id,
+        services (
+          id,
+          name
+        )
+      `)
+      .eq("tenant_id", tenantId)
+      .order("created_at", { ascending: false });
 
-    if (serviceError) console.error(serviceError);
-    if (tenantError) console.error(tenantError);
+    if (tenantError) {
+      console.error("Tenant services fetch error:", tenantError);
+    }
+
+    // Normalize Supabase nested array → single object
+    const normalized: TenantService[] = (tenantServiceList || []).map(
+      (item: any) => ({
+        id: item.id,
+        amount: item.amount,
+        frequency: item.frequency,
+        quantity: item.quantity,
+        is_active: item.is_active,
+        service_id: item.service_id,
+        services: item.services?.[0] ?? null,
+      })
+    );
 
     setServices(serviceList || []);
-    setTenantServices(tenantServiceList || []);
+    setTenantServices(normalized);
     setLoading(false);
   }
 
-  // 🔧 EDIT UPDATE
+  // UPDATE
   async function updateService(
     id: string,
     amount: number,
@@ -66,7 +100,7 @@ export default function RatesTab({ tenantId }: Props) {
     await fetchData();
   }
 
-  // 🔧 STATUS TOGGLE
+  // TOGGLE ACTIVE STATUS
   async function toggleStatus(id: string, current: boolean) {
     const { error } = await supabase
       .from("tenant_services")
@@ -83,7 +117,7 @@ export default function RatesTab({ tenantId }: Props) {
     await fetchData();
   }
 
-  // 🔧 DELETE
+  // DELETE
   async function deleteService(id: string) {
     const { error } = await supabase
       .from("tenant_services")
@@ -98,7 +132,13 @@ export default function RatesTab({ tenantId }: Props) {
     await fetchData();
   }
 
-  if (loading) return <div>Loading services...</div>;
+  if (loading) {
+    return (
+      <div className="py-6 text-sm text-[var(--text-muted)]">
+        Loading services...
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -121,13 +161,12 @@ export default function RatesTab({ tenantId }: Props) {
         onToggleStatus={toggleStatus}
       />
 
-      {/* ADD FORM ALWAYS VISIBLE */}
+      {/* ADD FORM */}
       <AddTenantServiceForm
         tenantId={tenantId}
         services={services}
         onAdded={fetchData}
       />
-
     </div>
   );
 }
