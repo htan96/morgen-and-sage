@@ -22,45 +22,25 @@ export async function POST(request: NextRequest) {
 
     const supabase = await createClient();
 
-    // 1️⃣ Insert payment
-    const { error: paymentError } = await supabase
+    const { error } = await supabase
       .from("payments")
       .insert({
-        invoice_id: invoiceId,
-        tenant_id: tenantId,
         organization_id: organizationId,
+        tenant_id: tenantId,
+        invoice_id: invoiceId,
         amount: Number(amount),
-        method,
+        payment_method: method,        // ✅ FIXED COLUMN NAME
+        status: "completed",           // ✅ REQUIRED
+        payment_date: new Date().toISOString(), // ✅ REQUIRED
         notes,
       });
 
-    if (paymentError) {
+    if (error) {
+      console.error("Payment insert error:", error);
       return NextResponse.json(
-        { error: paymentError.message },
+        { error: error.message },
         { status: 500 }
       );
-    }
-
-    // 2️⃣ Update invoice remaining balance
-    const { data: invoice } = await supabase
-      .from("invoices")
-      .select("remaining_balance, total_amount")
-      .eq("id", invoiceId)
-      .single();
-
-    if (invoice) {
-      const newRemaining =
-        Number(invoice.remaining_balance) - Number(amount);
-
-      const isPaid = newRemaining <= 0;
-
-      await supabase
-        .from("invoices")
-        .update({
-          remaining_balance: isPaid ? 0 : newRemaining,
-          status: isPaid ? "paid" : "partial",
-        })
-        .eq("id", invoiceId);
     }
 
     return NextResponse.json({ success: true });

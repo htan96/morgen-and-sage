@@ -22,29 +22,48 @@ export default function RecordPaymentButton({
   const router = useRouter();
 
   async function handleSubmit() {
-    if (!amount || Number(amount) <= 0) return;
+    if (!amount || Number(amount) <= 0) {
+      alert("Enter a valid amount");
+      return;
+    }
 
-    setLoading(true);
+    try {
+      setLoading(true);
 
-    const res = await fetch("/api/payments", {
-  method: "POST",
-  headers: {
-    "Content-Type": "application/json",
-  },
-  body: JSON.stringify({
-    invoiceId,
-    tenantId,
-    organizationId,
-    amount: Number(amount),
-    method,
-    notes,
-  }),
-});
-    setLoading(false);
+      const res = await fetch("/api/payments", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          invoiceId,
+          tenantId,
+          organizationId,
+          amount: Number(amount),
+          method,
+          notes,
+        }),
+      });
 
-    if (res.ok) {
+      const data = await res.json();
+
+      console.log("Payment API response:", data);
+
+      if (!res.ok) {
+        alert(data.error || "Payment failed");
+        return;
+      }
+
       setOpen(false);
+      setAmount("");
+      setNotes("");
+      setMethod("cash");
       router.refresh();
+    } catch (err) {
+      console.error("Payment request failed:", err);
+      alert("Something went wrong");
+    } finally {
+      setLoading(false);
     }
   }
 
@@ -104,7 +123,7 @@ export default function RecordPaymentButton({
 
             <div className="flex justify-end gap-2">
               <button
-                onClick={() => setOpen(false)}
+                onClick={() => !loading && setOpen(false)}
                 className="px-3 py-2 text-sm"
               >
                 Cancel
