@@ -251,3 +251,14 @@ select:focus {
   opacity: 0.5;
   cursor: not-allowed;
 }
+
+@media print {
+  @page {
+    size: letter;
+    margin: 0.75in;
+  }
+
+  body {
+    background: white !important;
+  }
+}

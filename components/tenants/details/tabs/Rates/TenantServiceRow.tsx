@@ -35,9 +35,9 @@ export default function TenantServiceRow({
   return (
     <tr className="border-t border-[var(--border)] hover:bg-[var(--hover)] transition-colors">
 
-      {/* ✅ FIXED SERVICE NAME */}
+      {/* Service Name */}
       <td className="px-6 py-4 font-medium text-[var(--text)]">
-        {item.services?.[0]?.name || "Unknown"}
+        {item.services?.[0]?.name ?? "Unknown"}
       </td>
 
       {/* Amount */}

@@ -11,6 +11,10 @@ export default function InvoiceActions({
 }) {
   const router = useRouter();
 
+  if (!invoiceId) {
+    return null; // Prevent rendering if undefined
+  }
+
   async function handleVoid() {
     const confirmVoid = confirm(
       "Are you sure you want to void this invoice?"
@@ -37,7 +41,7 @@ export default function InvoiceActions({
 
       {/* PDF BUTTON */}
       <Link
-        href={`/admin/invoices/${invoiceId}/pdf`}
+        href={`/reports/invoice/${invoiceId}`}
         target="_blank"
         className="
           w-full sm:w-auto
@@ -55,7 +59,7 @@ export default function InvoiceActions({
         }}
       >
         <Printer size={16} />
-        <span className="sm:inline">PDF</span>
+        <span>PDF</span>
       </Link>
 
       {/* VOID BUTTON */}
@@ -77,7 +81,7 @@ export default function InvoiceActions({
         }}
       >
         <Ban size={16} />
-        <span className="sm:inline">Void</span>
+        <span>Void</span>
       </button>
 
     </div>

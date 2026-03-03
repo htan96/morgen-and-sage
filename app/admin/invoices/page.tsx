@@ -1,5 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
-import InvoicesTable from "@/components/invoices/InvoicesTable";
+import InvoicesDashboard from "@/components/invoices/InvoiceDashboard";
 
 const ORG_ID = "49c3ef02-cb09-4fde-82d8-2012e5945ba2";
 
@@ -31,27 +31,5 @@ export default async function InvoicesPage() {
         : inv.tenant ?? null,
     })) ?? [];
 
-  return (
-    <div className="w-full px-3 sm:px-5 md:px-8 py-5 md:py-6 space-y-6 md:space-y-8">
-
-      {/* HEADER */}
-      <div>
-        <h1 className="text-xl sm:text-2xl md:text-3xl font-semibold">
-          Invoices
-        </h1>
-        <p
-          className="text-sm mt-1"
-          style={{ color: "var(--text-muted)" }}
-        >
-          Manage and monitor all invoices.
-        </p>
-      </div>
-
-      {/* TABLE WRAPPER */}
-      <div className="overflow-x-auto">
-        <InvoicesTable invoices={normalizedInvoices} />
-      </div>
-
-    </div>
-  );
+  return <InvoicesDashboard invoices={normalizedInvoices} />;
 }

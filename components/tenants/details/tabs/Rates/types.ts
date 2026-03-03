@@ -12,10 +12,10 @@ export type TenantService = {
   quantity: number;
   is_active: boolean;
   service_id: string;
+
   services: {
     id: string;
     name: string;
-  }[] | null; // ✅ FIXED — now an array
+  }[] | null;
 };
-
 export {};

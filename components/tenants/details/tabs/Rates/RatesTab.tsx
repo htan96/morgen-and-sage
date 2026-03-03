@@ -14,19 +14,18 @@ export default function RatesTab({ tenantId }: Props) {
   const supabase = createClient();
 
   const [services, setServices] = useState<Service[]>([]);
-  const [tenantServices, setTenantServices] = useState<TenantService[]>([]);
+  const [tenantServices, setTenantServices] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (tenantId) fetchData();
+    if (!tenantId) return;
+    fetchData();
   }, [tenantId]);
 
   async function fetchData() {
     setLoading(true);
 
-    /* -----------------------------
-       1️⃣ Fetch ALL services (dropdown)
-    ----------------------------- */
+    // 1️⃣ Get all services
     const { data: serviceList, error: serviceError } = await supabase
       .from("services")
       .select("*")
@@ -36,104 +35,73 @@ export default function RatesTab({ tenantId }: Props) {
       console.error("Services fetch error:", serviceError);
     }
 
-    /* -----------------------------
-       2️⃣ Fetch tenant services with EXPLICIT FK JOIN
-    ----------------------------- */
+    // 2️⃣ Get tenant services (NO JOIN)
     const { data: tenantServiceList, error: tenantError } = await supabase
       .from("tenant_services")
-      .select(`
-        id,
-        amount,
-        frequency,
-        quantity,
-        is_active,
-        service_id,
-        services:services!tenant_services_service_id_fkey (
-          id,
-          name
-        )
-      `)
-      .eq("tenant_id", tenantId)
-      .order("created_at", { ascending: false });
+      .select("*")
+      .eq("tenant_id", tenantId);
 
-console.log("TENANT SERVICES RAW:", JSON.stringify(tenantServiceList, null, 2));
     if (tenantError) {
       console.error("Tenant services fetch error:", tenantError);
     }
 
-    /* -----------------------------
-       3️⃣ Format safely
-    ----------------------------- */
-    const formatted: TenantService[] = (tenantServiceList || []).map(
-      (item: any) => ({
-        id: item.id,
-        amount: item.amount,
-        frequency: item.frequency,
-        quantity: item.quantity,
-        is_active: item.is_active,
-        service_id: item.service_id,
-        services: item.services ?? null,
-      })
-    );
+    // 3️⃣ Build service lookup map
+    const serviceMap: Record<string, Service> = {};
+    (serviceList || []).forEach((s) => {
+      serviceMap[s.id] = s;
+    });
+
+    // 4️⃣ Attach service info manually
+    const enrichedTenantServices = (tenantServiceList || []).map((ts) => ({
+      ...ts,
+      services: serviceMap[ts.service_id]
+        ? [{ id: serviceMap[ts.service_id].id, name: serviceMap[ts.service_id].name }]
+        : null,
+    }));
 
     setServices(serviceList || []);
-    setTenantServices(formatted);
+    setTenantServices(enrichedTenantServices);
     setLoading(false);
   }
 
-  /* -----------------------------
-     UPDATE
-  ----------------------------- */
   async function updateService(
     id: string,
     amount: number,
     frequency: string,
     quantity: number
   ) {
-    const { error } = await supabase
+    await supabase
       .from("tenant_services")
       .update({ amount, frequency, quantity })
       .eq("id", id);
 
-    if (!error) fetchData();
+    fetchData();
   }
 
-  /* -----------------------------
-     TOGGLE STATUS
-  ----------------------------- */
   async function toggleStatus(id: string, current: boolean) {
-    const { error } = await supabase
+    await supabase
       .from("tenant_services")
       .update({ is_active: !current })
       .eq("id", id);
 
-    if (!error) fetchData();
+    fetchData();
   }
 
-  /* -----------------------------
-     DELETE
-  ----------------------------- */
   async function deleteService(id: string) {
-    const { error } = await supabase
+    await supabase
       .from("tenant_services")
       .delete()
       .eq("id", id);
 
-    if (!error) fetchData();
+    fetchData();
   }
 
   if (loading) {
-    return (
-      <div className="py-6 text-sm text-[var(--text-muted)]">
-        Loading services...
-      </div>
-    );
+    return <div className="py-6">Loading services...</div>;
   }
 
   return (
     <div className="space-y-6">
-
-      {/* HEADER */}
       <div>
         <h2 className="text-lg font-semibold text-[var(--text)]">
           Billing Configuration
@@ -143,7 +111,6 @@ console.log("TENANT SERVICES RAW:", JSON.stringify(tenantServiceList, null, 2));
         </p>
       </div>
 
-      {/* SERVICES TABLE */}
       <TenantServicesTable
         tenantServices={tenantServices}
         onUpdate={updateService}
@@ -151,13 +118,11 @@ console.log("TENANT SERVICES RAW:", JSON.stringify(tenantServiceList, null, 2));
         onToggleStatus={toggleStatus}
       />
 
-      {/* ADD BILLING SERVICE FORM */}
       <AddTenantServiceForm
         tenantId={tenantId}
         services={services}
         onAdded={fetchData}
       />
-
     </div>
   );
 }
