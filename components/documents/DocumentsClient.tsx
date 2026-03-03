@@ -11,6 +11,7 @@ import ReviewDocumentsView from "./ReviewDocumentsView";
 import DocumentsAnalytics from "./DocumentsAnalytics";
 import DocumentsReports from "./DocumentsReports";
 import UploadDocumentsModal from "./UploadDocumentsModal";
+import ManualExpenseModal from "./ManualExpenseModal"; // ✅ ADD THIS
 
 type TabType = "all" | "review" | "analytics" | "reports";
 
@@ -20,10 +21,11 @@ export default function DocumentsClient() {
 
   const [activeTab, setActiveTab] = useState<TabType>("all");
   const [isUploadOpen, setIsUploadOpen] = useState(false);
+  const [isManualOpen, setIsManualOpen] = useState(false); // ✅ ADD THIS
   const [organizations, setOrganizations] = useState<any[]>([]);
 
   /* ------------------------------------
-     Fetch Organizations (Upload Modal)
+     Fetch Organizations
   ------------------------------------ */
   useEffect(() => {
     async function fetchOrganizations() {
@@ -53,6 +55,7 @@ export default function DocumentsClient() {
         {/* Header */}
         <DocumentsHeader
           onUploadClick={() => setIsUploadOpen(true)}
+          onManualClick={() => setIsManualOpen(true)} // ✅ FIXED
         />
 
         {/* Tabs */}
@@ -78,6 +81,17 @@ export default function DocumentsClient() {
         onUploadComplete={() => {
           setIsUploadOpen(false);
           router.refresh();
+        }}
+      />
+
+      {/* Manual Expense Modal */}
+      <ManualExpenseModal
+        open={isManualOpen}
+        onClose={() => setIsManualOpen(false)}
+        organizations={organizations}
+        onCreated={() => {
+          setIsManualOpen(false);
+          router.refresh(); // refresh documents list
         }}
       />
     </div>
