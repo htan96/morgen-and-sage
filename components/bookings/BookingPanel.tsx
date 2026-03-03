@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { createBooking } from "@/app/actions/createBooking";
 import { createClient } from "@/lib/supabase/client";
@@ -8,7 +8,7 @@ import { Booking } from "@/types/booking";
 
 type DraftBooking = {
   id: string;
-  startTime: string; // local format YYYY-MM-DDTHH:MM
+  startTime: string;
   endTime: string;
 };
 
@@ -27,10 +27,7 @@ type Props = {
   onClose: () => void;
   draftBookings: DraftBooking[];
   removeDraft: (id: string) => void;
-  updateDraft: (
-    id: string,
-    updates: Partial<DraftBooking>
-  ) => void;
+  updateDraft: (id: string, updates: Partial<DraftBooking>) => void;
   editingBooking: Booking | null;
   tenants: Tenant[];
   kitchens: Kitchen[];
@@ -55,15 +52,48 @@ export default function BookingPanel({
 
   const [loading, setLoading] = useState(false);
   const [tenantId, setTenantId] = useState<string | null>(null);
-  const [panelKitchenId, setPanelKitchenId] =
-    useState<string | null>(null);
+  const [panelKitchenId, setPanelKitchenId] = useState<string | null>(null);
 
-  const organizationId =
-    "49c3ef02-cb09-4fde-82d8-2012e5945ba2";
+  // ✅ NEW: invoice preview state
+  const [invoicePreview, setInvoicePreview] = useState<any | null>(null);
+  const [previewLoading, setPreviewLoading] = useState(false);
+
+  const organizationId = "49c3ef02-cb09-4fde-82d8-2012e5945ba2";
 
   if (!isOpen) return null;
 
   const isEditMode = !!editingBooking;
+
+  // ✅ NEW: Fetch preview when tenant or draft bookings change
+  useEffect(() => {
+    if (!tenantId || draftBookings.length === 0 || isEditMode) {
+      setInvoicePreview(null);
+      return;
+    }
+
+    const fetchPreview = async () => {
+      setPreviewLoading(true);
+
+      const res = await fetch("/api/bookings/preview", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          organizationId,
+          tenantId,
+          bookings: draftBookings.map((d) => ({
+            startTime: new Date(d.startTime).toISOString(),
+            endTime: new Date(d.endTime).toISOString(),
+          })),
+        }),
+      });
+
+      const data = await res.json();
+      setInvoicePreview(data);
+      setPreviewLoading(false);
+    };
+
+    fetchPreview();
+  }, [tenantId, draftBookings, isEditMode]);
 
   const handleSubmit = async () => {
     setLoading(true);
@@ -93,7 +123,6 @@ export default function BookingPanel({
           organizationId,
           tenantId,
           kitchenSpaceId: panelKitchenId,
-          // 🔥 Convert to UTC ONLY HERE
           startTime: new Date(draft.startTime).toISOString(),
           endTime: new Date(draft.endTime).toISOString(),
           notes: "",
@@ -135,14 +164,10 @@ export default function BookingPanel({
           {!isEditMode && (
             <>
               <div>
-                <label className="block text-sm mb-2">
-                  Kitchen
-                </label>
+                <label className="block text-sm mb-2">Kitchen</label>
                 <select
                   value={panelKitchenId ?? ""}
-                  onChange={(e) =>
-                    setPanelKitchenId(e.target.value)
-                  }
+                  onChange={(e) => setPanelKitchenId(e.target.value)}
                   className="w-full rounded-lg px-3 py-2"
                   style={{
                     background: "var(--surface)",
@@ -159,14 +184,10 @@ export default function BookingPanel({
               </div>
 
               <div>
-                <label className="block text-sm mb-2">
-                  Tenant
-                </label>
+                <label className="block text-sm mb-2">Tenant</label>
                 <select
                   value={tenantId ?? ""}
-                  onChange={(e) =>
-                    setTenantId(e.target.value)
-                  }
+                  onChange={(e) => setTenantId(e.target.value)}
                   className="w-full rounded-lg px-3 py-2"
                   style={{
                     background: "var(--surface)",
@@ -193,7 +214,6 @@ export default function BookingPanel({
                   border: "1px solid var(--border)",
                 }}
               >
-                {/* ✅ NO ISO conversion here */}
                 <input
                   type="datetime-local"
                   value={draft.startTime}
@@ -225,9 +245,7 @@ export default function BookingPanel({
                 />
 
                 <button
-                  onClick={() =>
-                    removeDraft(draft.id)
-                  }
+                  onClick={() => removeDraft(draft.id)}
                   className="text-sm"
                   style={{ color: "#ef4444" }}
                 >
@@ -247,6 +265,57 @@ export default function BookingPanel({
               + Add Next Day (9AM–1PM)
             </button>
           )}
+
+          {/* ✅ NEW: Invoice Preview Block */}
+          {invoicePreview && (
+            <div
+              className="p-4 rounded-lg space-y-3"
+              style={{ border: "1px solid var(--border)" }}
+            >
+              <h3 className="text-sm font-semibold">
+                Invoice Preview
+              </h3>
+
+              <div className="text-sm">
+                {invoicePreview.bookingCount} dates selected
+              </div>
+
+              <div className="text-sm">
+                {invoicePreview.earliestDate} –{" "}
+                {invoicePreview.latestDate}
+              </div>
+
+              <div className="border-t pt-2 text-sm">
+                {invoicePreview.totalHours} hrs @ $
+                {invoicePreview.hourlyRate}/hr
+              </div>
+
+              <div className="text-sm">
+                Usage: ${invoicePreview.usageSubtotal}
+              </div>
+
+              {invoicePreview.monthlyFee !== null && (
+                <div className="text-sm">
+                  Monthly Fee ({invoicePreview.monthLabel}): $
+                  {invoicePreview.monthlyFee}
+                </div>
+              )}
+
+              {invoicePreview.monthlyAlreadyBilled && (
+                <div className="text-xs opacity-60">
+                  Monthly fee already billed
+                </div>
+              )}
+
+              <div className="border-t pt-2 font-medium text-sm">
+                Total: ${invoicePreview.total}
+              </div>
+
+              <div className="text-xs opacity-70">
+                Due: {invoicePreview.dueDateLabel}
+              </div>
+            </div>
+          )}
         </div>
 
         <div
@@ -255,7 +324,7 @@ export default function BookingPanel({
         >
           <button
             onClick={handleSubmit}
-            disabled={loading}
+            disabled={loading || previewLoading}
             className="w-full py-3 rounded-lg font-medium"
             style={{
               background: "var(--text)",
