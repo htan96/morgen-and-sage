@@ -63,49 +63,51 @@ export default function InvoicesTable({ invoices }: Props) {
           </thead>
 
           <tbody>
-            {invoices.map((invoice) => (
-              <tr
-                key={invoice.id}
-                className="cursor-pointer hover:bg-[var(--hover)] transition"
-                style={{
-                  borderBottom: "1px solid var(--border)",
-                }}
-              >
-                <td className="p-3">
-                  <Link
-                    href={`/admin/invoices/${invoice.id}`}
-                    className="font-medium underline"
-                  >
-                    {invoice.invoice_number}
-                  </Link>
-                </td>
+  {invoices
+    .filter((invoice) => invoice.status !== "void")
+    .map((invoice) => (
+      <tr
+        key={invoice.id}
+        className="cursor-pointer hover:bg-[var(--hover)] transition"
+        style={{
+          borderBottom: "1px solid var(--border)",
+        }}
+      >
+        <td className="p-3">
+          <Link
+            href={`/admin/invoices/${invoice.id}`}
+            className="font-medium underline"
+          >
+            {invoice.invoice_number}
+          </Link>
+        </td>
 
-                <td className="p-3">
-                  {invoice.tenant?.name ?? "—"}
-                </td>
+        <td className="p-3">
+          {invoice.tenant?.name ?? "—"}
+        </td>
 
-                <td className="p-3">
-                  {invoice.invoice_date
-                    ? new Date(invoice.invoice_date).toLocaleDateString()
-                    : "—"}
-                </td>
+        <td className="p-3">
+          {invoice.invoice_date
+            ? new Date(invoice.invoice_date).toLocaleDateString()
+            : "—"}
+        </td>
 
-                <td className="p-3">
-                  {invoice.due_date
-                    ? new Date(invoice.due_date).toLocaleDateString()
-                    : "—"}
-                </td>
+        <td className="p-3">
+          {invoice.due_date
+            ? new Date(invoice.due_date).toLocaleDateString()
+            : "—"}
+        </td>
 
-                <td className="p-3 font-medium">
-                  ${Number(invoice.total_amount).toFixed(2)}
-                </td>
+        <td className="p-3 font-medium">
+          ${Number(invoice.total_amount).toFixed(2)}
+        </td>
 
-                <td className="p-3 capitalize">
-                  {invoice.status}
-                </td>
-              </tr>
-            ))}
-          </tbody>
+        <td className="p-3 capitalize">
+          {invoice.status}
+        </td>
+      </tr>
+    ))}
+</tbody>
         </table>
       </div>
     </div>

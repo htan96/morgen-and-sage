@@ -57,34 +57,37 @@ export default function InvoiceFilters({
         value={status}
         onChange={(e) => setStatus(e.target.value)}
         className="px-3 py-1.5 rounded-md text-sm"
-style={{
-  background: "var(--surface)",
-  border: "1px solid var(--border)",
-  color: "var(--text)",
-  appearance: "none",
-  WebkitAppearance: "none",
-  MozAppearance: "none",
-}}
+        style={{
+          background: "var(--surface)",
+          border: "1px solid var(--border)",
+          color: "var(--text)",
+          appearance: "none",
+          WebkitAppearance: "none",
+          MozAppearance: "none",
+        }}
       >
         <option value="all">All Status</option>
-        <option value="paid">Paid</option>
+        <option value="draft">Draft</option>
         <option value="sent">Sent</option>
+        <option value="partial">Partial</option>
+        <option value="paid">Paid</option>
         <option value="overdue">Overdue</option>
+        <option value="void">Void</option>
       </select>
 
       {/* Tenant */}
       <select
         value={tenant}
         onChange={(e) => setTenant(e.target.value)}
-       className="px-3 py-1.5 rounded-md text-sm"
-style={{
-  background: "var(--surface)",
-  border: "1px solid var(--border)",
-  color: "var(--text)",
-  appearance: "none",
-  WebkitAppearance: "none",
-  MozAppearance: "none",
-}}
+        className="px-3 py-1.5 rounded-md text-sm"
+        style={{
+          background: "var(--surface)",
+          border: "1px solid var(--border)",
+          color: "var(--text)",
+          appearance: "none",
+          WebkitAppearance: "none",
+          MozAppearance: "none",
+        }}
       >
         <option value="all">All Tenants</option>
         {uniqueTenants.map(([id, name]) => (
@@ -99,21 +102,19 @@ style={{
         value={month}
         onChange={(e) => setMonth(e.target.value)}
         className="px-3 py-2 rounded-lg text-sm"
-style={{
-  background: "var(--surface)",
-  border: "1px solid var(--border)",
-  color: "var(--text)",
-  appearance: "none",
-  WebkitAppearance: "none",
-  MozAppearance: "none",
-}}
+        style={{
+          background: "var(--surface)",
+          border: "1px solid var(--border)",
+          color: "var(--text)",
+          appearance: "none",
+          WebkitAppearance: "none",
+          MozAppearance: "none",
+        }}
       >
         <option value="all">All Months</option>
         {Array.from({ length: 12 }).map((_, i) => (
           <option key={i} value={i.toString()}>
-            {new Date(0, i).toLocaleString("default", {
-              month: "long",
-            })}
+            {new Date(0, i).toLocaleString("default", { month: "long" })}
           </option>
         ))}
       </select>
