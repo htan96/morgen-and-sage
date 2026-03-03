@@ -18,15 +18,13 @@ export default function RatesTab({ tenantId }: Props) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (tenantId) {
-      fetchData();
-    }
+    if (tenantId) fetchData();
   }, [tenantId]);
 
   async function fetchData() {
     setLoading(true);
 
-    // Fetch all available services (for dropdown)
+    // Fetch available services
     const { data: serviceList, error: serviceError } = await supabase
       .from("services")
       .select("id, name, default_amount, default_frequency")
@@ -36,7 +34,7 @@ export default function RatesTab({ tenantId }: Props) {
       console.error("Services fetch error:", serviceError);
     }
 
-    // Fetch tenant services with relation join
+    // 🚨 EXPLICIT RELATION USING FK NAME
     const { data: tenantServiceList, error: tenantError } = await supabase
       .from("tenant_services")
       .select(`
@@ -46,7 +44,7 @@ export default function RatesTab({ tenantId }: Props) {
         quantity,
         is_active,
         service_id,
-        services (
+        services:services!tenant_services_service_id_fkey (
           id,
           name
         )
@@ -58,8 +56,8 @@ export default function RatesTab({ tenantId }: Props) {
       console.error("Tenant services fetch error:", tenantError);
     }
 
-    // Normalize Supabase nested array → single object
-    const normalized: TenantService[] = (tenantServiceList || []).map(
+    // No normalization needed — this will now return object, not empty
+    const formatted: TenantService[] = (tenantServiceList || []).map(
       (item: any) => ({
         id: item.id,
         amount: item.amount,
@@ -67,16 +65,15 @@ export default function RatesTab({ tenantId }: Props) {
         quantity: item.quantity,
         is_active: item.is_active,
         service_id: item.service_id,
-        services: item.services?.[0] ?? null,
+        services: item.services ?? null,
       })
     );
 
     setServices(serviceList || []);
-    setTenantServices(normalized);
+    setTenantServices(formatted);
     setLoading(false);
   }
 
-  // UPDATE
   async function updateService(
     id: string,
     amount: number,
@@ -85,51 +82,28 @@ export default function RatesTab({ tenantId }: Props) {
   ) {
     const { error } = await supabase
       .from("tenant_services")
-      .update({
-        amount,
-        frequency,
-        quantity,
-      })
+      .update({ amount, frequency, quantity })
       .eq("id", id);
 
-    if (error) {
-      console.error("Update error:", error);
-      return;
-    }
-
-    await fetchData();
+    if (!error) fetchData();
   }
 
-  // TOGGLE ACTIVE STATUS
   async function toggleStatus(id: string, current: boolean) {
     const { error } = await supabase
       .from("tenant_services")
-      .update({
-        is_active: !current,
-      })
+      .update({ is_active: !current })
       .eq("id", id);
 
-    if (error) {
-      console.error("Toggle error:", error);
-      return;
-    }
-
-    await fetchData();
+    if (!error) fetchData();
   }
 
-  // DELETE
   async function deleteService(id: string) {
     const { error } = await supabase
       .from("tenant_services")
       .delete()
       .eq("id", id);
 
-    if (error) {
-      console.error("Delete error:", error);
-      return;
-    }
-
-    await fetchData();
+    if (!error) fetchData();
   }
 
   if (loading) {
@@ -143,7 +117,6 @@ export default function RatesTab({ tenantId }: Props) {
   return (
     <div className="space-y-6">
 
-      {/* HEADER */}
       <div>
         <h2 className="text-lg font-semibold text-[var(--text)]">
           Billing Configuration
@@ -153,7 +126,6 @@ export default function RatesTab({ tenantId }: Props) {
         </p>
       </div>
 
-      {/* TABLE */}
       <TenantServicesTable
         tenantServices={tenantServices}
         onUpdate={updateService}
@@ -161,7 +133,6 @@ export default function RatesTab({ tenantId }: Props) {
         onToggleStatus={toggleStatus}
       />
 
-      {/* ADD FORM */}
       <AddTenantServiceForm
         tenantId={tenantId}
         services={services}
