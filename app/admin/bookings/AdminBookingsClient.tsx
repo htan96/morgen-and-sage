@@ -3,9 +3,9 @@
 import { useMemo, useState } from "react";
 import { v4 as uuidv4 } from "uuid";
 import { Booking } from "@/types/booking";
-import MonthView from "@/components/bookings/MonthView";
-import BookingsHeader from "@/components/bookings/BookingsHeader";
-import BookingPanel from "@/components/bookings/BookingPanel";
+import MonthView from "@/components/bookings/calendar/MonthView";
+import BookingsHeader from "@/components/bookings/calendar/BookingsHeader";
+import BookingPanel from "@/components/bookings/panel/BookingPanel";
 
 type Kitchen = {
   id: string;
