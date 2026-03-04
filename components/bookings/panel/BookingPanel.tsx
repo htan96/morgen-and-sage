@@ -2,7 +2,6 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { createClient } from "@/lib/supabase/client";
 import { createBooking } from "@/app/actions/createBooking";
 import { Booking } from "@/types/booking";
 
@@ -54,7 +53,6 @@ export default function BookingPanel({
   addNextDayDraft,
 }: Props) {
   const router = useRouter();
-  const supabase = createClient();
 
   const [loading, setLoading] = useState(false);
   const [previewLoading, setPreviewLoading] = useState(false);
@@ -67,74 +65,59 @@ export default function BookingPanel({
   const organizationId = "49c3ef02-cb09-4fde-82d8-2012e5945ba2";
   const isEditMode = !!editingBooking;
 
-  // =============================
-  // Reset step when panel closes
-  // =============================
+  // Reset when panel closes
   useEffect(() => {
     if (!isOpen) {
       setStep("build");
+      setInvoicePreview(null);
     }
   }, [isOpen]);
-
-  // =============================
-  // Invoice Preview Fetch
-  // =============================
-  useEffect(() => {
-    if (!isOpen || !tenantId || draftBookings.length === 0 || isEditMode) {
-      setInvoicePreview(null);
-      return;
-    }
-
-    const fetchPreview = async () => {
-      try {
-        setPreviewLoading(true);
-
-        const res = await fetch("/api/bookings/preview", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            organizationId,
-            tenantId,
-            bookings: draftBookings.map((d) => ({
-              startTime: new Date(d.startTime).toISOString(),
-              endTime: new Date(d.endTime).toISOString(),
-            })),
-          }),
-        });
-
-        const data = await res.json();
-
-        if (!res.ok) {
-          setInvoicePreview(null);
-          return;
-        }
-
-        setInvoicePreview(data);
-      } catch (err) {
-        console.error("Preview error:", err);
-        setInvoicePreview(null);
-      } finally {
-        setPreviewLoading(false);
-      }
-    };
-
-    fetchPreview();
-  }, [isOpen, tenantId, draftBookings, isEditMode]);
 
   if (!isOpen) return null;
 
   // =============================
-  // Review Gate
+  // REVIEW HANDLER (Fetch Preview)
   // =============================
-  const canReview =
-    !!tenantId &&
-    !!panelKitchenId &&
-    draftBookings.length > 0 &&
-    !!invoicePreview &&
-    !previewLoading;
+  const handleReview = async () => {
+    if (!tenantId || !panelKitchenId || draftBookings.length === 0) return;
+
+    try {
+      setPreviewLoading(true);
+      setInvoicePreview(null);
+
+      const res = await fetch("/api/bookings/preview", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          organizationId,
+          tenantId,
+          kitchenSpaceId: panelKitchenId,
+          bookings: draftBookings.map((d) => ({
+            startTime: new Date(d.startTime).toISOString(),
+            endTime: new Date(d.endTime).toISOString(),
+          })),
+        }),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        alert(data?.error || "Preview failed");
+        return;
+      }
+
+      setInvoicePreview(data);
+      setStep("confirm");
+    } catch (err) {
+      console.error("Preview error:", err);
+      alert("Preview failed");
+    } finally {
+      setPreviewLoading(false);
+    }
+  };
 
   // =============================
-  // Submit Handler
+  // SUBMIT HANDLER
   // =============================
   const handleSubmit = async () => {
     if (loading || previewLoading) return;
@@ -159,6 +142,7 @@ export default function BookingPanel({
 
       clearDrafts();
       setStep("build");
+      setInvoicePreview(null);
       onClose();
       router.refresh();
     } catch (err) {
@@ -170,7 +154,16 @@ export default function BookingPanel({
   };
 
   // =============================
-  // Render
+  // REVIEW GATE
+  // =============================
+  const canReview =
+    !!tenantId &&
+    !!panelKitchenId &&
+    draftBookings.length > 0 &&
+    !previewLoading;
+
+  // =============================
+  // RENDER
   // =============================
   return (
     <>
@@ -196,7 +189,6 @@ export default function BookingPanel({
         />
 
         <div className="flex-1 overflow-y-auto p-6 space-y-6">
-          {/* ================= BUILD STEP ================= */}
           {step === "build" && (
             <>
               <BookingSelectors
@@ -214,16 +206,9 @@ export default function BookingPanel({
                 removeDraft={removeDraft}
                 addNextDayDraft={addNextDayDraft}
               />
-
-              {invoicePreview && (
-                <div className="text-xs opacity-70">
-                  These bookings will be grouped into 1 invoice.
-                </div>
-              )}
             </>
           )}
 
-          {/* ================= CONFIRM STEP ================= */}
           {step === "confirm" && invoicePreview && (
             <>
               <InvoicePreviewCard invoicePreview={invoicePreview} />
@@ -242,7 +227,7 @@ export default function BookingPanel({
           isEditMode={false}
           onSubmit={
             step === "build"
-              ? () => setStep("confirm")
+              ? handleReview
               : handleSubmit
           }
           disabled={
