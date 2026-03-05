@@ -5,9 +5,16 @@ import { runCommissaryMonthlyEngine } from "./runCommissaryMonthlyEngine";
 
 export async function runMonthlyEngine(params: {
   tenantId: string;
-  billingMonth: string; // "YYYY-MM-01"
+  billingMonth: string;
+  generatedByType?: "admin" | "system" | "tenant";
+  generatedById?: string | null;
 }) {
-  const { tenantId, billingMonth } = params;
+  const {
+    tenantId,
+    billingMonth,
+    generatedByType = "system",
+    generatedById = null,
+  } = params;
 
   const tenant = await getTenantById(tenantId);
 
@@ -21,22 +28,26 @@ export async function runMonthlyEngine(params: {
   const hasKitchen = !!tenant.kitchen_space_id;
   const hasPreset = await tenantHasPresetSchedule(tenantId);
 
-  // 🟢 COMMISSARY TENANT
-if (!hasKitchen) {
-  return runCommissaryMonthlyEngine({
-    tenantId,
-    billingMonth,
-  });
-}
+  // COMMISSARY TENANT
+  if (!hasKitchen) {
+    return runCommissaryMonthlyEngine({
+      tenantId,
+      billingMonth,
+      generatedByType,
+      generatedById,
+    });
+  }
 
-if (hasKitchen && hasPreset) {
-  return runPresetMonthlyEngine({
-    tenantId,
-    billingMonth,
-  });
-}
+  // PRESET TENANT
+  if (hasKitchen && hasPreset) {
+    return runPresetMonthlyEngine({
+      tenantId,
+      billingMonth,
+      generatedByType,
+      generatedById,
+    });
+  }
 
-  // 🟡 MANUAL KITCHEN TENANT (skip)
   return {
     success: false,
     reason: "MANUAL_KITCHEN_TENANT_SKIPPED",
