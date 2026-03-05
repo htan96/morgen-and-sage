@@ -1,101 +1,74 @@
-import { NextResponse } from "next/server";
-import { supabaseAdmin } from "@/lib/supabase/supabase-admin";
-import crypto from "crypto";
-import { sendEmail } from "@/lib/email/sendEmail"; // <-- adjust path if different
+"use client";
 
-export async function POST(req: Request) {
-  try {
-    const { tenantId, email } = await req.json();
+import { useState } from "react";
+import { useRouter } from "next/navigation";
 
-    if (!tenantId || !email) {
-      return NextResponse.json(
-        { error: "Missing tenantId or email" },
-        { status: 400 }
-      );
+type Props = {
+  tenantId: string;
+  email: string | null;
+};
+
+export default function CreatePortalUserButton({ tenantId, email }: Props) {
+  const [loading, setLoading] = useState(false);
+  const router = useRouter();
+
+  async function handleCreatePortalUser() {
+    if (!email) {
+      alert("Tenant must have an email first.");
+      return;
     }
 
-    const normalizedEmail = String(email).trim().toLowerCase();
+    setLoading(true);
 
-    // validate tenant exists (+ grab org id + tenant name if you want it in the email)
-    const { data: tenant, error: tenantErr } = await supabaseAdmin
-      .from("tenants")
-      .select("id, name, organization_id")
-      .eq("id", tenantId)
-      .single();
-
-    if (tenantErr || !tenant) {
-      return NextResponse.json({ error: "Tenant not found" }, { status: 404 });
-    }
-
-    // generate token + expiry
-    const token = crypto.randomBytes(32).toString("hex");
-    const expiresAt = new Date(
-      Date.now() + 1000 * 60 * 60 * 24
-    ).toISOString(); // 24h
-
-    // store invite
-    const { error: inviteErr } = await supabaseAdmin.from("invites").insert({
-      tenant_id: tenantId,
-      email: normalizedEmail,
-      token,
-      expires_at: expiresAt,
-      used: false,
-    });
-
-    if (inviteErr) {
-      return NextResponse.json({ error: inviteErr.message }, { status: 500 });
-    }
-
-    const appUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
-    const inviteLink = `${appUrl}/invite/${token}`;
-
-    // ✅ SEND EMAIL
-    // If you have multi-org sending configured, use tenant.organization_id here.
-    // This assumes your sendEmail looks up the sender profile by organizationId.
-    if (!tenant.organization_id) {
-      return NextResponse.json(
-        {
-          error:
-            "Tenant is missing organization_id — required to send email with organization sender.",
+    try {
+      const res = await fetch("/api/tenants/invite", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
         },
-        { status: 500 }
+        body: JSON.stringify({
+          tenantId,
+          email: email.toLowerCase(),
+        }),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        alert(data.error || "Failed to create invite.");
+        return;
+      }
+
+      const inviteLink = data.inviteLink;
+
+      // Copy invite link
+      if (inviteLink) {
+        await navigator.clipboard.writeText(inviteLink);
+      }
+
+      console.log("Gmail response:", data.gmailResult);
+
+      alert(
+        `Portal invite sent successfully.\n\nInvite link copied to clipboard.`
       );
+
+      // refresh UI if needed
+      router.refresh();
+    } catch (err) {
+      console.error("Invite failed:", err);
+      alert("Failed to send invite.");
+    } finally {
+      setLoading(false);
     }
-
-    await sendEmail({
-      organizationId: tenant.organization_id,
-      to: normalizedEmail,
-      subject: "Your Portal Invite",
-      html: `
-        <div style="font-family: ui-sans-serif, system-ui, -apple-system; line-height: 1.5;">
-          <h2 style="margin: 0 0 8px;">You're invited</h2>
-          <p style="margin: 0 0 16px;">
-            Use the link below to activate your portal access${
-              tenant?.name ? ` for <b>${tenant.name}</b>` : ""
-            }.
-          </p>
-          <p style="margin: 0 0 16px;">
-            <a href="${inviteLink}" style="display:inline-block;padding:10px 14px;border-radius:10px;text-decoration:none;border:1px solid #ddd;">
-              Accept Invite
-            </a>
-          </p>
-          <p style="margin:0;color:#666;font-size:12px;">
-            This link expires in 24 hours.
-          </p>
-          <p style="margin:12px 0 0;color:#666;font-size:12px;">
-            If the button doesn't work, copy/paste this URL:<br/>
-            ${inviteLink}
-          </p>
-        </div>
-      `,
-    });
-
-    return NextResponse.json({ success: true, inviteLink });
-  } catch (err: any) {
-    console.error("Invite create/send failed:", err);
-    return NextResponse.json(
-      { error: err?.message || "Failed to create invite" },
-      { status: 500 }
-    );
   }
+
+  return (
+    <button
+      onClick={handleCreatePortalUser}
+      disabled={loading}
+      className="px-5 py-2.5 rounded-xl border border-[var(--border)] bg-[var(--surface)] hover:bg-[var(--hover)] transition text-sm disabled:opacity-50"
+    >
+      {loading ? "Sending Invite..." : "Send Portal Invite"}
+    </button>
+  );
 }

@@ -1,17 +1,16 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 
 type Props = {
   tenantId: string;
   email: string | null;
 };
 
-export default function CreatePortalUserButton({
-  tenantId,
-  email,
-}: Props) {
+export default function CreatePortalUserButton({ tenantId, email }: Props) {
   const [loading, setLoading] = useState(false);
+  const router = useRouter();
 
   async function handleCreatePortalUser() {
     if (!email) {
@@ -22,46 +21,42 @@ export default function CreatePortalUserButton({
     setLoading(true);
 
     try {
-      const res = await fetch("/api/tenants/invites", {
+      const res = await fetch("/api/tenants/invite", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
           tenantId,
-          email,
+          email: email.toLowerCase(),
         }),
       });
 
-      const text = await res.text();
-
-      let data;
-
-      try {
-        data = JSON.parse(text);
-      } catch {
-        console.error("Server returned HTML:", text);
-        alert("Server error — check API route");
-        return;
-      }
+      const data = await res.json();
 
       if (!res.ok) {
-        alert(data.error || "Failed to create invite");
+        alert(data.error || "Failed to create invite.");
         return;
       }
 
       const inviteLink = data.inviteLink;
 
-      // copy invite link automatically
-      await navigator.clipboard.writeText(inviteLink);
+      // Copy invite link
+      if (inviteLink) {
+        await navigator.clipboard.writeText(inviteLink);
+      }
+
+      console.log("Gmail response:", data.gmailResult);
 
       alert(
-        `Invite created.\n\nLink copied to clipboard:\n\n${inviteLink}`
+        `Portal invite sent successfully.\n\nInvite link copied to clipboard.`
       );
 
+      // refresh UI if needed
+      router.refresh();
     } catch (err) {
-      console.error(err);
-      alert("Failed to create invite");
+      console.error("Invite failed:", err);
+      alert("Failed to send invite.");
     } finally {
       setLoading(false);
     }
@@ -71,9 +66,9 @@ export default function CreatePortalUserButton({
     <button
       onClick={handleCreatePortalUser}
       disabled={loading}
-      className="px-5 py-2.5 rounded-xl border border-[var(--border)] bg-[var(--surface)] hover:bg-[var(--hover)] transition text-sm"
+      className="px-5 py-2.5 rounded-xl border border-[var(--border)] bg-[var(--surface)] hover:bg-[var(--hover)] transition text-sm disabled:opacity-50"
     >
-      {loading ? "Creating..." : "Send Portal Invite"}
+      {loading ? "Sending Invite..." : "Send Portal Invite"}
     </button>
   );
 }
