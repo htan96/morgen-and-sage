@@ -14,12 +14,12 @@ export default function LoginPage() {
 
   /*
   --------------------------------
-  Detect Supabase recovery link
+  Handle Supabase recovery links
   --------------------------------
   */
 
   useEffect(() => {
-    async function detectRecoveryLink() {
+    async function checkRecovery() {
       const hash = window.location.hash;
 
       if (hash.includes("access_token")) {
@@ -31,7 +31,7 @@ export default function LoginPage() {
       }
     }
 
-    detectRecoveryLink();
+    checkRecovery();
   }, [router, supabase]);
 
   const handleLogin = async () => {
@@ -52,42 +52,44 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="bg-white shadow-2xl rounded-2xl p-10 w-full max-w-md">
+    <div className="min-h-screen flex items-center justify-center bg-gray-100">
+      <div className="bg-white shadow-2xl rounded-2xl p-10 w-full max-w-md">
 
-      {/* Logo */}
-      <div className="flex justify-center mb-8">
-        <img
-          src="/logos/morgens-kitchen-dark.svg"
-          alt="Morgan's Kitchen"
-          className="h-12"
-        />
-      </div>
+        {/* Logo */}
+        <div className="flex justify-center mb-8">
+          <img
+            src="/logos/morgens-kitchen-dark.svg"
+            alt="Morgan's Kitchen"
+            className="h-14"
+          />
+        </div>
 
-      <div className="space-y-4">
-        <input
-          type="email"
-          placeholder="Email address"
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
-          className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-black"
-        />
+        <div className="space-y-4">
+          <input
+            type="email"
+            placeholder="Email address"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-black"
+          />
 
-        <input
-          type="password"
-          placeholder="Password"
-          value={password}
-          onChange={(e) => setPassword(e.target.value)}
-          className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-black"
-        />
+          <input
+            type="password"
+            placeholder="Password"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-black"
+          />
 
-        <button
-          type="button"
-          onClick={handleLogin}
-          disabled={loading}
-          className="w-full bg-black text-white py-3 rounded-lg font-semibold hover:bg-gray-800 transition duration-200 disabled:opacity-50"
-        >
-          {loading ? "Logging in..." : "Login"}
-        </button>
+          <button
+            type="button"
+            onClick={handleLogin}
+            disabled={loading}
+            className="w-full bg-black text-white py-3 rounded-lg font-semibold hover:bg-gray-800 transition duration-200 disabled:opacity-50"
+          >
+            {loading ? "Logging in..." : "Login"}
+          </button>
+        </div>
       </div>
     </div>
   );
