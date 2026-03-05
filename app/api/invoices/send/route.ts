@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase/supabase-admin";
-import { sendInvoiceEmail } from "@/lib/email/SendInvoiceEmail";
+import { sendInvoiceEmail } from "@/lib/email/sendInvoiceEmail";
 
 export async function POST(req: Request) {
   try {
