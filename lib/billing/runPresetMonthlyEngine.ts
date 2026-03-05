@@ -11,9 +11,15 @@ import {
   getActivePerBookingServices,
 } from "@/lib/db/tenantServices";
 
+/* ---------------------------------- */
+/* Get Month Bounds                   */
+/* ---------------------------------- */
+
 function getMonthBounds(billingMonth: string) {
+
   const start = new Date(`${billingMonth}T00:00:00.000Z`);
   const next = new Date(start);
+
   next.setUTCMonth(next.getUTCMonth() + 1);
 
   return {
@@ -37,6 +43,10 @@ function generateInvoiceNumber(billingMonth: string) {
 
   return `INV-${month}-${random}`;
 }
+
+/* ---------------------------------- */
+/* Run Preset Monthly Engine          */
+/* ---------------------------------- */
 
 export async function runPresetMonthlyEngine(params: {
   tenantId: string;
@@ -92,10 +102,24 @@ export async function runPresetMonthlyEngine(params: {
   const { startISO, nextISO } = getMonthBounds(billingMonth);
 
   /* ---------------------------------- */
-  /* Ensure bookings exist              */
+  /* 🔧 FIX: Detach bookings from old invoice */
+  /* Allows regeneration after VOID     */
   /* ---------------------------------- */
 
-  let { data: bookings } = await supabase
+  await supabase
+    .from("bookings")
+    .update({ invoice_id: null })
+    .eq("tenant_id", tenantId)
+    .gte("start_time", startISO)
+    .lt("start_time", nextISO);
+
+  /* ---------------------------------- */
+  /* Generate preset bookings           */
+  /* ---------------------------------- */
+
+  await generatePresetBookingsForMonth(tenantId, billingMonth);
+
+  const { data: bookings } = await supabase
     .from("bookings")
     .select("id, start_time, total_hours")
     .eq("tenant_id", tenantId)
@@ -103,24 +127,6 @@ export async function runPresetMonthlyEngine(params: {
     .lt("start_time", nextISO)
     .is("invoice_id", null)
     .order("start_time", { ascending: true });
-
-  /* If bookings do not exist yet, generate them */
-
-  if (!bookings || bookings.length === 0) {
-
-    await generatePresetBookingsForMonth(tenantId, billingMonth);
-
-    const result = await supabase
-      .from("bookings")
-      .select("id, start_time, total_hours")
-      .eq("tenant_id", tenantId)
-      .gte("start_time", startISO)
-      .lt("start_time", nextISO)
-      .is("invoice_id", null)
-      .order("start_time", { ascending: true });
-
-    bookings = result.data;
-  }
 
   if (!bookings || bookings.length === 0) {
     return { success: false, reason: "NOTHING_TO_BILL" };
@@ -226,9 +232,10 @@ export async function runPresetMonthlyEngine(params: {
       if (!a.serviceDate) return 1;
       if (!b.serviceDate) return -1;
 
-      return new Date(a.serviceDate).getTime() -
-             new Date(b.serviceDate).getTime();
-
+      return (
+        new Date(a.serviceDate).getTime() -
+        new Date(b.serviceDate).getTime()
+      );
     })
     .map(({ sortOrder, ...item }) => item);
 

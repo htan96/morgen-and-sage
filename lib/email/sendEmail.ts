@@ -1,5 +1,3 @@
-// /lib/email/sendEmail.ts
-
 import { supabaseAdmin } from "@/lib/supabase/supabase-admin";
 import { refreshGoogleAccessToken } from "./refreshToken";
 
@@ -8,6 +6,10 @@ type SendEmailParams = {
   to: string;
   subject: string;
   html: string;
+  attachments?: {
+    filename: string;
+    content: Buffer;
+  }[];
 };
 
 export async function sendEmail({
@@ -15,8 +17,10 @@ export async function sendEmail({
   to,
   subject,
   html,
+  attachments = [],
 }: SendEmailParams) {
-  // 1️⃣ Fetch email sender profile
+
+  // Get sender profile
   const { data: profile, error } = await supabaseAdmin
     .from("profiles")
     .select("*")
@@ -25,12 +29,12 @@ export async function sendEmail({
     .single();
 
   if (error || !profile) {
-    throw new Error("No email sender configured for organization.");
+    throw new Error("No email sender configured for this organization.");
   }
 
   let accessToken = profile.google_access_token;
 
-  // 2️⃣ Check expiry
+  // Check token expiration
   const now = new Date();
   const expiresAt = new Date(profile.google_token_expires_at);
 
@@ -38,15 +42,37 @@ export async function sendEmail({
     accessToken = await refreshGoogleAccessToken(profile);
   }
 
-  // 3️⃣ Create Gmail raw message
-  const message = [
-    `From: ${profile.google_email}`,
+  // MIME boundary
+  const boundary = "boundary123";
+
+  const messageParts = [
+    `From: Morgen's Kitchen <${profile.google_email}>`,
     `To: ${to}`,
     `Subject: ${subject}`,
-    "Content-Type: text/html; charset=utf-8",
+    "MIME-Version: 1.0",
+    `Content-Type: multipart/mixed; boundary=${boundary}`,
+    "",
+    `--${boundary}`,
+    "Content-Type: text/html; charset=UTF-8",
     "",
     html,
-  ].join("\n");
+  ];
+
+  // Attachments
+  for (const file of attachments) {
+    messageParts.push(
+      `--${boundary}`,
+      "Content-Type: application/pdf",
+      `Content-Disposition: attachment; filename="${file.filename}"`,
+      "Content-Transfer-Encoding: base64",
+      "",
+      file.content.toString("base64")
+    );
+  }
+
+  messageParts.push(`--${boundary}--`);
+
+  const message = messageParts.join("\n");
 
   const encodedMessage = Buffer.from(message)
     .toString("base64")
@@ -54,7 +80,6 @@ export async function sendEmail({
     .replace(/\//g, "_")
     .replace(/=+$/, "");
 
-  // 4️⃣ Send via Gmail API
   const gmailResponse = await fetch(
     "https://gmail.googleapis.com/gmail/v1/users/me/messages/send",
     {

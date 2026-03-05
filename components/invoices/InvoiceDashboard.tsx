@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 import InvoiceKPICards from "./InvoiceKPICards";
 import InvoiceFilters from "./InvoiceFilters";
 import InvoicesTable from "./InvoicesTable";
+import ReviewInvoicesModal from "./ReviewInvoicesModal";
 
 export type Invoice = {
   id: string;
@@ -30,6 +31,12 @@ export default function InvoicesDashboard({ invoices }: Props) {
 
   const [loadingBilling, setLoadingBilling] = useState(false);
   const [showBillingModal, setShowBillingModal] = useState(false);
+  const [showReviewModal, setShowReviewModal] = useState(false);
+
+  // 🔹 Draft invoices for review
+  const draftInvoices = useMemo(() => {
+    return invoices.filter((inv) => inv.status === "draft");
+  }, [invoices]);
 
   const generateAllInvoices = async () => {
     try {
@@ -100,6 +107,7 @@ export default function InvoicesDashboard({ invoices }: Props) {
 
       {/* HEADER */}
       <div className="flex items-center justify-between flex-wrap gap-4">
+
         <div>
           <h1 className="text-2xl md:text-3xl font-semibold">
             Invoices
@@ -113,24 +121,52 @@ export default function InvoicesDashboard({ invoices }: Props) {
           </p>
         </div>
 
-        <button
-  onClick={() => setShowBillingModal(true)}
-  disabled={loadingBilling}
-  className="px-4 py-2 rounded-lg font-medium transition"
-  style={{
-    background: "var(--surface)",
-    border: "1px solid var(--border)",
-    color: "var(--text)",
-  }}
-  onMouseEnter={(e) =>
-    (e.currentTarget.style.background = "var(--hover)")
-  }
-  onMouseLeave={(e) =>
-    (e.currentTarget.style.background = "var(--surface)")
-  }
->
-  {loadingBilling ? "Running Billing..." : "Generate Current Month"}
-</button>
+        <div className="flex gap-3 flex-wrap">
+
+          {/* REVIEW DRAFT INVOICES */}
+          <button
+            onClick={() => setShowReviewModal(true)}
+            disabled={draftInvoices.length === 0}
+            className="px-4 py-2 rounded-lg font-medium transition"
+            style={{
+              background: "var(--surface)",
+              border: "1px solid var(--border)",
+              color: "var(--text)",
+              opacity: draftInvoices.length === 0 ? 0.6 : 1,
+            }}
+            onMouseEnter={(e) =>
+              (e.currentTarget.style.background = "var(--hover)")
+            }
+            onMouseLeave={(e) =>
+              (e.currentTarget.style.background = "var(--surface)")
+            }
+          >
+            Review Drafts ({draftInvoices.length})
+          </button>
+
+          {/* GENERATE BILLING */}
+          <button
+            onClick={() => setShowBillingModal(true)}
+            disabled={loadingBilling}
+            className="px-4 py-2 rounded-lg font-medium transition"
+            style={{
+              background: "var(--surface)",
+              border: "1px solid var(--border)",
+              color: "var(--text)",
+            }}
+            onMouseEnter={(e) =>
+              (e.currentTarget.style.background = "var(--hover)")
+            }
+            onMouseLeave={(e) =>
+              (e.currentTarget.style.background = "var(--surface)")
+            }
+          >
+            {loadingBilling
+              ? "Running Billing..."
+              : "Generate Current Month"}
+          </button>
+
+        </div>
       </div>
 
       <InvoiceKPICards invoices={invoices} />
@@ -197,13 +233,22 @@ export default function InvoicesDashboard({ invoices }: Props) {
                   border: "1px solid var(--border)",
                   color: "var(--text)",
                 }}
-                 >
+              >
                 Run Billing
               </button>
             </div>
           </div>
         </div>
       )}
+
+      {/* REVIEW INVOICES MODAL */}
+      {showReviewModal && (
+        <ReviewInvoicesModal
+          invoices={draftInvoices}
+          onClose={() => setShowReviewModal(false)}
+        />
+      )}
+
     </div>
   );
 }

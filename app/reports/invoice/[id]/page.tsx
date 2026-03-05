@@ -5,20 +5,27 @@ export const revalidate = 0;
 
 export default async function Page({
   params,
+  searchParams,
 }: {
-  params: Promise<{ id: string }>;
+  params: { id: string };
+  searchParams?: { print?: string };
 }) {
-  const { id } = await params;
+  const id = params.id;
 
   if (!id) return notFound();
 
+  const isPrint = searchParams?.print === "true";
+
   const supabase = await createClient();
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  // 🔐 Only require login when NOT generating PDF
+  if (!isPrint) {
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
 
-  if (!user) redirect("/login");
+    if (!user) redirect("/login");
+  }
 
   const { data: invoice, error } = await supabase
     .from("invoices")
@@ -44,11 +51,12 @@ export default async function Page({
   const remaining = total - totalPaid;
 
   let status = "Unpaid";
+
   if (invoice.status === "void") status = "Void";
   else if (remaining <= 0) status = "Paid";
   else if (totalPaid > 0) status = "Partially Paid";
 
-  // ✅ SORT LINE ITEMS
+  // Sort line items
   const sortedLineItems = [...invoice.invoice_line_items].sort(
     (a: any, b: any) => {
       const dateA = a.service_date
@@ -68,55 +76,54 @@ export default async function Page({
   );
 
   return (
-    <div className="px-8 py-8">
+    <div className="px-8 py-8 max-w-4xl mx-auto">
 
       {/* HEADER */}
       <div className="mb-16 flex items-start justify-between">
 
-  {/* LEFT — Logo */}
-  <div>
-    <img
-      src="/logos/morgens-kitchen-dark.svg"
-      alt="Morgen's Kitchen"
-      style={{ height: "60px", width: "auto" }}
-    />
-  </div>
+        {/* LOGO */}
+        <div>
+          <img
+            src="/logos/morgens-kitchen-dark.svg"
+            alt="Morgen's Kitchen"
+            style={{ height: "60px", width: "auto" }}
+          />
+        </div>
 
-  {/* RIGHT — Invoice Info */}
-  <div className="text-right">
-  <h1 className="text-lg font-semibold tracking-wider">
-    {invoice.invoice_number}
-  </h1>
+        {/* INVOICE INFO */}
+        <div className="text-right">
+          <h1 className="text-lg font-semibold tracking-wider">
+            {invoice.invoice_number}
+          </h1>
 
-  <div className="text-sm text-gray-500 mt-2 space-y-1">
-    <p>
-      Issued:{" "}
-      {invoice.invoice_date
-        ? new Date(invoice.invoice_date).toLocaleDateString()
-        : ""}
-    </p>
+          <div className="text-sm text-gray-500 mt-2 space-y-1">
+            <p>
+              Issued:{" "}
+              {invoice.invoice_date
+                ? new Date(invoice.invoice_date).toLocaleDateString()
+                : ""}
+            </p>
 
-    {invoice.due_date && (
-      <p>
-        Due:{" "}
-        {new Date(invoice.due_date).toLocaleDateString()}
-      </p>
-    )}
-  </div>
-</div>
+            {invoice.due_date && (
+              <p>
+                Due:{" "}
+                {new Date(invoice.due_date).toLocaleDateString()}
+              </p>
+            )}
+          </div>
+        </div>
+      </div>
 
-</div>
-<div className="mt-4 mb-24">
-      <p className="text-xs uppercase tracking-widest text-gray-400 mb-2">
-    Bill To
-  </p>
+      {/* BILL TO */}
+      <div className="mt-4 mb-24">
+        <p className="text-xs uppercase tracking-widest text-gray-400 mb-2">
+          Bill To
+        </p>
 
-  <p className="text-lg font-medium">
-    {invoice.tenant?.name}
-  </p>
-</div>
-
-     
+        <p className="text-lg font-medium">
+          {invoice.tenant?.name}
+        </p>
+      </div>
 
       {/* LINE ITEMS */}
       <div className="p-6">
@@ -135,7 +142,10 @@ export default async function Page({
           <tbody>
             {sortedLineItems.map((item: any) => (
               <tr key={item.id} className="border-t">
-                <td className="p-3">{item.description}</td>
+
+                <td className="p-3">
+                  {item.description}
+                </td>
 
                 <td className="p-3">
                   {item.service_date
@@ -143,7 +153,9 @@ export default async function Page({
                     : "-"}
                 </td>
 
-                <td className="p-3">{item.quantity}</td>
+                <td className="p-3">
+                  {item.quantity}
+                </td>
 
                 <td className="p-3">
                   ${Number(item.rate).toFixed(2)}
@@ -152,15 +164,17 @@ export default async function Page({
                 <td className="p-3 text-right font-medium">
                   ${Number(item.amount).toFixed(2)}
                 </td>
+
               </tr>
             ))}
           </tbody>
         </table>
 
-        
       </div>
- {/* SUMMARY STRIP */}
+
+      {/* SUMMARY */}
       <div className="p-8 mt-12 flex justify-between text-center">
+
         <div>
           <p className="text-sm text-gray-500">Total</p>
           <p className="text-xl font-semibold">
@@ -181,9 +195,9 @@ export default async function Page({
             ${remaining.toFixed(2)}
           </p>
         </div>
-      </div>
-    </div>
 
-    
+      </div>
+
+    </div>
   );
 }

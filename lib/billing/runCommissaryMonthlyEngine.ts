@@ -36,18 +36,19 @@ export async function runCommissaryMonthlyEngine(params: {
 
   /* ---------------------------------- */
   /* Prevent duplicate active invoices  */
-  /* Allow regeneration if VOID         */
   /* ---------------------------------- */
 
-  const { data: existingInvoice } = await supabase
+  const { data: existingInvoices } = await supabase
     .from("invoices")
     .select("id, status")
     .eq("tenant_id", tenantId)
     .eq("billing_month", billingMonth)
-    .eq("invoice_type", "commissary")
-    .maybeSingle();
+    .eq("invoice_type", "commissary");
 
-  if (existingInvoice && existingInvoice.status !== "void") {
+  const hasActiveInvoice =
+    existingInvoices?.some((i) => i.status !== "void");
+
+  if (hasActiveInvoice) {
     return {
       success: false,
       reason: "INVOICE_ALREADY_EXISTS",
@@ -138,5 +139,8 @@ export async function runCommissaryMonthlyEngine(params: {
     lineItems
   );
 
-  return { success: true, invoiceId: invoice.id };
+  return {
+    success: true,
+    invoiceId: invoice.id,
+  };
 }
