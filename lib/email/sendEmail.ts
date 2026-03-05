@@ -95,7 +95,7 @@ export async function sendEmail({
 
   messageParts.push(`--${boundary}--`);
 
-  const message = messageParts.join("\n");
+ const message = messageParts.join("\r\n");
 
   const encodedMessage = Buffer.from(message)
     .toString("base64")
