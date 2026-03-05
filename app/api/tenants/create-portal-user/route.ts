@@ -1,9 +1,10 @@
 import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase/supabase-admin";
+import crypto from "crypto";
+import { sendEmail } from "@/lib/email/sendEmail";
 
 export async function POST(req: Request) {
   try {
-
     const { tenantId, email } = await req.json();
 
     if (!tenantId || !email) {
@@ -13,21 +14,19 @@ export async function POST(req: Request) {
       );
     }
 
-    const supabase = supabaseAdmin;
-
     /*
     --------------------------------
-    Get tenant
+    Validate tenant
     --------------------------------
     */
 
-    const { data: tenant, error: tenantError } = await supabase
+    const { data: tenant, error: tenantErr } = await supabaseAdmin
       .from("tenants")
-      .select("id")
+      .select("id, organization_id")
       .eq("id", tenantId)
       .single();
 
-    if (tenantError || !tenant) {
+    if (tenantErr || !tenant) {
       return NextResponse.json(
         { error: "Tenant not found" },
         { status: 404 }
@@ -36,42 +35,78 @@ export async function POST(req: Request) {
 
     /*
     --------------------------------
-    Invite user (Supabase sends email)
+    Generate token
     --------------------------------
     */
 
-    const { data, error: inviteError } =
-      await supabase.auth.admin.inviteUserByEmail(email, {
-        redirectTo: `${process.env.NEXT_PUBLIC_APP_URL}/set-password`,
-        data: {
-          role: "tenant",
-          tenant_id: tenantId
-        }
+    const token = crypto.randomBytes(32).toString("hex");
+
+    const expiresAt = new Date(
+      Date.now() + 1000 * 60 * 60 * 24
+    ).toISOString();
+
+    /*
+    --------------------------------
+    Store invite
+    --------------------------------
+    */
+
+    const { error: inviteErr } = await supabaseAdmin
+      .from("invites")
+      .insert({
+        tenant_id: tenantId,
+        email: email.toLowerCase(),
+        token,
+        expires_at: expiresAt,
+        used: false,
       });
 
-    if (inviteError) {
+    if (inviteErr) {
       return NextResponse.json(
-        { error: inviteError.message },
+        { error: inviteErr.message },
         { status: 500 }
       );
     }
 
     /*
     --------------------------------
-    Link tenant to auth user
+    Generate invite link
     --------------------------------
     */
 
-    await supabase
-      .from("tenants")
-      .update({
-        auth_user_id: data.user?.id,
-        must_reset_password: true
-      })
-      .eq("id", tenantId);
+    const inviteLink = `${process.env.NEXT_PUBLIC_APP_URL}/invite/${token}`;
+
+    /*
+    --------------------------------
+    Send email using Gmail API
+    --------------------------------
+    */
+
+    await sendEmail({
+      organizationId: tenant.organization_id,
+      to: email,
+      subject: "Kitchen Portal Access",
+      html: `
+        <h2>Kitchen Portal Access</h2>
+
+        <p>Your portal account has been created.</p>
+
+        <p>
+          Click the link below to set your password:
+        </p>
+
+        <p>
+          <a href="${inviteLink}">
+            Set Your Password
+          </a>
+        </p>
+
+        <p>This link expires in 24 hours.</p>
+      `,
+    });
 
     return NextResponse.json({
-      success: true
+      success: true,
     });
 
   } catch (err) {
@@ -79,7 +114,7 @@ export async function POST(req: Request) {
     console.error(err);
 
     return NextResponse.json(
-      { error: "Failed to create portal user" },
+      { error: "Failed to create invite" },
       { status: 500 }
     );
 
