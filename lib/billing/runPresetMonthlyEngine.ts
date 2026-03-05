@@ -1,13 +1,13 @@
 import { createClient } from "@/lib/supabase/server";
 import { generatePresetBookingsForMonth } from "./generatePresetBookingsForMonth";
 import {
-  sumUninvoicedBookingTotalForMonth,
   attachBookingsToInvoiceForMonth,
 } from "@/lib/db/bookings";
 import {
   insertInvoice,
   insertInvoiceLineItems,
 } from "@/lib/db/invoices";
+import { getActiveHourlyRate } from "@/lib/db/tenantServices";
 
 function getMonthBounds(billingMonth: string) {
   const start = new Date(`${billingMonth}T00:00:00.000Z`);
@@ -30,6 +30,7 @@ export async function runPresetMonthlyEngine(params: {
   generatedByType?: "admin" | "system" | "tenant";
   generatedById?: string | null;
 }) {
+
   const {
     tenantId,
     billingMonth,
@@ -39,7 +40,7 @@ export async function runPresetMonthlyEngine(params: {
 
   const supabase = await createClient();
 
-  // 🔒 1️⃣ Prevent duplicate preset invoice
+  // Prevent duplicates
   const { data: existingInvoice } = await supabase
     .from("invoices")
     .select("id")
@@ -56,14 +57,12 @@ export async function runPresetMonthlyEngine(params: {
     };
   }
 
-  // 🔎 2️⃣ Get tenant
-  const { data: tenant, error } = await supabase
+  // Get tenant
+  const { data: tenant } = await supabase
     .from("tenants")
     .select("organization_id")
     .eq("id", tenantId)
     .maybeSingle();
-
-  if (error) throw error;
 
   if (!tenant) {
     return { success: false, reason: "TENANT_NOT_FOUND" };
@@ -71,22 +70,46 @@ export async function runPresetMonthlyEngine(params: {
 
   const { startISO, nextISO } = getMonthBounds(billingMonth);
 
-  // 3️⃣ Generate preset bookings
+  // Generate bookings
   await generatePresetBookingsForMonth(tenantId, billingMonth);
 
-  // 4️⃣ Calculate uninvoiced booking total
-  const bookingTotal =
-    await sumUninvoicedBookingTotalForMonth(
-      tenantId,
-      startISO,
-      nextISO
-    );
+  // Fetch bookings
+  const { data: bookings } = await supabase
+    .from("bookings")
+    .select("id, start_time, total_hours")
+    .eq("tenant_id", tenantId)
+    .gte("start_time", startISO)
+    .lt("start_time", nextISO)
+    .is("invoice_id", null);
 
-  if (bookingTotal <= 0) {
+  if (!bookings || bookings.length === 0) {
     return { success: false, reason: "NOTHING_TO_BILL" };
   }
 
-  // 🧾 5️⃣ Create invoice
+  const hourlyRate = await getActiveHourlyRate(tenantId);
+
+  if (!hourlyRate) {
+    return { success: false, reason: "NO_HOURLY_RATE" };
+  }
+
+  let subtotal = 0;
+
+  const lineItems = bookings.map((booking) => {
+
+    const hours = Number(booking.total_hours || 0);
+    const amount = hours * hourlyRate;
+
+    subtotal += amount;
+
+    return {
+      description: "Kitchen Time",
+      quantity: hours,
+      rate: hourlyRate,
+      amount,
+      serviceDate: booking.start_time,
+    };
+  });
+
   const invoice = await insertInvoice({
     organizationId: tenant.organization_id,
     tenantId,
@@ -97,30 +120,20 @@ export async function runPresetMonthlyEngine(params: {
     invoiceNumber: generateInvoiceNumber(),
     invoiceDate: new Date(),
     dueDate: new Date(),
-    subtotal: bookingTotal,
+    subtotal,
     tax: 0,
-    totalAmount: bookingTotal,
-    balanceDue: bookingTotal,
+    totalAmount: subtotal,
+    balanceDue: subtotal,
     status: "draft",
   });
 
-  // 🧾 6️⃣ Create invoice line item
   await insertInvoiceLineItems(
     invoice.id,
     tenant.organization_id,
     tenantId,
-    [
-      {
-        description: "Kitchen Time",
-        quantity: 1,
-        rate: bookingTotal,
-        amount: bookingTotal,
-        serviceDate: billingMonth,
-      },
-    ]
+    lineItems
   );
 
-  // 🔗 7️⃣ Attach bookings
   await attachBookingsToInvoiceForMonth(
     tenantId,
     invoice.id,
@@ -128,5 +141,8 @@ export async function runPresetMonthlyEngine(params: {
     nextISO
   );
 
-  return { success: true, invoiceId: invoice.id };
+  return {
+    success: true,
+    invoiceId: invoice.id,
+  };
 }
