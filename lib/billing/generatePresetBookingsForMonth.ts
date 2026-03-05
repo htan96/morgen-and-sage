@@ -1,254 +1,106 @@
 import { createClient } from "@/lib/supabase/server";
-import { generatePresetBookingsForMonth } from "./generatePresetBookingsForMonth";
-import { attachBookingsToInvoiceForMonth } from "@/lib/db/bookings";
-import {
-  insertInvoice,
-  insertInvoiceLineItems,
-} from "@/lib/db/invoices";
-import {
-  getActiveHourlyRate,
-  getActiveMonthlyServices,
-  getActivePerBookingServices,
-} from "@/lib/db/tenantServices";
 
-function getMonthBounds(billingMonth: string) {
+function getAllDatesForWeekdayInMonth(
+  billingMonth: string,
+  weekday: number
+) {
   const start = new Date(`${billingMonth}T00:00:00.000Z`);
-  const next = new Date(start);
-  next.setUTCMonth(next.getUTCMonth() + 1);
+  const month = start.getUTCMonth();
+  const dates: Date[] = [];
 
-  return {
-    startISO: start.toISOString(),
-    nextISO: next.toISOString(),
-  };
-}
+  const current = new Date(start);
 
-/* ---------------------------------- */
-/* Generate Invoice Number            */
-/* ---------------------------------- */
-
-function generateInvoiceNumber(billingMonth: string) {
-  const month = new Date(`${billingMonth}T00:00:00Z`)
-    .toLocaleString("en-US", { month: "short", year: "numeric" })
-    .replace(" ", "")
-    .toUpperCase();
-
-  const random = Math.floor(1000 + Math.random() * 9000);
-
-  return `INV-${month}-${random}`;
-}
-
-export async function runPresetMonthlyEngine(params: {
-  tenantId: string;
-  billingMonth: string;
-  generatedByType?: "admin" | "system" | "tenant";
-  generatedById?: string | null;
-}) {
-
-  const {
-    tenantId,
-    billingMonth,
-    generatedByType = "system",
-    generatedById = null,
-  } = params;
-
-  const supabase = await createClient();
-
-  /* ---------------------------------- */
-  /* Prevent duplicate active invoices  */
-  /* Allow regeneration if VOID         */
-  /* ---------------------------------- */
-
-  const { data: existingInvoice } = await supabase
-    .from("invoices")
-    .select("id, status")
-    .eq("tenant_id", tenantId)
-    .eq("billing_month", billingMonth)
-    .eq("invoice_type", "preset")
-    .maybeSingle();
-
-  if (existingInvoice && existingInvoice.status !== "void") {
-    return {
-      success: false,
-      reason: "INVOICE_ALREADY_EXISTS",
-      invoiceId: existingInvoice.id,
-    };
+  while (current.getUTCMonth() === month) {
+    if (current.getUTCDay() === weekday) {
+      dates.push(new Date(current));
+    }
+    current.setUTCDate(current.getUTCDate() + 1);
   }
 
-  /* ---------------------------------- */
-  /* Get tenant                         */
-  /* ---------------------------------- */
+  return dates;
+}
 
-  const { data: tenant } = await supabase
+function combineDateAndTime(date: Date, time: string) {
+  const [hh, mm, ss] = time.split(":").map(Number);
+  const combined = new Date(date);
+  combined.setUTCHours(hh, mm, ss || 0, 0);
+  return combined.toISOString();
+}
+
+export async function generatePresetBookingsForMonth(
+  tenantId: string,
+  billingMonth: string
+) {
+  const supabase = await createClient();
+
+  // 1️⃣ Get active preset schedules
+  const { data: presets, error } = await supabase
+    .from("preset_schedules")
+    .select(`
+      id,
+      weekday,
+      start_time,
+      end_time,
+      kitchen_space_id
+    `)
+    .eq("tenant_id", tenantId)
+    .eq("is_active", true);
+
+  if (error) throw error;
+  if (!presets || presets.length === 0) return;
+
+  // 2️⃣ Get tenant organization
+  const { data: tenant, error: tenantError } = await supabase
     .from("tenants")
     .select("organization_id")
     .eq("id", tenantId)
-    .maybeSingle();
+    .single();
 
-  if (!tenant) {
-    return { success: false, reason: "TENANT_NOT_FOUND" };
+  if (tenantError) throw tenantError;
+  if (!tenant) throw new Error("Tenant not found");
+
+  for (const preset of presets as any[]) {
+    const dates = getAllDatesForWeekdayInMonth(
+      billingMonth,
+      preset.weekday
+    );
+
+    for (const date of dates) {
+      const startISO = combineDateAndTime(date, preset.start_time);
+      const endISO = combineDateAndTime(date, preset.end_time);
+
+      const totalHours =
+        (new Date(endISO).getTime() -
+          new Date(startISO).getTime()) /
+        (1000 * 60 * 60);
+
+      if (totalHours <= 0) continue;
+
+      // 3️⃣ Prevent duplicate bookings
+      const { data: existing } = await supabase
+        .from("bookings")
+        .select("id")
+        .eq("tenant_id", tenantId)
+        .eq("start_time", startISO)
+        .eq("end_time", endISO)
+        .maybeSingle();
+
+      if (existing?.id) continue;
+
+      // 4️⃣ Insert booking
+      const { error: insertError } = await supabase
+        .from("bookings")
+        .insert({
+          organization_id: tenant.organization_id,
+          tenant_id: tenantId,
+          kitchen_space_id: preset.kitchen_space_id,
+          start_time: startISO,
+          end_time: endISO,
+          total_hours: totalHours,
+          submitted_via: "preset",
+        });
+
+      if (insertError) throw insertError;
+    }
   }
-
-  const { startISO, nextISO } = getMonthBounds(billingMonth);
-
-  /* ---------------------------------- */
-  /* Generate bookings                  */
-  /* ---------------------------------- */
-
-  await generatePresetBookingsForMonth(tenantId, billingMonth);
-
-  const { data: bookings } = await supabase
-    .from("bookings")
-    .select("id, start_time, total_hours")
-    .eq("tenant_id", tenantId)
-    .gte("start_time", startISO)
-    .lt("start_time", nextISO)
-    .is("invoice_id", null)
-    .order("start_time", { ascending: true });
-
-  if (!bookings || bookings.length === 0) {
-    return { success: false, reason: "NOTHING_TO_BILL" };
-  }
-
-  /* ---------------------------------- */
-  /* Load services                      */
-  /* ---------------------------------- */
-
-  const hourlyRate = await getActiveHourlyRate(tenantId);
-  const perBookingServices = await getActivePerBookingServices(tenantId);
-  const monthlyServices = await getActiveMonthlyServices(tenantId);
-
-  if (!hourlyRate) {
-    return { success: false, reason: "NO_HOURLY_RATE" };
-  }
-
-  let subtotal = 0;
-
-  const lineItems: any[] = [];
-
-  /* ---------------------------------- */
-  /* Kitchen Time                       */
-  /* ---------------------------------- */
-
-  for (const booking of bookings) {
-
-    const hours = Number(booking.total_hours || 0);
-    const amount = hours * hourlyRate;
-
-    subtotal += amount;
-
-    lineItems.push({
-      sortOrder: 1,
-      description: "Kitchen Time",
-      quantity: hours,
-      rate: hourlyRate,
-      amount,
-      serviceDate: booking.start_time,
-    });
-  }
-
-  /* ---------------------------------- */
-  /* Per Booking Services               */
-  /* ---------------------------------- */
-
-  for (const service of perBookingServices) {
-
-    const total =
-      bookings.length *
-      Number(service.amount) *
-      Number(service.quantity || 1);
-
-    if (total <= 0) continue;
-
-    subtotal += total;
-
-    lineItems.push({
-      sortOrder: 2,
-      description: service.name,
-      quantity: bookings.length * Number(service.quantity || 1),
-      rate: Number(service.amount),
-      amount: total,
-      serviceDate: billingMonth,
-    });
-  }
-
-  /* ---------------------------------- */
-  /* Monthly Services                   */
-  /* ---------------------------------- */
-
-  for (const service of monthlyServices) {
-
-    const total =
-      Number(service.amount) *
-      Number(service.quantity || 1);
-
-    if (total <= 0) continue;
-
-    subtotal += total;
-
-    lineItems.push({
-      sortOrder: 3,
-      description: service.name,
-      quantity: Number(service.quantity || 1),
-      rate: Number(service.amount),
-      amount: total,
-      serviceDate: billingMonth,
-    });
-  }
-
-  /* ---------------------------------- */
-  /* Sort invoice items                 */
-  /* ---------------------------------- */
-
-  const sortedLineItems = lineItems
-    .sort((a, b) => {
-      if (a.sortOrder !== b.sortOrder) {
-        return a.sortOrder - b.sortOrder;
-      }
-
-      if (!a.serviceDate) return 1;
-      if (!b.serviceDate) return -1;
-
-      return new Date(a.serviceDate).getTime() - new Date(b.serviceDate).getTime();
-    })
-    .map(({ sortOrder, ...item }) => item);
-
-  /* ---------------------------------- */
-  /* Create invoice                     */
-  /* ---------------------------------- */
-
-  const invoice = await insertInvoice({
-    organizationId: tenant.organization_id,
-    tenantId,
-    invoiceType: "preset",
-    billingMonth,
-    generatedByType,
-    generatedById,
-    invoiceNumber: generateInvoiceNumber(billingMonth),
-    invoiceDate: new Date(),
-    dueDate: new Date(),
-    subtotal,
-    tax: 0,
-    totalAmount: subtotal,
-    balanceDue: subtotal,
-    status: "draft",
-  });
-
-  await insertInvoiceLineItems(
-    invoice.id,
-    tenant.organization_id,
-    tenantId,
-    sortedLineItems
-  );
-
-  await attachBookingsToInvoiceForMonth(
-    tenantId,
-    invoice.id,
-    startISO,
-    nextISO
-  );
-
-  return {
-    success: true,
-    invoiceId: invoice.id,
-  };
 }
