@@ -14,10 +14,13 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: "No code returned" }, { status: 400 });
   }
 
-  // Pull current profile so we can keep refresh_token if Google doesn't return it
+  /* -------------------------------- */
+  /* Get existing refresh token       */
+  /* -------------------------------- */
+
   const { data: existingProfile, error: existingErr } = await supabase
     .from("profiles")
-    .select("google_refresh_token")
+    .select("google_refresh_token, organization_id")
     .eq("id", userData.user.id)
     .maybeSingle();
 
@@ -25,7 +28,10 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: existingErr.message }, { status: 400 });
   }
 
-  // Exchange code for tokens
+  /* -------------------------------- */
+  /* Exchange code for tokens         */
+  /* -------------------------------- */
+
   const tokenRes = await fetch("https://oauth2.googleapis.com/token", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -47,18 +53,37 @@ export async function GET(request: NextRequest) {
     );
   }
 
-  // Get Google email (make sure connect scope includes userinfo.email)
-  const profileRes = await fetch("https://www.googleapis.com/oauth2/v2/userinfo", {
-    headers: { Authorization: `Bearer ${tokens.access_token}` },
-  });
+  /* -------------------------------- */
+  /* Get Google email                 */
+  /* -------------------------------- */
+
+  const profileRes = await fetch(
+    "https://www.googleapis.com/oauth2/v2/userinfo",
+    {
+      headers: {
+        Authorization: `Bearer ${tokens.access_token}`,
+      },
+    }
+  );
 
   const googleProfile = await profileRes.json();
 
-  // Compute expiry
-  const expiresAt = new Date(Date.now() + (tokens.expires_in ?? 3600) * 1000);
+  /* -------------------------------- */
+  /* Compute expiry                   */
+  /* -------------------------------- */
 
-  // Use newly returned refresh token if present; otherwise keep existing one
-  const refreshTokenToStore = tokens.refresh_token ?? existingProfile?.google_refresh_token ?? null;
+  const expiresAt = new Date(
+    Date.now() + (tokens.expires_in ?? 3600) * 1000
+  );
+
+  /* -------------------------------- */
+  /* Preserve refresh token           */
+  /* -------------------------------- */
+
+  const refreshTokenToStore =
+    tokens.refresh_token ??
+    existingProfile?.google_refresh_token ??
+    null;
 
   if (!refreshTokenToStore) {
     return NextResponse.json(
@@ -69,6 +94,19 @@ export async function GET(request: NextRequest) {
       { status: 400 }
     );
   }
+
+  /* -------------------------------- */
+  /* Disable previous sender          */
+  /* -------------------------------- */
+
+  await supabase
+    .from("profiles")
+    .update({ is_email_sender: false })
+    .eq("organization_id", existingProfile?.organization_id);
+
+  /* -------------------------------- */
+  /* Update current profile           */
+  /* -------------------------------- */
 
   const { error: updateErr } = await supabase
     .from("profiles")
@@ -83,8 +121,17 @@ export async function GET(request: NextRequest) {
     .eq("id", userData.user.id);
 
   if (updateErr) {
-    return NextResponse.json({ error: updateErr.message }, { status: 400 });
+    return NextResponse.json(
+      { error: updateErr.message },
+      { status: 400 }
+    );
   }
 
-  return NextResponse.redirect("https://morgen-and-sage.vercel.app/admin/settings");
+  /* -------------------------------- */
+  /* Redirect back to settings        */
+  /* -------------------------------- */
+
+  return NextResponse.redirect(
+    "https://morgen-and-sage.vercel.app/admin/settings"
+  );
 }
