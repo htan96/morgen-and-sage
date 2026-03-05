@@ -107,7 +107,10 @@ export async function POST(req: Request) {
     const { data: linkData, error: linkError } =
       await supabase.auth.admin.generateLink({
         type: "recovery",
-        email
+        email,
+        options: {
+          redirectTo: `${process.env.NEXT_PUBLIC_APP_URL}/set-password`
+        }
       });
 
     if (linkError) {

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { useRouter } from "next/navigation";
 
@@ -12,33 +12,56 @@ export default function LoginPage() {
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
 
-const handleLogin = async () => {
-  setLoading(true);
+  /*
+  --------------------------------
+  Detect Supabase recovery link
+  --------------------------------
+  */
 
-  const { error } = await supabase.auth.signInWithPassword({
-    email,
-    password,
-  });
+  useEffect(() => {
+    async function detectRecoveryLink() {
+      const hash = window.location.hash;
 
-  if (error) {
-    alert(error.message);
-    setLoading(false);
-    return;
-  }
+      if (hash.includes("access_token")) {
+        const { data } = await supabase.auth.getSession();
 
-  router.push("/admin/bookings");
-};
+        if (data.session) {
+          router.replace("/set-password");
+        }
+      }
+    }
 
+    detectRecoveryLink();
+  }, [router, supabase]);
+
+  const handleLogin = async () => {
+    setLoading(true);
+
+    const { error } = await supabase.auth.signInWithPassword({
+      email,
+      password,
+    });
+
+    if (error) {
+      alert(error.message);
+      setLoading(false);
+      return;
+    }
+
+    router.push("/admin/bookings");
+  };
 
   return (
     <div className="bg-white shadow-2xl rounded-2xl p-10 w-full max-w-md">
-      <h1 className="text-3xl font-bold text-gray-900 mb-2 text-center">
-        Morgen & Sage
-      </h1>
 
-      <p className="text-gray-500 text-center mb-8">
-        Secure Admin & Tenant Access
-      </p>
+      {/* Logo */}
+      <div className="flex justify-center mb-8">
+        <img
+          src="/logos/morgens-kitchen-dark.svg"
+          alt="Morgan's Kitchen"
+          className="h-12"
+        />
+      </div>
 
       <div className="space-y-4">
         <input

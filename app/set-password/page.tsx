@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { useRouter } from "next/navigation";
 
@@ -10,6 +10,26 @@ export default function SetPasswordPage() {
 
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
+
+  /* -------------------------------- */
+  /* Ensure recovery session exists   */
+  /* -------------------------------- */
+
+  useEffect(() => {
+    async function checkSession() {
+      const { data } = await supabase.auth.getSession();
+
+      if (!data.session) {
+        router.push("/login");
+      }
+    }
+
+    checkSession();
+  }, [router, supabase]);
+
+  /* -------------------------------- */
+  /* Set Password                     */
+  /* -------------------------------- */
 
   async function handleSetPassword(e: React.FormEvent) {
     e.preventDefault();
@@ -25,7 +45,20 @@ export default function SetPasswordPage() {
       return;
     }
 
-    router.push("/admin");
+    /*
+    Optional but recommended:
+    Clear must_reset_password
+    */
+
+    await fetch("/api/auth/password-updated", {
+      method: "POST",
+    });
+
+    /*
+    Redirect user to portal
+    */
+
+    router.push("/portal");
   }
 
   return (
