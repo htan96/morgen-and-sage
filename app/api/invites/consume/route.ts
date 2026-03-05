@@ -3,41 +3,50 @@ import { supabaseAdmin } from "@/lib/supabase/supabase-admin";
 
 export async function POST(req: Request) {
   try {
-    const { token } = await req.json();
+    const { token, userId } = await req.json();
 
-    if (!token) {
-      return NextResponse.json({ error: "Missing token" }, { status: 400 });
+    if (!token || !userId) {
+      return NextResponse.json(
+        { error: "Missing token or userId" },
+        { status: 400 }
+      );
     }
 
     const { data: invite, error } = await supabaseAdmin
       .from("invites")
-      .select("id, tenant_id, email, expires_at, used")
+      .select("tenant_id")
       .eq("token", token)
-      .maybeSingle();
+      .single();
 
-    if (error) {
-      return NextResponse.json({ error: error.message }, { status: 500 });
+    if (error || !invite) {
+      return NextResponse.json(
+        { error: "Invite not found" },
+        { status: 404 }
+      );
     }
 
-    if (!invite) {
-      return NextResponse.json({ error: "Invite not found" }, { status: 404 });
-    }
+    // mark invite used
+    await supabaseAdmin
+      .from("invites")
+      .update({ used: true })
+      .eq("token", token);
 
-    if (invite.used) {
-      return NextResponse.json({ error: "Invite already used" }, { status: 400 });
-    }
+    // attach tenant to user
+    await supabaseAdmin
+      .from("profiles")
+      .update({
+        tenant_id: invite.tenant_id,
+        role: "tenant",
+      })
+      .eq("id", userId);
 
-    if (new Date(invite.expires_at).getTime() < Date.now()) {
-      return NextResponse.json({ error: "Invite expired" }, { status: 400 });
-    }
-
-    return NextResponse.json({
-      success: true,
-      tenantId: invite.tenant_id,
-      email: invite.email,
-    });
+    return NextResponse.json({ success: true });
   } catch (err) {
     console.error(err);
-    return NextResponse.json({ error: "Failed to validate invite" }, { status: 500 });
+
+    return NextResponse.json(
+      { error: "Failed to consume invite" },
+      { status: 500 }
+    );
   }
 }
