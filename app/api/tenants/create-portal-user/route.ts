@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { sendEmail } from "@/lib/email/sendEmail";
 
 function generatePassword() {
@@ -8,6 +8,7 @@ function generatePassword() {
 
 export async function POST(req: Request) {
   try {
+
     const { tenantId, email } = await req.json();
 
     if (!tenantId || !email) {
@@ -17,10 +18,10 @@ export async function POST(req: Request) {
       );
     }
 
-    const supabase = await createClient();
+    const supabase = createAdminClient();
 
     /* ------------------------------ */
-    /* Get tenant + organization      */
+    /* Get tenant                     */
     /* ------------------------------ */
 
     const { data: tenant, error: tenantError } = await supabase
@@ -39,21 +40,20 @@ export async function POST(req: Request) {
     const organizationId = tenant.organization_id;
 
     /* ------------------------------ */
-    /* Generate password              */
+    /* Generate Password              */
     /* ------------------------------ */
 
     const tempPassword = generatePassword();
 
     /* ------------------------------ */
-    /* Create Supabase Auth User      */
+    /* Create Auth User               */
     /* ------------------------------ */
 
-    const { data, error } =
-      await supabase.auth.admin.createUser({
-        email,
-        password: tempPassword,
-        email_confirm: true,
-      });
+    const { data, error } = await supabase.auth.admin.createUser({
+      email,
+      password: tempPassword,
+      email_confirm: true,
+    });
 
     if (error) {
       return NextResponse.json(
@@ -65,7 +65,7 @@ export async function POST(req: Request) {
     const authUserId = data.user.id;
 
     /* ------------------------------ */
-    /* Link tenant to auth user       */
+    /* Link tenant                    */
     /* ------------------------------ */
 
     const { error: updateError } = await supabase
@@ -84,41 +84,46 @@ export async function POST(req: Request) {
     }
 
     /* ------------------------------ */
-    /* Send Email via Gmail API       */
+    /* Send Email                     */
     /* ------------------------------ */
 
-    await sendEmail({
-      organizationId,
-      to: email,
-      subject: "Your Kitchen Portal Login",
-      html: `
-        <h2>Welcome to the Kitchen Portal</h2>
+    try {
+      await sendEmail({
+        organizationId,
+        to: email,
+        subject: "Your Kitchen Portal Login",
+        html: `
+          <h2>Welcome to the Kitchen Portal</h2>
+          <p>Your portal account has been created.</p>
 
-        <p>Your portal account has been created.</p>
+          <p><strong>Email:</strong> ${email}</p>
+          <p><strong>Temporary Password:</strong> ${tempPassword}</p>
 
-        <p><strong>Email:</strong> ${email}</p>
-        <p><strong>Temporary Password:</strong> ${tempPassword}</p>
+          <p>Please login and change your password.</p>
 
-        <p>Please login and change your password.</p>
-
-        <p>
-          <a href="${process.env.NEXT_PUBLIC_APP_URL}/login">
-            Open Portal
-          </a>
-        </p>
-      `,
-    });
+          <p>
+            <a href="${process.env.NEXT_PUBLIC_APP_URL}/login">
+              Open Portal
+            </a>
+          </p>
+        `,
+      });
+    } catch (emailError) {
+      console.error("Email failed:", emailError);
+    }
 
     return NextResponse.json({
       success: true,
     });
 
   } catch (err) {
+
     console.error(err);
 
     return NextResponse.json(
       { error: "Failed to create portal user" },
       { status: 500 }
     );
+
   }
 }
