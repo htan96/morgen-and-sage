@@ -17,51 +17,54 @@ export default function LoginPage() {
   /* -------------------------------- */
 
   useEffect(() => {
-  async function checkSession() {
-    const { data } = await supabase.auth.getSession();
+    async function checkSession() {
+      const { data } = await supabase.auth.getSession();
 
-    if (!data.session) return;
+      if (!data.session) return;
 
-    const user = data.session.user;
+      const user = data.session.user;
 
-    /* -------- Check Tenant -------- */
+      /* -------- Check Tenant -------- */
 
-    const { data: tenant } = await supabase
-      .from("tenants")
-      .select("id, must_reset_password")
-      .eq("auth_user_id", user.id)
-      .maybeSingle();
+      const { data: tenant } = await supabase
+        .from("tenants")
+        .select("id, must_reset_password")
+        .eq("auth_user_id", user.id)
+        .maybeSingle();
 
-    if (tenant?.must_reset_password) {
-      router.replace("/set-password");
-      return;
+      if (tenant?.must_reset_password) {
+        router.replace("/set-password");
+        return;
+      }
+
+      if (tenant) {
+        router.replace("/portal");
+        return;
+      }
+
+      /* -------- Check Admin -------- */
+
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("role")
+        .eq("id", user.id)
+        .maybeSingle();
+
+      if (profile?.role === "admin") {
+        router.replace("/admin/bookings");
+        return;
+      }
+
+      // ❗ No fallback redirect here
+      // If neither tenant nor admin, stay on login
     }
 
-    if (tenant) {
-      router.replace("/portal");
-      return;
-    }
+    checkSession();
+  }, []);
 
-    /* -------- Check Admin -------- */
-
-    const { data: profile } = await supabase
-      .from("profiles")
-      .select("role")
-      .eq("id", user.id)
-      .maybeSingle();
-
-    if (profile?.role === "admin") {
-      router.replace("/admin/bookings");
-      return;
-    }
-
-    /* -------- Fallback -------- */
-
-    router.replace("/login");
-  }
-
-  checkSession();
-}, []);
+  /* -------------------------------- */
+  /* Login Handler                    */
+  /* -------------------------------- */
 
   const handleLogin = async () => {
     setLoading(true);
@@ -77,7 +80,8 @@ export default function LoginPage() {
       return;
     }
 
-    router.replace("/");
+    // Send user into the portal flow
+    router.replace("/portal");
   };
 
   return (
