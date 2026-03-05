@@ -27,19 +27,24 @@ export default async function Page({
     if (!user) redirect("/login");
   }
 
-  const { data: invoice, error } = await supabase
-    .from("invoices")
-    .select(`
-      *,
-      tenant:tenants(name),
-      invoice_line_items(*),
-      payments(*)
-    `)
-    .eq("id", id)
-    .single();
+const { data: invoice } = await supabase
+  .from("invoices")
+  .select(`
+    *,
+    tenant:tenants(name),
+    invoice_line_items(*),
+    payments(*)
+  `)
+  .eq("id", id)
+  .maybeSingle();
 
-  if (error || !invoice) return notFound();
+if (!invoice) {
+  if (isPrint) {
+    return <div>Invoice not found</div>;
+  }
 
+  return notFound();
+}
   const total = Number(invoice.total_amount);
 
   const totalPaid =
