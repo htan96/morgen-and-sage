@@ -2,11 +2,38 @@ import { NextRequest, NextResponse } from "next/server";
 import { createServerClient } from "@supabase/ssr";
 
 export async function middleware(request: NextRequest) {
+
+  const { pathname, searchParams } = request.nextUrl;
+
   let response = NextResponse.next({
-    request: {
-      headers: request.headers,
-    },
+    request: { headers: request.headers },
   });
+
+  /*
+  --------------------------------
+  Allow recovery links
+  --------------------------------
+  */
+
+  if (
+    searchParams.get("type") === "recovery" ||
+    searchParams.get("access_token")
+  ) {
+    return response;
+  }
+
+  /*
+  --------------------------------
+  Public routes
+  --------------------------------
+  */
+
+  if (
+    pathname.startsWith("/login") ||
+    pathname.startsWith("/set-password")
+  ) {
+    return response;
+  }
 
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -25,29 +52,19 @@ export async function middleware(request: NextRequest) {
     }
   );
 
-  // Refresh session
+  /*
+  --------------------------------
+  Refresh session
+  --------------------------------
+  */
+
   const {
     data: { user },
   } = await supabase.auth.getUser();
 
-  const { pathname } = request.nextUrl;
-
   /*
   --------------------------------
-  Public Routes
-  --------------------------------
-  */
-
-  if (
-    pathname.startsWith("/login") ||
-    pathname.startsWith("/set-password")
-  ) {
-    return response;
-  }
-
-  /*
-  --------------------------------
-  Not Logged In
+  Not logged in
   --------------------------------
   */
 
@@ -59,7 +76,7 @@ export async function middleware(request: NextRequest) {
 
   /*
   --------------------------------
-  Check if tenant
+  Check tenant
   --------------------------------
   */
 
@@ -71,7 +88,7 @@ export async function middleware(request: NextRequest) {
 
   /*
   --------------------------------
-  Tenant Routes
+  Tenant routes
   --------------------------------
   */
 
@@ -85,7 +102,7 @@ export async function middleware(request: NextRequest) {
 
   /*
   --------------------------------
-  Admin Routes
+  Admin routes
   --------------------------------
   */
 
