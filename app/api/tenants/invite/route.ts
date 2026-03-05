@@ -5,7 +5,12 @@ import { sendEmail } from "@/lib/email/sendEmail";
 
 export async function POST(req: Request) {
   try {
-    const { tenantId, email } = await req.json();
+    const body = await req.json();
+
+    const tenantId = body?.tenantId;
+    const email = body?.email;
+
+    console.log("Invite request payload:", { tenantId, email });
 
     if (!tenantId || !email) {
       return NextResponse.json(
@@ -14,6 +19,12 @@ export async function POST(req: Request) {
       );
     }
 
+    /*
+    --------------------------------
+    Validate tenant
+    --------------------------------
+    */
+
     const { data: tenant, error: tenantErr } = await supabaseAdmin
       .from("tenants")
       .select("id, organization_id")
@@ -21,27 +32,75 @@ export async function POST(req: Request) {
       .single();
 
     if (tenantErr || !tenant) {
-      return NextResponse.json({ error: "Tenant not found" }, { status: 404 });
+      return NextResponse.json(
+        { error: "Tenant not found" },
+        { status: 404 }
+      );
     }
+
+    /*
+    --------------------------------
+    Expire existing invites
+    --------------------------------
+    */
+
+    await supabaseAdmin
+      .from("invites")
+      .update({ used: true })
+      .eq("tenant_id", tenantId)
+      .eq("used", false);
+
+    /*
+    --------------------------------
+    Generate invite token
+    --------------------------------
+    */
 
     const token = crypto.randomBytes(32).toString("hex");
-    const expiresAt = new Date(Date.now() + 1000 * 60 * 60 * 24).toISOString();
 
-    const { error: inviteErr } = await supabaseAdmin.from("invites").insert({
-      tenant_id: tenantId,
-      email: String(email).toLowerCase(),
-      token,
-      expires_at: expiresAt,
-      used: false,
-    });
+    const expiresAt = new Date(
+      Date.now() + 1000 * 60 * 60 * 24
+    ).toISOString(); // 24 hours
+
+    /*
+    --------------------------------
+    Store invite
+    --------------------------------
+    */
+
+    const { error: inviteErr } = await supabaseAdmin
+      .from("invites")
+      .insert({
+        tenant_id: tenantId,
+        email: String(email).toLowerCase(),
+        token,
+        expires_at: expiresAt,
+        used: false,
+      });
 
     if (inviteErr) {
-      return NextResponse.json({ error: inviteErr.message }, { status: 500 });
+      return NextResponse.json(
+        { error: inviteErr.message },
+        { status: 500 }
+      );
     }
 
-    const appUrl = process.env.NEXT_PUBLIC_APP_URL;
+    /*
+    --------------------------------
+    Build invite link
+    --------------------------------
+    */
 
-    const inviteLink = `${appUrl}/invite/${token}`;
+    const appUrl =
+      process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
+
+    const inviteLink = `${appUrl.replace(/\/$/, "")}/invite/${token}`;
+
+    /*
+    --------------------------------
+    Send email
+    --------------------------------
+    */
 
     const gmailResult = await sendEmail({
       organizationId: tenant.organization_id,
@@ -50,18 +109,30 @@ export async function POST(req: Request) {
       html: `
         <h2>Kitchen Portal Access</h2>
         <p>Click below to set your password:</p>
-        <p><a href="${inviteLink}">Set Your Password</a></p>
+        <p>
+          <a href="${inviteLink}" target="_blank">
+            Set Your Password
+          </a>
+        </p>
         <p>This link expires in 24 hours.</p>
       `,
     });
+
+    /*
+    --------------------------------
+    Success
+    --------------------------------
+    */
 
     return NextResponse.json({
       success: true,
       inviteLink,
       gmailResult,
     });
+
   } catch (err: any) {
     console.error("create-portal-user error:", err);
+
     return NextResponse.json(
       { error: err?.message || "Failed to create portal user" },
       { status: 500 }
