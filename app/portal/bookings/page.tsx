@@ -21,7 +21,8 @@ export default async function PortalBookingsPage() {
     .eq("auth_user_id", user.id)
     .maybeSingle();
 
-  if (!tenant) redirect("/portal");
+  // 🔴 THIS IS THE FIX
+  if (!tenant) redirect("/login");
 
   const tenantId = tenant.id;
 
@@ -49,8 +50,6 @@ export default async function PortalBookingsPage() {
     `)
     .eq("tenant_id", tenantId);
 
-  /* ---------------- Normalize Supabase Relation ---------------- */
-
   const normalizedBookings =
     bookings?.map((b: any) => ({
       ...b,
@@ -58,8 +57,6 @@ export default async function PortalBookingsPage() {
         ? b.tenant[0] ?? null
         : b.tenant ?? null,
     })) ?? [];
-
-  /* ---------------- Render ---------------- */
 
   return (
     <AdminBookingsClient

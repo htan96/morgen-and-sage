@@ -18,21 +18,18 @@ export default async function PortalLayout({
 
   if (!user) redirect("/login");
 
-  /* ---------------- Tenant Check ---------------- */
+  /* ---------------- Tenant ---------------- */
 
   const { data: tenant } = await supabase
     .from("tenants")
-    .select("id, name")
+    .select("id")
     .eq("auth_user_id", user.id)
     .maybeSingle();
 
   if (!tenant) redirect("/login");
 
-  /* ---------------- Layout ---------------- */
-
   return (
     <div className="flex min-h-screen">
-
       <div className="hidden md:flex fixed left-0 top-0 h-screen">
         <Sidebar variant="full" />
       </div>
@@ -42,7 +39,6 @@ export default async function PortalLayout({
       <main className="flex-1 md:ml-64 ml-14 px-2 sm:px-4 md:px-6 py-4 md:py-6">
         {children}
       </main>
-
     </div>
   );
 }
