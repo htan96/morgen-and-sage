@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
 import { useEffect, useState } from "react";
+import CreatePortalUserButton from "@/components/tenants/actions/CreatePortalUserButton";
 
 type Kitchen = {
   id: string;
@@ -36,7 +37,8 @@ export default function TenantHeader({ tenant }: Props) {
     kitchen_space_id: tenant.kitchen_space_id,
   });
 
-  // Load kitchens
+  /* ---------------- Load Kitchens ---------------- */
+
   useEffect(() => {
     async function loadKitchens() {
       const { data } = await supabase
@@ -50,6 +52,8 @@ export default function TenantHeader({ tenant }: Props) {
     loadKitchens();
   }, []);
 
+  /* ---------------- Toggle Tenant Status ---------------- */
+
   async function toggleStatus() {
     const { error } = await supabase
       .from("tenants")
@@ -58,6 +62,8 @@ export default function TenantHeader({ tenant }: Props) {
 
     if (!error) setIsActive(!isActive);
   }
+
+  /* ---------------- Save Edits ---------------- */
 
   async function handleSave() {
     setSaving(true);
@@ -77,6 +83,8 @@ export default function TenantHeader({ tenant }: Props) {
     if (!error) setIsEditing(false);
   }
 
+  /* ---------------- Cancel Editing ---------------- */
+
   function handleCancel() {
     setForm({
       name: tenant.name,
@@ -84,6 +92,7 @@ export default function TenantHeader({ tenant }: Props) {
       phone: tenant.phone || "",
       kitchen_space_id: tenant.kitchen_space_id,
     });
+
     setIsEditing(false);
   }
 
@@ -91,8 +100,10 @@ export default function TenantHeader({ tenant }: Props) {
     <div className="bg-[var(--surface)] border border-[var(--border)] rounded-2xl p-8 space-y-8">
 
       {/* ===================== HEADER ===================== */}
+
       <div className="flex justify-between items-start">
         <div className="space-y-2">
+
           <Link
             href="/admin/tenants"
             className="text-sm text-[var(--text-muted)] hover:text-[var(--text)] transition"
@@ -107,6 +118,7 @@ export default function TenantHeader({ tenant }: Props) {
           <p className="text-sm text-[var(--text-muted)]">
             Tenant Control Center
           </p>
+
         </div>
 
         <span
@@ -121,6 +133,7 @@ export default function TenantHeader({ tenant }: Props) {
       </div>
 
       {/* ===================== INFO GRID ===================== */}
+
       <div
         className={`grid ${
           isEditing
@@ -128,11 +141,14 @@ export default function TenantHeader({ tenant }: Props) {
             : "grid-cols-1 md:grid-cols-4"
         } gap-8 text-sm`}
       >
+
         {/* Business Name */}
-        <div className="min-w-0">
+
+        <div>
           <div className="text-[var(--text-muted)] mb-2">
             Business Name
           </div>
+
           {isEditing ? (
             <input
               value={form.name}
@@ -142,51 +158,59 @@ export default function TenantHeader({ tenant }: Props) {
               className="w-full bg-[var(--surface)] border border-[var(--border)] rounded-xl px-4 py-3 text-[var(--text)] focus:outline-none focus:ring-2 focus:ring-[var(--primary)] transition"
             />
           ) : (
-            <div className="text-[var(--text)]">
-              {tenant.name}
-            </div>
+            <div>{tenant.name}</div>
           )}
         </div>
 
         {/* Email */}
-        <div className="min-w-0">
-          <div className="text-[var(--text-muted)] mb-2">Email</div>
+
+        <div>
+          <div className="text-[var(--text-muted)] mb-2">
+            Email
+          </div>
+
           {isEditing ? (
             <input
               value={form.email}
               onChange={(e) =>
                 setForm({ ...form, email: e.target.value })
               }
-              className="w-full bg-[var(--surface)] border border-[var(--border)] rounded-xl px-4 py-3 text-[var(--text)] focus:outline-none focus:ring-2 focus:ring-[var(--primary)] transition"
+              className="w-full bg-[var(--surface)] border border-[var(--border)] rounded-xl px-4 py-3"
             />
           ) : (
-            <div className="text-[var(--text)] break-all">
+            <div className="break-all">
               {tenant.email || "—"}
             </div>
           )}
         </div>
 
         {/* Phone */}
-        <div className="min-w-0">
-          <div className="text-[var(--text-muted)] mb-2">Phone</div>
+
+        <div>
+          <div className="text-[var(--text-muted)] mb-2">
+            Phone
+          </div>
+
           {isEditing ? (
             <input
               value={form.phone}
               onChange={(e) =>
                 setForm({ ...form, phone: e.target.value })
               }
-              className="w-full bg-[var(--surface)] border border-[var(--border)] rounded-xl px-4 py-3 text-[var(--text)] focus:outline-none focus:ring-2 focus:ring-[var(--primary)] transition"
+              className="w-full bg-[var(--surface)] border border-[var(--border)] rounded-xl px-4 py-3"
             />
           ) : (
-            <div className="text-[var(--text)]">
-              {tenant.phone || "—"}
-            </div>
+            <div>{tenant.phone || "—"}</div>
           )}
         </div>
 
         {/* Kitchen */}
-        <div className="min-w-0">
-          <div className="text-[var(--text-muted)] mb-2">Kitchen</div>
+
+        <div>
+          <div className="text-[var(--text-muted)] mb-2">
+            Kitchen
+          </div>
+
           {isEditing ? (
             <select
               value={form.kitchen_space_id || ""}
@@ -196,9 +220,10 @@ export default function TenantHeader({ tenant }: Props) {
                   kitchen_space_id: e.target.value || null,
                 })
               }
-              className="w-full bg-[var(--surface)] border border-[var(--border)] rounded-xl px-4 py-3 text-[var(--text)] focus:outline-none focus:ring-2 focus:ring-[var(--primary)] transition"
+              className="w-full bg-[var(--surface)] border border-[var(--border)] rounded-xl px-4 py-3"
             >
               <option value="">Not Assigned</option>
+
               {kitchens.map((k) => (
                 <option key={k.id} value={k.id}>
                   {k.name}
@@ -206,7 +231,7 @@ export default function TenantHeader({ tenant }: Props) {
               ))}
             </select>
           ) : (
-            <div className="text-[var(--text)]">
+            <div>
               {kitchens.find(
                 (k) => k.id === tenant.kitchen_space_id
               )?.name || "Not Assigned"}
@@ -214,13 +239,15 @@ export default function TenantHeader({ tenant }: Props) {
           )}
         </div>
 
-        {/* Created (view only) */}
+        {/* Created */}
+
         {!isEditing && (
           <div>
             <div className="text-[var(--text-muted)] mb-2">
               Created
             </div>
-            <div className="text-[var(--text)]">
+
+            <div>
               {new Date(tenant.created_at).toLocaleDateString()}
             </div>
           </div>
@@ -228,40 +255,63 @@ export default function TenantHeader({ tenant }: Props) {
       </div>
 
       {/* ===================== ACTIONS ===================== */}
-      <div className="flex justify-between items-center pt-6 border-t border-[var(--border)]">
-        <button
-          onClick={toggleStatus}
-          className="px-5 py-2.5 rounded-xl border border-[var(--border)] bg-[var(--surface)] hover:bg-[var(--hover)] transition text-sm"
-        >
-          {isActive ? "Deactivate Tenant" : "Activate Tenant"}
-        </button>
 
-        {isEditing ? (
-          <div className="flex gap-3">
+      <div className="pt-6 border-t border-[var(--border)]">
+
+        <div className="flex flex-wrap justify-between gap-4">
+
+          {/* Left Buttons */}
+
+          <div className="flex flex-wrap gap-3">
+
             <button
-              onClick={handleCancel}
+              onClick={toggleStatus}
+              className="px-5 py-2.5 rounded-xl border border-[var(--border)] bg-[var(--surface)] hover:bg-[var(--hover)] transition text-sm"
+            >
+              {isActive ? "Deactivate Tenant" : "Activate Tenant"}
+            </button>
+
+            <CreatePortalUserButton
+              tenantId={tenant.id}
+              email={tenant.email}
+            />
+
+          </div>
+
+          {/* Right Buttons */}
+
+          {isEditing ? (
+            <div className="flex gap-3">
+
+              <button
+                onClick={handleCancel}
+                className="px-5 py-2.5 rounded-xl border border-[var(--border)] bg-[var(--surface)] text-sm"
+              >
+                Cancel
+              </button>
+
+              <button
+                onClick={handleSave}
+                disabled={saving}
+                className="px-6 py-2.5 rounded-xl bg-[var(--text)] text-[var(--bg)] text-sm font-medium"
+              >
+                {saving ? "Saving..." : "Save Changes"}
+              </button>
+
+            </div>
+          ) : (
+            <button
+              onClick={() => setIsEditing(true)}
               className="px-5 py-2.5 rounded-xl border border-[var(--border)] bg-[var(--surface)] text-sm"
             >
-              Cancel
+              Edit
             </button>
+          )}
 
-            <button
-              onClick={handleSave}
-              disabled={saving}
-              className="px-6 py-2.5 rounded-xl bg-[var(--text)] text-[var(--bg)] text-sm font-medium"
-            >
-              {saving ? "Saving..." : "Save Changes"}
-            </button>
-          </div>
-        ) : (
-          <button
-            onClick={() => setIsEditing(true)}
-            className="px-5 py-2.5 rounded-xl border border-[var(--border)] bg-[var(--surface)] text-sm"
-          >
-            Edit
-          </button>
-        )}
+        </div>
+
       </div>
+
     </div>
   );
 }
