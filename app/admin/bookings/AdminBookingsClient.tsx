@@ -19,7 +19,7 @@ type Tenant = {
 
 type DraftBooking = {
   id: string;
-  startTime: string; // local format YYYY-MM-DDTHH:MM
+  startTime: string;
   endTime: string;
 };
 

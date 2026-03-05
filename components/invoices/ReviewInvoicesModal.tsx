@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 
 type Invoice = {
   id: string;
@@ -17,7 +18,13 @@ type Props = {
   onClose: () => void;
 };
 
-export default function ReviewInvoicesModal({ invoices, onClose }: Props) {
+export default function ReviewInvoicesModal({
+  invoices,
+  onClose,
+}: Props) {
+
+  const router = useRouter();
+
   const [selected, setSelected] = useState<Invoice | null>(
     invoices?.[0] ?? null
   );
@@ -28,41 +35,83 @@ export default function ReviewInvoicesModal({ invoices, onClose }: Props) {
     return null;
   }
 
+  /* ---------------- SEND SINGLE ---------------- */
+
   async function sendInvoice(id: string) {
+
+    if (sending) return;
+
     setSending(true);
 
     try {
-      await fetch("/api/invoices/send", {
+
+      const res = await fetch("/api/invoices/send", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ invoiceId: id }),
+        body: JSON.stringify({
+          invoiceId: id,
+        }),
       });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        alert(data?.error || "Failed to send invoice");
+        return;
+      }
+
+      router.refresh();
+
     } catch (err) {
+
       console.error("Send invoice failed:", err);
+      alert("Failed to send invoice");
+
     } finally {
       setSending(false);
     }
   }
 
+  /* ---------------- SEND ALL ---------------- */
+
   async function sendAll() {
+
+    if (sending) return;
+
     setSending(true);
 
     try {
-      await Promise.all(
+
+      const responses = await Promise.all(
         invoices.map((inv) =>
           fetch("/api/invoices/send", {
             method: "POST",
             headers: {
               "Content-Type": "application/json",
             },
-            body: JSON.stringify({ invoiceId: inv.id }),
+            body: JSON.stringify({
+              invoiceId: inv.id,
+            }),
           })
         )
       );
+
+      const failed = responses.filter((r) => !r.ok);
+
+      if (failed.length > 0) {
+        alert(`${failed.length} invoices failed to send`);
+      }
+
+      router.refresh();
+      onClose();
+
     } catch (err) {
+
       console.error("Batch send failed:", err);
+      alert("Batch send failed");
+
     } finally {
       setSending(false);
     }
@@ -80,6 +129,7 @@ export default function ReviewInvoicesModal({ invoices, onClose }: Props) {
       >
 
         {/* LEFT PANEL */}
+
         <div
           className="w-[340px] overflow-y-auto"
           style={{
@@ -96,6 +146,7 @@ export default function ReviewInvoicesModal({ invoices, onClose }: Props) {
           </div>
 
           {invoices.map((inv) => (
+
             <div
               key={inv.id}
               onClick={() => setSelected(inv)}
@@ -108,8 +159,9 @@ export default function ReviewInvoicesModal({ invoices, onClose }: Props) {
                     : "transparent",
               }}
             >
+
               <div className="font-medium">
-                {inv.tenant?.name}
+                {inv.tenant?.name ?? "Unknown Tenant"}
               </div>
 
               <div
@@ -122,14 +174,18 @@ export default function ReviewInvoicesModal({ invoices, onClose }: Props) {
               <div className="text-sm font-semibold mt-1">
                 ${Number(inv.total_amount).toFixed(2)}
               </div>
+
             </div>
+
           ))}
         </div>
 
         {/* RIGHT PANEL */}
+
         <div className="flex-1 flex flex-col">
 
           {/* HEADER */}
+
           <div
             className="flex justify-between items-center p-4"
             style={{
@@ -148,7 +204,7 @@ export default function ReviewInvoicesModal({ invoices, onClose }: Props) {
                 className="px-3 py-1 rounded text-white disabled:opacity-50"
                 style={{ background: "#16a34a" }}
               >
-                Send
+                {sending ? "Sending..." : "Send"}
               </button>
 
               <button
@@ -157,7 +213,7 @@ export default function ReviewInvoicesModal({ invoices, onClose }: Props) {
                 className="px-3 py-1 rounded text-white disabled:opacity-50"
                 style={{ background: "#000" }}
               >
-                Send All
+                {sending ? "Sending..." : "Send All"}
               </button>
 
               <button
@@ -175,6 +231,7 @@ export default function ReviewInvoicesModal({ invoices, onClose }: Props) {
           </div>
 
           {/* PREVIEW */}
+
           {selected && (
             <iframe
               key={selected.id}
