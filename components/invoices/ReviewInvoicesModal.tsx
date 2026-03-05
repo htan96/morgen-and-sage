@@ -24,9 +24,11 @@ export default function ReviewInvoicesModal({ invoices, onClose }: Props) {
 
   const [sending, setSending] = useState(false);
 
-  if (!invoices || invoices.length === 0) {
-    return null;
-  }
+  if (!invoices || invoices.length === 0) return null;
+
+  /* ---------------------------------- */
+  /* Send Single Invoice                */
+  /* ---------------------------------- */
 
   async function sendInvoice(id: string) {
     setSending(true);
@@ -45,6 +47,10 @@ export default function ReviewInvoicesModal({ invoices, onClose }: Props) {
       setSending(false);
     }
   }
+
+  /* ---------------------------------- */
+  /* Send All Invoices                  */
+  /* ---------------------------------- */
 
   async function sendAll() {
     setSending(true);
@@ -175,12 +181,19 @@ export default function ReviewInvoicesModal({ invoices, onClose }: Props) {
           </div>
 
           {/* PREVIEW */}
-          {selected && (
-            <iframe
-              src={`/reports/invoice/${selected.id}`}
-              className="flex-1 w-full"
-            />
-          )}
+          <div className="flex-1 bg-white">
+            {selected ? (
+              <iframe
+                key={selected.id}
+                src={`/reports/invoice/${selected.id}`}
+                className="w-full h-full border-0"
+              />
+            ) : (
+              <div className="flex items-center justify-center h-full text-sm text-gray-500">
+                Select an invoice to preview
+              </div>
+            )}
+          </div>
 
         </div>
       </div>
