@@ -1,50 +1,90 @@
 import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase/supabase-admin";
-import crypto from "crypto";
 
 export async function POST(req: Request) {
   try {
-    const { tenantId, email } = await req.json();
+    const body = await req.json();
+    const token = body?.token;
 
-    if (!tenantId || !email) {
-      return NextResponse.json({ error: "Missing tenantId or email" }, { status: 400 });
+    console.log("Invite validation request:", { token });
+
+    if (!token) {
+      return NextResponse.json(
+        { error: "Missing token" },
+        { status: 400 }
+      );
     }
 
-    // validate tenant exists
-    const { data: tenant, error: tenantErr } = await supabaseAdmin
-      .from("tenants")
-      .select("id")
-      .eq("id", tenantId)
-      .single();
+    /*
+    --------------------------------
+    Fetch invite
+    --------------------------------
+    */
 
-    if (tenantErr || !tenant) {
-      return NextResponse.json({ error: "Tenant not found" }, { status: 404 });
+    const { data: invite, error } = await supabaseAdmin
+      .from("invites")
+      .select("id, tenant_id, email, expires_at, used")
+      .eq("token", token)
+      .maybeSingle();
+
+    if (error) {
+      return NextResponse.json(
+        { error: error.message },
+        { status: 500 }
+      );
     }
 
-    // generate token + expiry
-    const token = crypto.randomBytes(32).toString("hex");
-    const expiresAt = new Date(Date.now() + 1000 * 60 * 60 * 24).toISOString(); // 24h
+    if (!invite) {
+      return NextResponse.json(
+        { error: "Invite not found" },
+        { status: 404 }
+      );
+    }
 
-    // store invite
-    const { error: inviteErr } = await supabaseAdmin.from("invites").insert({
-      tenant_id: tenantId,
-      email: email.toLowerCase(),
-      token,
-      expires_at: expiresAt,
-      used: false,
+    /*
+    --------------------------------
+    Prevent reused invites
+    --------------------------------
+    */
+
+    if (invite.used) {
+      return NextResponse.json(
+        { error: "Invite already used" },
+        { status: 400 }
+      );
+    }
+
+    /*
+    --------------------------------
+    Check expiration
+    --------------------------------
+    */
+
+    if (new Date(invite.expires_at).getTime() < Date.now()) {
+      return NextResponse.json(
+        { error: "Invite expired" },
+        { status: 400 }
+      );
+    }
+
+    /*
+    --------------------------------
+    Success
+    --------------------------------
+    */
+
+    return NextResponse.json({
+      success: true,
+      tenantId: invite.tenant_id,
+      email: invite.email,
     });
 
-    if (inviteErr) {
-      return NextResponse.json({ error: inviteErr.message }, { status: 500 });
-    }
+  } catch (err: any) {
+    console.error("invite-get error:", err);
 
-    const appUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
-    const inviteLink = `${appUrl}/invite/${token}`;
-
-    // IMPORTANT: return link so you can copy/send any way you want (no Supabase email)
-    return NextResponse.json({ success: true, inviteLink });
-  } catch (err) {
-    console.error(err);
-    return NextResponse.json({ error: "Failed to create invite" }, { status: 500 });
+    return NextResponse.json(
+      { error: err?.message || "Failed to validate invite" },
+      { status: 500 }
+    );
   }
 }
