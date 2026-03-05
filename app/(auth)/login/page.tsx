@@ -17,33 +17,51 @@ export default function LoginPage() {
   /* -------------------------------- */
 
   useEffect(() => {
-    async function checkSession() {
-      const { data } = await supabase.auth.getSession();
+  async function checkSession() {
+    const { data } = await supabase.auth.getSession();
 
-      if (!data.session) return;
+    if (!data.session) return;
 
-      const user = data.session.user;
+    const user = data.session.user;
 
-      const { data: tenant } = await supabase
-        .from("tenants")
-        .select("id, must_reset_password")
-        .eq("auth_user_id", user.id)
-        .maybeSingle();
+    /* -------- Check Tenant -------- */
 
-      if (tenant?.must_reset_password) {
-        router.replace("/set-password");
-        return;
-      }
+    const { data: tenant } = await supabase
+      .from("tenants")
+      .select("id, must_reset_password")
+      .eq("auth_user_id", user.id)
+      .maybeSingle();
 
-      if (tenant) {
-        router.replace("/portal");
-      } else {
-        router.replace("/admin/bookings");
-      }
+    if (tenant?.must_reset_password) {
+      router.replace("/set-password");
+      return;
     }
 
-    checkSession();
-  }, []);
+    if (tenant) {
+      router.replace("/portal");
+      return;
+    }
+
+    /* -------- Check Admin -------- */
+
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("role")
+      .eq("id", user.id)
+      .maybeSingle();
+
+    if (profile?.role === "admin") {
+      router.replace("/admin/bookings");
+      return;
+    }
+
+    /* -------- Fallback -------- */
+
+    router.replace("/login");
+  }
+
+  checkSession();
+}, []);
 
   const handleLogin = async () => {
     setLoading(true);
