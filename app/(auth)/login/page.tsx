@@ -66,23 +66,26 @@ export default function LoginPage() {
   /* Login Handler                    */
   /* -------------------------------- */
 
-  const handleLogin = async () => {
-    setLoading(true);
+const handleLogin = async () => {
+  setLoading(true);
 
-    const { error } = await supabase.auth.signInWithPassword({
-      email,
-      password,
-    });
+  const { error } = await supabase.auth.signInWithPassword({
+    email,
+    password,
+  });
 
-    if (error) {
-      alert(error.message);
-      setLoading(false);
-      return;
-    }
+  if (error) {
+    alert(error.message);
+    setLoading(false);
+    return;
+  }
 
-    // Send user into the portal flow
-    router.replace("/portal");
-  };
+  // Ensure session is available to Next.js
+  await supabase.auth.getSession();
+
+  // Force navigation
+  window.location.href = "/portal";
+};
 
   return (
     <div className="bg-white shadow-2xl rounded-2xl p-10 w-full max-w-md">
