@@ -36,7 +36,17 @@ export default function CreatePortalUserButton({
         }),
       });
 
-      const data = await res.json();
+      const text = await res.text();
+
+let data;
+
+try {
+  data = JSON.parse(text);
+} catch {
+  console.error("Server returned HTML:", text);
+  alert("Server error — check API route");
+  return;
+}
 
       if (!res.ok) {
         alert(data.error || "Failed to create portal login");

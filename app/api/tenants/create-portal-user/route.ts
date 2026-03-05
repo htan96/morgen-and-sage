@@ -1,10 +1,6 @@
 import { NextResponse } from "next/server";
-import { createAdminClient } from "@/lib/supabase/admin";
+import { supabaseAdmin } from "@/lib/supabase/supabase-admin";
 import { sendEmail } from "@/lib/email/sendEmail";
-
-function generatePassword() {
-  return Math.random().toString(36).slice(-10);
-}
 
 export async function POST(req: Request) {
   try {
@@ -18,11 +14,13 @@ export async function POST(req: Request) {
       );
     }
 
-    const supabase = createAdminClient();
+    const supabase = supabaseAdmin;
 
-    /* ------------------------------ */
-    /* Get tenant                     */
-    /* ------------------------------ */
+    /*
+    --------------------------------
+    Get tenant
+    --------------------------------
+    */
 
     const { data: tenant, error: tenantError } = await supabase
       .from("tenants")
@@ -39,81 +37,119 @@ export async function POST(req: Request) {
 
     const organizationId = tenant.organization_id;
 
-    /* ------------------------------ */
-    /* Generate Password              */
-    /* ------------------------------ */
+    /*
+    --------------------------------
+    Check if user exists
+    --------------------------------
+    */
 
-    const tempPassword = generatePassword();
+    const { data: users } = await supabase.auth.admin.listUsers();
 
-    /* ------------------------------ */
-    /* Create Auth User               */
-    /* ------------------------------ */
+    const existingUser = users.users.find(
+      (u) => u.email?.toLowerCase() === email.toLowerCase()
+    );
 
-    const { data, error } = await supabase.auth.admin.createUser({
-      email,
-      password: tempPassword,
-      email_confirm: true,
-    });
+    let authUserId;
 
-    if (error) {
-      return NextResponse.json(
-        { error: error.message },
-        { status: 400 }
-      );
+    /*
+    --------------------------------
+    Create user if needed
+    --------------------------------
+    */
+
+    if (!existingUser) {
+
+      const { data: newUser, error: createError } =
+        await supabase.auth.admin.createUser({
+          email,
+          email_confirm: true,
+          user_metadata: {
+            role: "tenant",
+            tenant_id: tenantId
+          }
+        });
+
+      if (createError) {
+        return NextResponse.json(
+          { error: createError.message },
+          { status: 400 }
+        );
+      }
+
+      authUserId = newUser.user.id;
+
+    } else {
+
+      authUserId = existingUser.id;
+
     }
 
-    const authUserId = data.user.id;
+    /*
+    --------------------------------
+    Link tenant to auth user
+    --------------------------------
+    */
 
-    /* ------------------------------ */
-    /* Link tenant                    */
-    /* ------------------------------ */
-
-    const { error: updateError } = await supabase
+    await supabase
       .from("tenants")
       .update({
         auth_user_id: authUserId,
-        must_change_password: true,
+        must_reset_password: true
       })
       .eq("id", tenantId);
 
-    if (updateError) {
+    /*
+    --------------------------------
+    Generate password setup link
+    --------------------------------
+    */
+
+    const { data: linkData, error: linkError } =
+      await supabase.auth.admin.generateLink({
+        type: "recovery",
+        email
+      });
+
+    if (linkError) {
       return NextResponse.json(
-        { error: updateError.message },
+        { error: linkError.message },
         { status: 500 }
       );
     }
 
-    /* ------------------------------ */
-    /* Send Email                     */
-    /* ------------------------------ */
+    const resetLink = linkData.properties.action_link;
 
-    try {
-      await sendEmail({
-        organizationId,
-        to: email,
-        subject: "Your Kitchen Portal Login",
-        html: `
-          <h2>Welcome to the Kitchen Portal</h2>
-          <p>Your portal account has been created.</p>
+    /*
+    --------------------------------
+    Send Email
+    --------------------------------
+    */
 
-          <p><strong>Email:</strong> ${email}</p>
-          <p><strong>Temporary Password:</strong> ${tempPassword}</p>
+    await sendEmail({
+      organizationId,
+      to: email,
+      subject: "Set Up Your Kitchen Portal Access",
+      html: `
+        <h2>Kitchen Portal Access</h2>
 
-          <p>Please login and change your password.</p>
+        <p>Your portal account is ready.</p>
 
-          <p>
-            <a href="${process.env.NEXT_PUBLIC_APP_URL}/login">
-              Open Portal
-            </a>
-          </p>
-        `,
-      });
-    } catch (emailError) {
-      console.error("Email failed:", emailError);
-    }
+        <p>
+          Click the link below to set your password:
+        </p>
+
+        <p>
+          <a href="${resetLink}">
+            Set Your Password
+          </a>
+        </p>
+
+        <p>If you did not request this access please ignore this email.</p>
+      `
+    });
 
     return NextResponse.json({
-      success: true,
+      success: true
     });
 
   } catch (err) {
