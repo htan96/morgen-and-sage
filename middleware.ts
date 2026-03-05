@@ -2,7 +2,6 @@ import { NextRequest, NextResponse } from "next/server";
 import { createServerClient } from "@supabase/ssr";
 
 export async function middleware(request: NextRequest) {
-
   const { pathname } = request.nextUrl;
 
   let response = NextResponse.next({
@@ -45,48 +44,64 @@ export async function middleware(request: NextRequest) {
   } = await supabase.auth.getUser();
 
   if (!user) {
-
     const url = request.nextUrl.clone();
     url.pathname = "/login";
     return NextResponse.redirect(url);
-
   }
-
-  const role = user.user_metadata?.role;
 
   /*
   --------------------------------
-  Tenant
+  Check Admin
   --------------------------------
   */
 
-  if (role === "tenant") {
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("role")
+    .eq("id", user.id)
+    .maybeSingle();
 
+  if (profile?.role === "admin") {
+    if (!pathname.startsWith("/admin")) {
+      const url = request.nextUrl.clone();
+      url.pathname = "/admin/bookings";
+      return NextResponse.redirect(url);
+    }
+
+    return response;
+  }
+
+  /*
+  --------------------------------
+  Check Tenant
+  --------------------------------
+  */
+
+  const { data: tenant } = await supabase
+    .from("tenants")
+    .select("id")
+    .eq("auth_user_id", user.id)
+    .maybeSingle();
+
+  if (tenant) {
     if (!pathname.startsWith("/portal")) {
       const url = request.nextUrl.clone();
       url.pathname = "/portal";
       return NextResponse.redirect(url);
     }
 
+    return response;
   }
 
   /*
   --------------------------------
-  Admin
+  Fallback
   --------------------------------
   */
 
-  if (role === "admin") {
-
-    if (!pathname.startsWith("/admin")) {
-      const url = request.nextUrl.clone();
-      url.pathname = "/admin";
-      return NextResponse.redirect(url);
-    }
-
-  }
-
-  return response;
+  const url = request.nextUrl.clone();
+  url.pathname = "/login";
+  return NextResponse.redirect(url);
 }
 
 export const config = {
