@@ -16,17 +16,27 @@ export default async function PortalLayout({
     data: { user },
   } = await supabase.auth.getUser();
 
-  if (!user) redirect("/login");
+  if (!user) {
+    redirect("/login");
+  }
 
   /* ---------------- Tenant ---------------- */
 
-  const { data: tenant } = await supabase
+  const { data: tenant, error } = await supabase
     .from("tenants")
     .select("id")
     .eq("auth_user_id", user.id)
     .maybeSingle();
 
-  if (!tenant) redirect("/login");
+  if (error) {
+    console.error("Tenant lookup failed:", error);
+    redirect("/login");
+  }
+
+  if (!tenant) {
+    console.error("No tenant linked to auth user:", user.id);
+    redirect("/login");
+  }
 
   return (
     <div className="flex min-h-screen">
