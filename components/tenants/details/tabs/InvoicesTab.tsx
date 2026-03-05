@@ -60,19 +60,11 @@ export default function InvoicesTab({ tenantId }: Props) {
 
       setRegenerating(invoiceId);
 
-      const billingMonth = invoiceDate.slice(0, 7);
+      const billingMonth = invoiceDate.slice(0, 7) + "-01";
 
-      const res = await fetch("/api/invoices/generate", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          tenantId,
-          billingMonth,
-          generatedByType: "admin",
-        }),
-      });
+      const res = await fetch(
+        `/api/billing/run-monthly?tenantId=${tenantId}&month=${billingMonth}`
+      );
 
       const data = await res.json();
 

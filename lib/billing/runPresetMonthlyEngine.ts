@@ -27,6 +27,7 @@ function getMonthBounds(billingMonth: string) {
 /* ---------------------------------- */
 
 function generateInvoiceNumber(billingMonth: string) {
+
   const month = new Date(`${billingMonth}T00:00:00Z`)
     .toLocaleString("en-US", { month: "short", year: "numeric" })
     .replace(" ", "")
@@ -91,12 +92,10 @@ export async function runPresetMonthlyEngine(params: {
   const { startISO, nextISO } = getMonthBounds(billingMonth);
 
   /* ---------------------------------- */
-  /* Generate bookings                  */
+  /* Ensure bookings exist              */
   /* ---------------------------------- */
 
-  await generatePresetBookingsForMonth(tenantId, billingMonth);
-
-  const { data: bookings } = await supabase
+  let { data: bookings } = await supabase
     .from("bookings")
     .select("id, start_time, total_hours")
     .eq("tenant_id", tenantId)
@@ -104,6 +103,24 @@ export async function runPresetMonthlyEngine(params: {
     .lt("start_time", nextISO)
     .is("invoice_id", null)
     .order("start_time", { ascending: true });
+
+  /* If bookings do not exist yet, generate them */
+
+  if (!bookings || bookings.length === 0) {
+
+    await generatePresetBookingsForMonth(tenantId, billingMonth);
+
+    const result = await supabase
+      .from("bookings")
+      .select("id, start_time, total_hours")
+      .eq("tenant_id", tenantId)
+      .gte("start_time", startISO)
+      .lt("start_time", nextISO)
+      .is("invoice_id", null)
+      .order("start_time", { ascending: true });
+
+    bookings = result.data;
+  }
 
   if (!bookings || bookings.length === 0) {
     return { success: false, reason: "NOTHING_TO_BILL" };
@@ -201,6 +218,7 @@ export async function runPresetMonthlyEngine(params: {
 
   const sortedLineItems = lineItems
     .sort((a, b) => {
+
       if (a.sortOrder !== b.sortOrder) {
         return a.sortOrder - b.sortOrder;
       }
@@ -208,7 +226,9 @@ export async function runPresetMonthlyEngine(params: {
       if (!a.serviceDate) return 1;
       if (!b.serviceDate) return -1;
 
-      return new Date(a.serviceDate).getTime() - new Date(b.serviceDate).getTime();
+      return new Date(a.serviceDate).getTime() -
+             new Date(b.serviceDate).getTime();
+
     })
     .map(({ sortOrder, ...item }) => item);
 
@@ -233,12 +253,20 @@ export async function runPresetMonthlyEngine(params: {
     status: "draft",
   });
 
+  /* ---------------------------------- */
+  /* Insert line items                  */
+  /* ---------------------------------- */
+
   await insertInvoiceLineItems(
     invoice.id,
     tenant.organization_id,
     tenantId,
     sortedLineItems
   );
+
+  /* ---------------------------------- */
+  /* Attach bookings to invoice         */
+  /* ---------------------------------- */
 
   await attachBookingsToInvoiceForMonth(
     tenantId,
