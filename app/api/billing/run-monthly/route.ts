@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { createClient } from "@/lib/supabase/server";
 import {
   runMonthlyBilling,
   runMonthlyBillingForAllTenants,
@@ -27,15 +28,47 @@ function firstOfCurrentMonthUTC() {
 
 export async function GET(req: Request) {
   try {
+    const supabase = await createClient();
+
     const url = new URL(req.url);
 
     const tenantId = url.searchParams.get("tenantId");
     const manualMonth = url.searchParams.get("month");
 
     /**
+     * 🔒 USER AUTHENTICATION
+     * Require logged-in user unless this is a cron run
+     */
+    if (tenantId || manualMonth) {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+
+      if (!user) {
+        return NextResponse.json(
+          { success: false, error: "Unauthorized" },
+          { status: 401 }
+        );
+      }
+
+      // Check admin role
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("role")
+        .eq("id", user.id)
+        .maybeSingle();
+
+      if (profile?.role !== "admin") {
+        return NextResponse.json(
+          { success: false, error: "Forbidden" },
+          { status: 403 }
+        );
+      }
+    }
+
+    /**
      * 🔒 CRON PROTECTION
-     * Only enforce CRON_SECRET when this is a pure cron run
-     * (no tenantId and no manual month override)
+     * Only enforce CRON_SECRET when it’s a pure cron run
      */
     if (!tenantId && !manualMonth && process.env.NODE_ENV !== "development") {
       const auth = req.headers.get("authorization");
@@ -49,25 +82,22 @@ export async function GET(req: Request) {
     }
 
     /**
-     * 🧠 Decide billing month
+     * 🧠 Determine billing month
      */
     let billingMonth: string;
 
     if (manualMonth) {
-      // Admin button override
       billingMonth = manualMonth;
     } else if (tenantId) {
-      // Manual single tenant without month → use current month
       billingMonth = firstOfCurrentMonthUTC();
     } else {
-      // Cron run → previous month
       billingMonth = firstOfPreviousMonthUTC();
     }
 
     console.log("🚀 Running monthly billing for:", billingMonth);
 
     /**
-     * ✅ Single tenant billing
+     * SINGLE TENANT BILLING
      */
     if (tenantId) {
       const result = await runMonthlyBilling({
@@ -87,7 +117,7 @@ export async function GET(req: Request) {
     }
 
     /**
-     * ✅ All tenants billing
+     * ALL TENANTS BILLING
      */
     const results = await runMonthlyBillingForAllTenants(billingMonth);
 
