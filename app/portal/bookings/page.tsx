@@ -5,9 +5,7 @@ import AdminBookingsClient from "@/app/admin/bookings/AdminBookingsClient";
 export default async function PortalBookingsPage() {
   const supabase = await createClient();
 
-  /* ----------------------------- */
-  /* Auth                          */
-  /* ----------------------------- */
+  /* ---------------- Auth ---------------- */
 
   const {
     data: { user },
@@ -15,31 +13,26 @@ export default async function PortalBookingsPage() {
 
   if (!user) redirect("/login");
 
-  /* ----------------------------- */
-  /* Get Tenant                    */
-  /* ----------------------------- */
+  /* ---------------- Profile ---------------- */
 
-  const { data: tenant } = await supabase
-    .from("tenants")
-    .select("id, name, organization_id")
-    .eq("user_id", user.id)
-    .single();
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("tenant_id")
+    .eq("id", user.id)
+    .maybeSingle();
 
-  if (!tenant) redirect("/portal");
+  if (!profile?.tenant_id) redirect("/portal");
 
-  /* ----------------------------- */
-  /* Kitchens                      */
-  /* ----------------------------- */
+  const tenantId = profile.tenant_id;
+
+  /* ---------------- Kitchens ---------------- */
 
   const { data: kitchens } = await supabase
     .from("kitchen_spaces")
     .select("id, name")
-    .eq("organization_id", tenant.organization_id)
     .order("name");
 
-  /* ----------------------------- */
-  /* Tenant Bookings Only          */
-  /* ----------------------------- */
+  /* ---------------- Bookings ---------------- */
 
   const { data: bookings } = await supabase
     .from("bookings")
@@ -54,11 +47,17 @@ export default async function PortalBookingsPage() {
         name
       )
     `)
-    .eq("tenant_id", tenant.id);
+    .eq("tenant_id", tenantId);
 
-  /* ----------------------------- */
-  /* Normalize Tenant Relation     */
-  /* ----------------------------- */
+  /* ---------------- Tenant ---------------- */
+
+  const { data: tenant } = await supabase
+    .from("tenants")
+    .select("id, name")
+    .eq("id", tenantId)
+    .maybeSingle();
+
+  /* ---------------- Normalize Supabase Relation ---------------- */
 
   const normalizedBookings =
     bookings?.map((b: any) => ({
@@ -68,15 +67,13 @@ export default async function PortalBookingsPage() {
         : b.tenant ?? null,
     })) ?? [];
 
-  /* ----------------------------- */
-  /* Render                        */
-  /* ----------------------------- */
+  /* ---------------- Render ---------------- */
 
   return (
     <AdminBookingsClient
       kitchens={kitchens ?? []}
       bookings={normalizedBookings}
-      tenants={[tenant]}
+      tenants={tenant ? [tenant] : []}
       portalMode
     />
   );
