@@ -7,9 +7,11 @@ import { createClient } from "@/lib/supabase/client";
 export default function InviteSetPasswordPage() {
   const supabase = createClient();
   const router = useRouter();
-  const params = useParams();
+const params = useParams();
 
-  const token = params.token as string;
+const token = Array.isArray(params?.token)
+  ? params.token[0]
+  : params?.token;
 
   const [email, setEmail] = useState("");
   const [tenantId, setTenantId] = useState("");
