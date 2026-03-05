@@ -41,7 +41,7 @@ export default function InvoiceActions({
 
       {/* PDF BUTTON */}
       <Link
-        href={`/reports/invoice/${invoiceId}`}
+        href={`/reports/invoice/${invoiceId}?print=true`}
         target="_blank"
         className="
           w-full sm:w-auto
