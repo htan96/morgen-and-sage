@@ -1,13 +1,14 @@
 import { createClient } from "@/lib/supabase/server";
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 
 export async function POST(
-  request: Request,
-  { params }: { params: { id: string } }
+  request: NextRequest,
+  context: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id: invoiceId } = await context.params;
+
     const supabase = await createClient();
-    const invoiceId = params.id;
 
     if (!invoiceId) {
       return NextResponse.json(
