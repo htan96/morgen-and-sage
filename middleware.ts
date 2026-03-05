@@ -25,20 +25,83 @@ export async function middleware(request: NextRequest) {
     }
   );
 
-  // IMPORTANT: This call refreshes the session if needed
-  await supabase.auth.getUser();
+  // Refresh session
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  const { pathname } = request.nextUrl;
+
+  /*
+  --------------------------------
+  Public Routes
+  --------------------------------
+  */
+
+  if (
+    pathname.startsWith("/login") ||
+    pathname.startsWith("/set-password")
+  ) {
+    return response;
+  }
+
+  /*
+  --------------------------------
+  Not Logged In
+  --------------------------------
+  */
+
+  if (!user) {
+    const url = request.nextUrl.clone();
+    url.pathname = "/login";
+    return NextResponse.redirect(url);
+  }
+
+  /*
+  --------------------------------
+  Check if tenant
+  --------------------------------
+  */
+
+  const { data: tenant } = await supabase
+    .from("tenants")
+    .select("id")
+    .eq("auth_user_id", user.id)
+    .maybeSingle();
+
+  /*
+  --------------------------------
+  Tenant Routes
+  --------------------------------
+  */
+
+  if (tenant) {
+    if (!pathname.startsWith("/portal")) {
+      const url = request.nextUrl.clone();
+      url.pathname = "/portal";
+      return NextResponse.redirect(url);
+    }
+  }
+
+  /*
+  --------------------------------
+  Admin Routes
+  --------------------------------
+  */
+
+  if (!tenant) {
+    if (!pathname.startsWith("/admin")) {
+      const url = request.nextUrl.clone();
+      url.pathname = "/admin";
+      return NextResponse.redirect(url);
+    }
+  }
 
   return response;
 }
 
 export const config = {
   matcher: [
-    /*
-      Run middleware on all routes except:
-      - next static files
-      - images
-      - favicon
-    */
     "/((?!_next/static|_next/image|favicon.ico).*)",
   ],
 };
