@@ -32,41 +32,50 @@ export async function GET(req: Request) {
     const tenantId = url.searchParams.get("tenantId");
     const manualMonth = url.searchParams.get("month");
 
-    // 🔒 CRON PROTECTION
-    // Only enforce CRON_SECRET when NO tenantId is provided
-    // That means it’s a cron / global run
-    if (!tenantId && process.env.NODE_ENV !== "development") {
+    /**
+     * 🔒 CRON PROTECTION
+     * Only enforce CRON_SECRET when this is a pure cron run
+     * (no tenantId and no manual month override)
+     */
+    if (!tenantId && !manualMonth && process.env.NODE_ENV !== "development") {
       const auth = req.headers.get("authorization");
 
       if (auth !== `Bearer ${process.env.CRON_SECRET}`) {
-        return new NextResponse("Unauthorized", { status: 401 });
+        return NextResponse.json(
+          { success: false, error: "Unauthorized" },
+          { status: 401 }
+        );
       }
     }
 
-    // 🧠 Decide billing month
+    /**
+     * 🧠 Decide billing month
+     */
     let billingMonth: string;
 
     if (manualMonth) {
-      // Explicit override (manual button)
+      // Admin button override
       billingMonth = manualMonth;
     } else if (tenantId) {
-      // Manual single tenant, no month passed → use CURRENT month
+      // Manual single tenant without month → use current month
       billingMonth = firstOfCurrentMonthUTC();
     } else {
-      // Cron run → use PREVIOUS month
+      // Cron run → previous month
       billingMonth = firstOfPreviousMonthUTC();
     }
 
     console.log("🚀 Running monthly billing for:", billingMonth);
 
-    // ✅ Single tenant
+    /**
+     * ✅ Single tenant billing
+     */
     if (tenantId) {
       const result = await runMonthlyBilling({
-  tenantId,
-  billingMonth,
-  generatedByType: "admin",
-  generatedById: null,
-});
+        tenantId,
+        billingMonth,
+        generatedByType: "admin",
+        generatedById: null,
+      });
 
       return NextResponse.json({
         success: true,
@@ -77,7 +86,9 @@ export async function GET(req: Request) {
       });
     }
 
-    // ✅ All tenants (cron)
+    /**
+     * ✅ All tenants billing
+     */
     const results = await runMonthlyBillingForAllTenants(billingMonth);
 
     return NextResponse.json({
