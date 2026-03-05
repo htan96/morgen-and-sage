@@ -114,19 +114,23 @@ export default function InvoicesDashboard({ invoices }: Props) {
         </div>
 
         <button
-          onClick={() => setShowBillingModal(true)}
-          disabled={loadingBilling}
-          className="px-4 py-2 rounded-lg font-medium text-white transition"
-          style={{
-            background: loadingBilling
-              ? "var(--border)"
-              : "var(--primary)",
-          }}
-        >
-          {loadingBilling
-            ? "Running Billing..."
-            : "Generate Current Month"}
-        </button>
+  onClick={() => setShowBillingModal(true)}
+  disabled={loadingBilling}
+  className="px-4 py-2 rounded-lg font-medium transition"
+  style={{
+    background: "var(--surface)",
+    border: "1px solid var(--border)",
+    color: "var(--text)",
+  }}
+  onMouseEnter={(e) =>
+    (e.currentTarget.style.background = "var(--hover)")
+  }
+  onMouseLeave={(e) =>
+    (e.currentTarget.style.background = "var(--surface)")
+  }
+>
+  {loadingBilling ? "Running Billing..." : "Generate Current Month"}
+</button>
       </div>
 
       <InvoiceKPICards invoices={invoices} />
@@ -187,9 +191,13 @@ export default function InvoicesDashboard({ invoices }: Props) {
                   setShowBillingModal(false);
                   await generateAllInvoices();
                 }}
-                className="px-4 py-2 rounded-lg text-white"
-                style={{ background: "var(--primary)" }}
-              >
+                className="px-4 py-2 rounded-lg font-medium transition"
+                style={{
+                  background: "var(--surface)",
+                  border: "1px solid var(--border)",
+                  color: "var(--text)",
+                }}
+                 >
                 Run Billing
               </button>
             </div>
