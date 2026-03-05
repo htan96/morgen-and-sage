@@ -74,10 +74,13 @@ export default function LoginPage() {
 
       <div className="bg-white shadow-2xl rounded-2xl p-10 w-full max-w-md">
 
-      <img
-  src="/logos/morgens-kitchen-dark.svg"
-  className="h-12 mx-auto mb-6"
-/>
+        <h1 className="text-3xl font-bold text-gray-900 mb-2 text-center">
+          Morgen & Sage
+        </h1>
+
+        <p className="text-gray-500 text-center mb-8">
+          Secure Admin & Tenant Access
+        </p>
 
         <div className="space-y-4">
 
