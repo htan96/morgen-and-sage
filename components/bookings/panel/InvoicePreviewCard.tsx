@@ -29,18 +29,27 @@ style={{ border: "1px solid var(--border)" }}
 
   {/* MONTHLY SERVICES */}
 
-  {invoicePreview.monthlyServices?.map((service: any) => (
-    <div key={service.serviceId} className="text-sm">
-      {service.quantity} × ${service.rate} monthly service
+{invoicePreview.monthlyServices?.map((service: any) => (
+  <div key={service.serviceId} className="text-sm">
 
-      {service.alreadyBilled && (
-        <span className="text-xs opacity-60 ml-2">
-          already billed
-        </span>
-      )}
-    </div>
-  ))}
+    {service.name}
 
+    {" — "}
+
+    {service.quantity} × ${service.rate}
+
+    {" = "}
+
+    ${service.amount}
+
+    {service.alreadyBilled && (
+      <span className="text-xs opacity-60 ml-2">
+        already billed
+      </span>
+    )}
+
+  </div>
+))}
   <div className="border-t pt-2 font-medium text-sm">
     Total: ${invoicePreview.total}
   </div>

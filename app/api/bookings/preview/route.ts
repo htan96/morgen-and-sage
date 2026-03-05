@@ -6,9 +6,7 @@ export async function POST(req: Request) {
   const supabase = await createClient();
 
   const {
-    organizationId,
     tenantId,
-    kitchenSpaceId,
     bookings
   } = await req.json();
 
@@ -19,40 +17,36 @@ export async function POST(req: Request) {
     );
   }
 
-  /* -----------------------------
-     Fetch Tenant Services
-  ----------------------------- */
+  /* --------------------------
+     Load Tenant Services
+  ---------------------------*/
 
-  const { data: tenantServices, error } =
-    await supabase
-      .from("tenant_services")
-      .select("*")
-      .eq("tenant_id", tenantId)
-      .eq("is_active", true);
+  const { data: tenantServices } = await supabase
+    .from("tenant_services")
+    .select(`
+      *,
+      services (
+        name
+      )
+    `)
+    .eq("tenant_id", tenantId)
+    .eq("is_active", true);
 
-  if (error) {
-    return NextResponse.json(
-      { error: error.message },
-      { status: 500 }
-    );
-  }
-
-  /* -----------------------------
-     Hourly Rate
-  ----------------------------- */
+  /* --------------------------
+     Find Hourly Rate
+  ---------------------------*/
 
   const hourlyService =
     tenantServices?.find(
       (s: any) => s.frequency === "hourly"
     );
 
-  const hourlyRate = hourlyService
-    ? Number(hourlyService.amount)
-    : 0;
+  const hourlyRate =
+    hourlyService ? Number(hourlyService.amount) : 0;
 
-  /* -----------------------------
+  /* --------------------------
      Calculate Booking Hours
-  ----------------------------- */
+  ---------------------------*/
 
   let totalHours = 0;
 
@@ -68,102 +62,156 @@ export async function POST(req: Request) {
     totalHours += hours;
   }
 
-  const usageSubtotal = totalHours * hourlyRate;
+  const usageSubtotal =
+    totalHours * hourlyRate;
 
-  /* -----------------------------
-     Per Booking Services
-  ----------------------------- */
+  /* --------------------------
+     Billing Month Window
+  ---------------------------*/
 
-  const perBookingServices =
-    tenantServices?.filter(
-      (s: any) => s.frequency === "per_booking"
-    ) ?? [];
+  const monthStart = new Date();
+  monthStart.setDate(1);
+  monthStart.setHours(0,0,0,0);
 
-  let perBookingTotal = 0;
-  let perBookingPreview: any[] = [];
+  const nextMonthStart = new Date(monthStart);
+  nextMonthStart.setMonth(nextMonthStart.getMonth()+1);
 
-  for (const service of perBookingServices) {
+  /* --------------------------
+     Check Already Billed
+  ---------------------------*/
 
-    const quantity = bookings.length * (service.quantity ?? 1);
-    const rate = Number(service.amount);
+  const { data: existingMonthly } =
+    await supabase
+      .from("invoice_line_items")
+      .select("service_id")
+      .eq("tenant_id", tenantId)
+      .gte("service_date", monthStart.toISOString())
+      .lt("service_date", nextMonthStart.toISOString());
 
-    const amount = quantity * rate;
+  const billedServiceIds =
+    new Set(
+      existingMonthly?.map((i:any)=>i.service_id)
+    );
 
-    perBookingPreview.push({
-      serviceId: service.service_id,
-      quantity,
-      rate,
-      amount
-    });
-
-    perBookingTotal += amount;
-  }
-
-  /* -----------------------------
+  /* --------------------------
      Monthly Services
-  ----------------------------- */
+  ---------------------------*/
 
   const monthlyServices =
     tenantServices?.filter(
-      (s: any) => s.frequency === "monthly"
+      (s:any)=>s.frequency==="monthly"
     ) ?? [];
 
+  let monthlyServicesPreview:any[] = [];
   let monthlyTotal = 0;
-  let monthlyServicesPreview: any[] = [];
 
-  for (const service of monthlyServices) {
+  for(const service of monthlyServices){
 
-    const quantity = service.quantity ?? 1;
-    const rate = Number(service.amount);
+    const alreadyBilled =
+      billedServiceIds.has(service.service_id);
 
-    const amount = quantity * rate;
+    if(alreadyBilled) continue;
+
+    const quantity =
+      service.quantity ?? 1;
+
+    const rate =
+      Number(service.amount);
+
+    const amount =
+      quantity * rate;
 
     monthlyServicesPreview.push({
+
       serviceId: service.service_id,
+
+      name: service.services?.name ?? "Service",
+
       quantity,
+
       rate,
+
       amount
+
     });
 
     monthlyTotal += amount;
   }
 
-  /* -----------------------------
-     Date Range
-  ----------------------------- */
+  /* --------------------------
+     Per Booking Services
+  ---------------------------*/
 
-  const sortedBookings = [...bookings].sort(
-    (a, b) =>
-      new Date(a.startTime).getTime() -
-      new Date(b.startTime).getTime()
-  );
+  const perBookingServices =
+    tenantServices?.filter(
+      (s:any)=>s.frequency==="per_booking"
+    ) ?? [];
+
+  let perBookingPreview:any[] = [];
+  let perBookingTotal = 0;
+
+  for(const service of perBookingServices){
+
+    const quantity =
+      bookings.length *
+      (service.quantity ?? 1);
+
+    const rate =
+      Number(service.amount);
+
+    const amount =
+      quantity * rate;
+
+    perBookingPreview.push({
+
+      serviceId: service.service_id,
+
+      name: service.services?.name ?? "Service",
+
+      quantity,
+
+      rate,
+
+      amount
+
+    });
+
+    perBookingTotal += amount;
+  }
+
+  /* --------------------------
+     Date Range
+  ---------------------------*/
+
+  const sorted =
+    [...bookings].sort(
+      (a,b)=>
+        new Date(a.startTime).getTime()
+        -
+        new Date(b.startTime).getTime()
+    );
 
   const earliestDate =
-    new Date(sortedBookings[0].startTime);
+    new Date(sorted[0].startTime);
 
   const latestDate =
     new Date(
-      sortedBookings[
-        sortedBookings.length - 1
-      ].startTime
+      sorted[sorted.length-1].startTime
     );
 
-  /* -----------------------------
-     Totals
-  ----------------------------- */
+  /* --------------------------
+     Final Total
+  ---------------------------*/
 
   const total =
     usageSubtotal +
-    perBookingTotal +
-    monthlyTotal;
-
-  /* -----------------------------
-     Response
-  ----------------------------- */
+    monthlyTotal +
+    perBookingTotal;
 
   return NextResponse.json({
 
-    bookingCount: bookings.length,
+    bookingCount:
+      bookings.length,
 
     earliestDate:
       earliestDate.toLocaleDateString(),
@@ -179,9 +227,11 @@ export async function POST(req: Request) {
     usageSubtotal:
       Number(usageSubtotal.toFixed(2)),
 
-    perBookingServices: perBookingPreview,
+    monthlyServices:
+      monthlyServicesPreview,
 
-    monthlyServices: monthlyServicesPreview,
+    perBookingServices:
+      perBookingPreview,
 
     total:
       Number(total.toFixed(2)),
