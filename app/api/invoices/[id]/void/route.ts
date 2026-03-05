@@ -17,32 +17,17 @@ export async function POST(
       );
     }
 
-    // 1️⃣ Get invoice first
-    const { data: invoice, error: fetchError } = await supabase
-      .from("invoices")
-      .select("id, total_amount")
-      .eq("id", invoiceId)
-      .single();
-
-    if (fetchError || !invoice) {
-      return NextResponse.json(
-        { error: "Invoice not found" },
-        { status: 404 }
-      );
-    }
-
-    // 2️⃣ Update invoice to void
-    const { error: updateError } = await supabase
+    const { error } = await supabase
       .from("invoices")
       .update({
         status: "void",
-        remaining_balance: 0,
+        balance_due: 0,
       })
       .eq("id", invoiceId);
 
-    if (updateError) {
+    if (error) {
       return NextResponse.json(
-        { error: updateError.message },
+        { error: error.message },
         { status: 500 }
       );
     }
