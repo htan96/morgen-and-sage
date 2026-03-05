@@ -15,18 +15,19 @@ export default function SetPasswordPage() {
   /* Ensure recovery session exists   */
   /* -------------------------------- */
 
-  useEffect(() => {
-    async function checkSession() {
-      const { data } = await supabase.auth.getSession();
-
-      if (!data.session) {
-        router.push("/login");
-      }
+useEffect(() => {
+  const {
+    data: { subscription },
+  } = supabase.auth.onAuthStateChange((_event, session) => {
+    if (!session) {
+      router.push("/login");
     }
+  });
 
-    checkSession();
-  }, [router, supabase]);
-
+  return () => {
+    subscription.unsubscribe();
+  };
+}, [router, supabase]);
   /* -------------------------------- */
   /* Set Password                     */
   /* -------------------------------- */

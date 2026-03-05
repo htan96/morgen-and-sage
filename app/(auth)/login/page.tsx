@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { useRouter } from "next/navigation";
 
@@ -12,6 +12,45 @@ export default function LoginPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
+
+  /*
+  --------------------------------
+  Detect Supabase recovery login
+  --------------------------------
+  */
+
+useEffect(() => {
+
+  async function checkSession() {
+
+    const { data } = await supabase.auth.getSession();
+
+    if (!data.session) return;
+
+    const user = data.session.user;
+
+    const { data: tenant } = await supabase
+      .from("tenants")
+      .select("id, must_reset_password")
+      .eq("auth_user_id", user.id)
+      .maybeSingle();
+
+    if (tenant?.must_reset_password) {
+      router.replace("/set-password");
+      return;
+    }
+
+    if (tenant) {
+      router.replace("/portal");
+    } else {
+      router.replace("/admin/bookings");
+    }
+
+  }
+
+  checkSession();
+
+}, []);
 
   const handleLogin = async () => {
 
@@ -28,88 +67,46 @@ export default function LoginPage() {
       return;
     }
 
-    /*
-    -----------------------------
-    Get logged in user
-    -----------------------------
-    */
-
-    const {
-      data: { user }
-    } = await supabase.auth.getUser();
-
-    if (!user) {
-      router.replace("/login");
-      return;
-    }
-
-    /*
-    -----------------------------
-    Check tenant table
-    -----------------------------
-    */
-
-    const { data: tenant } = await supabase
-      .from("tenants")
-      .select("id")
-      .eq("auth_user_id", user.id)
-      .maybeSingle();
-
-    /*
-    -----------------------------
-    Route correctly
-    -----------------------------
-    */
-
-    if (tenant) {
-      router.replace("/portal");
-    } else {
-      router.replace("/admin/bookings");
-    }
+    router.replace("/admin/bookings");
 
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-100">
+    <div className="bg-white shadow-2xl rounded-2xl p-10 w-full max-w-md">
 
-      <div className="bg-white shadow-2xl rounded-2xl p-10 w-full max-w-md">
+      <h1 className="text-3xl font-bold text-gray-900 mb-2 text-center">
+        Morgen & Sage
+      </h1>
 
-        <h1 className="text-3xl font-bold text-gray-900 mb-2 text-center">
-          Morgen & Sage
-        </h1>
+      <p className="text-gray-500 text-center mb-8">
+        Secure Admin & Tenant Access
+      </p>
 
-        <p className="text-gray-500 text-center mb-8">
-          Secure Admin & Tenant Access
-        </p>
+      <div className="space-y-4">
 
-        <div className="space-y-4">
+        <input
+          type="email"
+          placeholder="Email address"
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+          className="w-full px-4 py-3 border border-gray-300 rounded-lg"
+        />
 
-          <input
-            type="email"
-            placeholder="Email address"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-black"
-          />
+        <input
+          type="password"
+          placeholder="Password"
+          value={password}
+          onChange={(e) => setPassword(e.target.value)}
+          className="w-full px-4 py-3 border border-gray-300 rounded-lg"
+        />
 
-          <input
-            type="password"
-            placeholder="Password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-black"
-          />
-
-          <button
-            type="button"
-            onClick={handleLogin}
-            disabled={loading}
-            className="w-full bg-black text-white py-3 rounded-lg font-semibold hover:bg-gray-800 transition duration-200 disabled:opacity-50"
-          >
-            {loading ? "Logging in..." : "Login"}
-          </button>
-
-        </div>
+        <button
+          onClick={handleLogin}
+          disabled={loading}
+          className="w-full bg-black text-white py-3 rounded-lg"
+        >
+          {loading ? "Logging in..." : "Login"}
+        </button>
 
       </div>
 
