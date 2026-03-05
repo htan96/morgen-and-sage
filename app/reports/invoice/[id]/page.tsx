@@ -7,22 +7,19 @@ export default async function Page({
   params,
   searchParams,
 }: {
-  params: { id?: string };
+  params: Promise<{ id: string }>;
   searchParams?: { print?: string };
 }) {
 
-  const id = params?.id;
+  const { id } = await params;
 
-  if (!id) {
-    console.log("Missing invoice id:", params);
-    return notFound();
-  }
+  if (!id) return notFound();
 
   const isPrint = searchParams?.print === "true";
 
   const supabase = await createClient();
 
-  // Require login unless generating printable view
+  // Require login unless generating printable PDF view
   if (!isPrint) {
     const {
       data: { user },
@@ -43,7 +40,7 @@ export default async function Page({
     .maybeSingle();
 
   if (error || !invoice) {
-    console.log("Invoice fetch failed:", error);
+    console.error("Invoice fetch failed:", error);
     return notFound();
   }
 
@@ -63,7 +60,6 @@ export default async function Page({
   else if (remaining <= 0) status = "Paid";
   else if (totalPaid > 0) status = "Partially Paid";
 
-  // Sort line items
   const sortedLineItems = [...(invoice.invoice_line_items || [])].sort(
     (a: any, b: any) => {
 
@@ -100,6 +96,7 @@ export default async function Page({
 
         {/* INVOICE INFO */}
         <div className="text-right">
+
           <h1 className="text-lg font-semibold tracking-wider">
             {invoice.invoice_number}
           </h1>
@@ -121,12 +118,14 @@ export default async function Page({
             )}
 
           </div>
+
         </div>
 
       </div>
 
       {/* BILL TO */}
       <div className="mt-4 mb-24">
+
         <p className="text-xs uppercase tracking-widest text-gray-400 mb-2">
           Bill To
         </p>
@@ -134,6 +133,7 @@ export default async function Page({
         <p className="text-lg font-medium">
           {invoice.tenant?.name}
         </p>
+
       </div>
 
       {/* LINE ITEMS */}
