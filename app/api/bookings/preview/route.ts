@@ -2,16 +2,13 @@ import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 
 export async function POST(req: Request) {
-
   try {
 
     const body = await req.json();
 
     const {
-      organizationId,
       tenantId,
-      kitchenSpaceId,
-      bookings,
+      bookings
     } = body;
 
     const supabase = await createClient();
@@ -23,163 +20,99 @@ export async function POST(req: Request) {
       );
     }
 
-    /* ---------------- GET TENANT SERVICES ---------------- */
+    const firstBooking = new Date(bookings[0].startTime);
 
-    const { data: tenantServices, error } = await supabase
+    const earliestDate = new Date(
+      Math.min(...bookings.map((b: any) => new Date(b.startTime).getTime()))
+    );
+
+    const latestDate = new Date(
+      Math.max(...bookings.map((b: any) => new Date(b.startTime).getTime()))
+    );
+
+    const totalHours = bookings.reduce((sum: number, b: any) => {
+      const start = new Date(b.startTime);
+      const end = new Date(b.endTime);
+      return sum + (end.getTime() - start.getTime()) / 1000 / 60 / 60;
+    }, 0);
+
+    const { data: tenantServices } = await supabase
       .from("tenant_services")
-      .select(`
-        id,
-        amount,
-        frequency,
-        service_id
-      `)
+      .select("*")
       .eq("tenant_id", tenantId)
       .eq("is_active", true);
 
-    if (error) throw error;
+    const hourlyService = tenantServices?.find(
+      (s) => s.frequency === "hourly"
+    );
 
-    /* ---------------- GET SERVICE NAMES ---------------- */
+    const monthlyService = tenantServices?.find(
+      (s) => s.frequency === "monthly"
+    );
 
-    const serviceIds =
-      tenantServices?.map((s) => s.service_id) ?? [];
+    const hourlyRate = hourlyService?.amount ?? 0;
 
-    const { data: services } = await supabase
-      .from("services")
-      .select("id,name")
-      .in("id", serviceIds);
+    const usageSubtotal = totalHours * hourlyRate;
 
-    const serviceMap: Record<string, string> = {};
+    let monthlyFee = null;
+    let monthlyAlreadyBilled = false;
 
-    services?.forEach((s) => {
-      serviceMap[s.id] = s.name;
-    });
+    const billingMonth = new Date(
+      firstBooking.getFullYear(),
+      firstBooking.getMonth(),
+      1
+    );
 
-    /* ---------------- PREVIEW CALCULATION ---------------- */
+    if (monthlyService) {
 
-    const lineItems: any[] = [];
-
-    /* HOURLY SERVICES */
-
-    const hourlyServices =
-      tenantServices?.filter(
-        (s) => s.frequency === "hourly"
-      ) ?? [];
-
-    for (const booking of bookings) {
-
-      const start = new Date(booking.startTime);
-      const end = new Date(booking.endTime);
-
-      const totalHours =
-        (end.getTime() - start.getTime()) /
-        1000 /
-        60 /
-        60;
-
-      for (const service of hourlyServices) {
-
-        const quantity = totalHours;
-        const rate = service.amount;
-        const amount = quantity * rate;
-
-        lineItems.push({
-          description:
-            serviceMap[service.service_id] ??
-            "Kitchen Time",
-          quantity,
-          rate,
-          amount,
-          service_date: start,
-        });
-      }
-    }
-
-    /* CLEANING FEE (PER DAY) */
-
-    const perDayServices =
-      tenantServices?.filter(
-        (s) => s.frequency === "per_booking"
-      ) ?? [];
-
-const uniqueDates: Set<string> = new Set(
-  bookings.map((b: any) =>
-    new Date(b.startTime)
-      .toISOString()
-      .split("T")[0]
-  )
-);
-
-for (const date of uniqueDates as Set<string>) {
-  const serviceDate = new Date(date);
-
-      for (const service of perDayServices) {
-
-        const quantity = 1;
-        const rate = service.amount;
-
-        lineItems.push({
-          description:
-            serviceMap[service.service_id] ??
-            "Cleaning Fee",
-          quantity,
-          rate,
-          amount: rate,
-          service_date: serviceDate,
-        });
-      }
-    }
-
-    /* MONTHLY SERVICES */
-
-    const monthlyServices =
-      tenantServices?.filter(
-        (s) => s.frequency === "monthly"
-      ) ?? [];
-
-    if (monthlyServices.length > 0) {
-
-      const firstBooking = bookings[0];
-
-      const startOfMonth = new Date(
-        new Date(firstBooking.startTime)
-          .getFullYear(),
-        new Date(firstBooking.startTime)
-          .getMonth(),
+      const nextMonth = new Date(
+        billingMonth.getFullYear(),
+        billingMonth.getMonth() + 1,
         1
       );
 
-      for (const service of monthlyServices) {
+      const { data: existing } = await supabase
+        .from("invoice_line_items")
+        .select("id")
+        .eq("tenant_id", tenantId)
+        .eq("service_id", monthlyService.service_id)
+        .gte("service_date", billingMonth)
+        .lt("service_date", nextMonth)
+        .maybeSingle();
 
-        const rate = service.amount;
-
-        lineItems.push({
-          description:
-            serviceMap[service.service_id] ??
-            "Monthly Membership",
-          quantity: 1,
-          rate,
-          amount: rate,
-          service_date: startOfMonth,
-        });
+      if (existing) {
+        monthlyAlreadyBilled = true;
+        monthlyFee = 0;
+      } else {
+        monthlyFee = monthlyService.amount;
       }
     }
 
-    /* ---------------- TOTAL ---------------- */
-
-    const totalAmount = lineItems.reduce(
-      (sum, item) => sum + item.amount,
-      0
-    );
+    const total = usageSubtotal + (monthlyFee ?? 0);
 
     return NextResponse.json({
       bookingCount: bookings.length,
-      lineItems,
-      totalAmount,
+
+      earliestDate: earliestDate.toLocaleDateString(),
+      latestDate: latestDate.toLocaleDateString(),
+
+      totalHours,
+      hourlyRate,
+
+      usageSubtotal: usageSubtotal.toFixed(2),
+
+      monthlyFee,
+      monthLabel: billingMonth.toLocaleString("default", { month: "long" }),
+      monthlyAlreadyBilled,
+
+      total: total.toFixed(2),
+
+      dueDateLabel: billingMonth.toLocaleDateString(),
     });
 
   } catch (err) {
 
-    console.error("Preview error:", err);
+    console.error(err);
 
     return NextResponse.json(
       { error: "Preview failed" },
