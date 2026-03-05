@@ -3,24 +3,11 @@ import { createServerClient } from "@supabase/ssr";
 
 export async function middleware(request: NextRequest) {
 
-  const { pathname, searchParams } = request.nextUrl;
+  const { pathname } = request.nextUrl;
 
   let response = NextResponse.next({
     request: { headers: request.headers },
   });
-
-  /*
-  --------------------------------
-  Allow recovery links
-  --------------------------------
-  */
-
-  if (
-    searchParams.get("type") === "recovery" ||
-    searchParams.get("access_token")
-  ) {
-    return response;
-  }
 
   /*
   --------------------------------
@@ -30,6 +17,7 @@ export async function middleware(request: NextRequest) {
 
   if (
     pathname.startsWith("/login") ||
+    pathname.startsWith("/invite") ||
     pathname.startsWith("/set-password")
   ) {
     return response;
@@ -52,66 +40,50 @@ export async function middleware(request: NextRequest) {
     }
   );
 
-  /*
-  --------------------------------
-  Refresh session
-  --------------------------------
-  */
-
   const {
     data: { user },
   } = await supabase.auth.getUser();
 
-  /*
-  --------------------------------
-  Not logged in
-  --------------------------------
-  */
-
   if (!user) {
+
     const url = request.nextUrl.clone();
     url.pathname = "/login";
     return NextResponse.redirect(url);
+
   }
 
-  /*
-  --------------------------------
-  Check tenant
-  --------------------------------
-  */
-
-  const { data: tenant } = await supabase
-    .from("tenants")
-    .select("id")
-    .eq("auth_user_id", user.id)
-    .maybeSingle();
+  const role = user.user_metadata?.role;
 
   /*
   --------------------------------
-  Tenant routes
+  Tenant
   --------------------------------
   */
 
-  if (tenant) {
+  if (role === "tenant") {
+
     if (!pathname.startsWith("/portal")) {
       const url = request.nextUrl.clone();
       url.pathname = "/portal";
       return NextResponse.redirect(url);
     }
+
   }
 
   /*
   --------------------------------
-  Admin routes
+  Admin
   --------------------------------
   */
 
-  if (!tenant) {
+  if (role === "admin") {
+
     if (!pathname.startsWith("/admin")) {
       const url = request.nextUrl.clone();
       url.pathname = "/admin";
       return NextResponse.redirect(url);
     }
+
   }
 
   return response;
@@ -119,6 +91,6 @@ export async function middleware(request: NextRequest) {
 
 export const config = {
   matcher: [
-    "/((?!api|_next/static|_next/image|favicon.ico).*)",
+    "/((?!api|_next/static|_next/image|favicon.ico|invite|set-password|login).*)",
   ],
 };
