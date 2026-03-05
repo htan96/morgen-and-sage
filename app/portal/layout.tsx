@@ -24,7 +24,7 @@ export default async function PortalLayout({
     .from("profiles")
     .select("role, tenant_id")
     .eq("id", user.id)
-    .single();
+    .maybeSingle(); // safer than .single()
 
   if (!profile) redirect("/login");
 
