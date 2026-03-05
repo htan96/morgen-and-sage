@@ -22,7 +22,7 @@ export default function CreatePortalUserButton({
     setLoading(true);
 
     try {
-      const res = await fetch("/api/tenants/invite", {
+      const res = await fetch("/api/tenants/invites", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
