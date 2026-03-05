@@ -24,11 +24,9 @@ export default function ReviewInvoicesModal({ invoices, onClose }: Props) {
 
   const [sending, setSending] = useState(false);
 
-  if (!invoices || invoices.length === 0) return null;
-
-  /* ---------------------------------- */
-  /* Send Single Invoice                */
-  /* ---------------------------------- */
+  if (!invoices || invoices.length === 0) {
+    return null;
+  }
 
   async function sendInvoice(id: string) {
     setSending(true);
@@ -47,10 +45,6 @@ export default function ReviewInvoicesModal({ invoices, onClose }: Props) {
       setSending(false);
     }
   }
-
-  /* ---------------------------------- */
-  /* Send All Invoices                  */
-  /* ---------------------------------- */
 
   async function sendAll() {
     setSending(true);
@@ -78,7 +72,7 @@ export default function ReviewInvoicesModal({ invoices, onClose }: Props) {
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
 
       <div
-        className="w-[1100px] h-[700px] rounded-xl flex overflow-hidden"
+        className="w-[1200px] h-[750px] rounded-xl flex overflow-hidden shadow-xl"
         style={{
           background: "var(--surface)",
           border: "1px solid var(--border)",
@@ -87,7 +81,7 @@ export default function ReviewInvoicesModal({ invoices, onClose }: Props) {
 
         {/* LEFT PANEL */}
         <div
-          className="w-[320px] overflow-y-auto"
+          className="w-[340px] overflow-y-auto"
           style={{
             borderRight: "1px solid var(--border)",
           }}
@@ -181,19 +175,13 @@ export default function ReviewInvoicesModal({ invoices, onClose }: Props) {
           </div>
 
           {/* PREVIEW */}
-          <div className="flex-1 bg-white">
-            {selected ? (
-              <iframe
-                key={selected.id}
-                src={`/reports/invoice/${selected.id}`}
-                className="w-full h-full border-0"
-              />
-            ) : (
-              <div className="flex items-center justify-center h-full text-sm text-gray-500">
-                Select an invoice to preview
-              </div>
-            )}
-          </div>
+          {selected && (
+            <iframe
+              key={selected.id}
+              src={`/reports/invoice/${selected.id}`}
+              className="w-full flex-1 border-0 bg-white"
+            />
+          )}
 
         </div>
       </div>
