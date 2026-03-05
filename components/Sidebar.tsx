@@ -153,27 +153,27 @@ export default function Sidebar({ variant = "full" }: SidebarProps) {
             {isDark ? "Light Mode" : "Dark Mode"}
           </button>
 
-<Link
-  href="/admin/settings"
-  className="flex items-center gap-3 p-3 rounded-lg transition cursor-pointer"
-  style={{ background: "var(--sidebar-hover)" }}
->
-  <div className="w-8 h-8 rounded-full bg-black text-white flex items-center justify-center font-bold text-sm">
-    {initials}
-  </div>
-
-  <div className="flex flex-col leading-tight">
-    <span className="text-sm font-medium">
-      {role ?? "Loading"}
-    </span>
-    <span
-      className="text-xs"
-      style={{ color: "var(--text-muted)" }}
+    <Link
+      href="/admin/settings"
+      className="flex items-center gap-3 p-3 rounded-lg transition cursor-pointer"
+      style={{ background: "var(--sidebar-hover)" }}
     >
-      Settings
-    </span>
-  </div>
-</Link>
+      <div className="w-8 h-8 rounded-full bg-black text-white flex items-center justify-center font-bold text-sm">
+        {initials}
+      </div>
+
+      <div className="flex flex-col leading-tight">
+        <span className="text-sm font-medium">
+          {role ?? "Loading"}
+        </span>
+        <span
+          className="text-xs"
+          style={{ color: "var(--text-muted)" }}
+        >
+          Settings
+        </span>
+      </div>
+    </Link>
 
           <button
             onClick={logout}

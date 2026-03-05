@@ -3,6 +3,26 @@
 import { createClient } from "@/lib/supabase/server";
 import { runMonthlyEngine } from "@/lib/billing/runMonthlyEngine";
 
+/**
+ * Run monthly billing for a single tenant
+ */
+export async function runMonthlyBilling(params: {
+  tenantId: string;
+  billingMonth: string;
+  generatedByType: "admin" | "system" | "tenant";
+  generatedById?: string | null;
+}) {
+  return await runMonthlyEngine({
+    tenantId: params.tenantId,
+    billingMonth: params.billingMonth,
+    generatedByType: params.generatedByType,
+    generatedById: params.generatedById ?? null,
+  });
+}
+
+/**
+ * Run monthly billing for ALL active tenants
+ */
 export async function runMonthlyBillingForAllTenants(
   billingMonth: string
 ) {
@@ -21,6 +41,8 @@ export async function runMonthlyBillingForAllTenants(
     const result = await runMonthlyEngine({
       tenantId: t.id,
       billingMonth,
+      generatedByType: "system", // Cron / bulk runs are system-generated
+      generatedById: null,
     });
 
     results.push({

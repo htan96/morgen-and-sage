@@ -1,7 +1,13 @@
 import { createClient } from "@/lib/supabase/server";
 import { generatePresetBookingsForMonth } from "./generatePresetBookingsForMonth";
-import { sumUninvoicedBookingTotalForMonth, attachBookingsToInvoiceForMonth } from "@/lib/db/bookings";
-import { insertInvoice, insertInvoiceLineItems } from "@/lib/db/invoices";
+import {
+  sumUninvoicedBookingTotalForMonth,
+  attachBookingsToInvoiceForMonth,
+} from "@/lib/db/bookings";
+import {
+  insertInvoice,
+  insertInvoiceLineItems,
+} from "@/lib/db/invoices";
 
 function getMonthBounds(billingMonth: string) {
   const start = new Date(`${billingMonth}T00:00:00.000Z`);
@@ -21,28 +27,54 @@ function generateInvoiceNumber() {
 export async function runPresetMonthlyEngine(params: {
   tenantId: string;
   billingMonth: string;
+  generatedByType?: "admin" | "system" | "tenant";
+  generatedById?: string | null;
 }) {
-  const { tenantId, billingMonth } = params;
+  const {
+    tenantId,
+    billingMonth,
+    generatedByType = "system",
+    generatedById = null,
+  } = params;
 
   const supabase = await createClient();
 
-const { data: tenant, error } = await supabase
-  .from("tenants")
-  .select("organization_id")
-  .eq("id", tenantId)
-  .maybeSingle();
+  // 🔒 1️⃣ Prevent duplicate preset invoice
+  const { data: existingInvoice } = await supabase
+    .from("invoices")
+    .select("id")
+    .eq("tenant_id", tenantId)
+    .eq("billing_month", billingMonth)
+    .eq("invoice_type", "preset")
+    .maybeSingle();
 
-if (error) throw error;
+  if (existingInvoice) {
+    return {
+      success: false,
+      reason: "INVOICE_ALREADY_EXISTS",
+      invoiceId: existingInvoice.id,
+    };
+  }
 
-if (!tenant) {
-  return { success: false, reason: "TENANT_NOT_FOUND" };
-}
+  // 🔎 2️⃣ Get tenant
+  const { data: tenant, error } = await supabase
+    .from("tenants")
+    .select("organization_id")
+    .eq("id", tenantId)
+    .maybeSingle();
+
+  if (error) throw error;
+
+  if (!tenant) {
+    return { success: false, reason: "TENANT_NOT_FOUND" };
+  }
 
   const { startISO, nextISO } = getMonthBounds(billingMonth);
 
-  // Generate preset bookings first
+  // 3️⃣ Generate preset bookings
   await generatePresetBookingsForMonth(tenantId, billingMonth);
 
+  // 4️⃣ Calculate uninvoiced booking total
   const bookingTotal =
     await sumUninvoicedBookingTotalForMonth(
       tenantId,
@@ -54,13 +86,14 @@ if (!tenant) {
     return { success: false, reason: "NOTHING_TO_BILL" };
   }
 
+  // 🧾 5️⃣ Create invoice
   const invoice = await insertInvoice({
     organizationId: tenant.organization_id,
     tenantId,
     invoiceType: "preset",
     billingMonth,
-    generatedByType: "system",
-    generatedById: null,
+    generatedByType,
+    generatedById,
     invoiceNumber: generateInvoiceNumber(),
     invoiceDate: new Date(),
     dueDate: new Date(),
@@ -71,6 +104,7 @@ if (!tenant) {
     status: "draft",
   });
 
+  // 🧾 6️⃣ Create invoice line item
   await insertInvoiceLineItems(
     invoice.id,
     tenant.organization_id,
@@ -86,6 +120,7 @@ if (!tenant) {
     ]
   );
 
+  // 🔗 7️⃣ Attach bookings
   await attachBookingsToInvoiceForMonth(
     tenantId,
     invoice.id,

@@ -1,10 +1,13 @@
 import { NextResponse } from "next/server";
-import { runMonthlyBillingForAllTenants } from "@/app/actions/billing/runMonthlyBilling";
+import {
+  runMonthlyBilling,
+  runMonthlyBillingForAllTenants,
+} from "@/app/actions/billing/runMonthlyBilling";
 
 function firstOfPreviousMonthUTC() {
   const now = new Date();
   const year = now.getUTCFullYear();
-  const month = now.getUTCMonth(); // current month index (0-based)
+  const month = now.getUTCMonth();
 
   const previousMonthDate = new Date(Date.UTC(year, month - 1, 1));
 
@@ -14,10 +17,25 @@ function firstOfPreviousMonthUTC() {
   return `${yyyy}-${mm}-01`;
 }
 
+function firstOfCurrentMonthUTC() {
+  const now = new Date();
+  const yyyy = now.getUTCFullYear();
+  const mm = String(now.getUTCMonth() + 1).padStart(2, "0");
+
+  return `${yyyy}-${mm}-01`;
+}
+
 export async function GET(req: Request) {
   try {
-    // 🔒 Protect in production
-    if (process.env.NODE_ENV !== "development") {
+    const url = new URL(req.url);
+
+    const tenantId = url.searchParams.get("tenantId");
+    const manualMonth = url.searchParams.get("month");
+
+    // 🔒 CRON PROTECTION
+    // Only enforce CRON_SECRET when NO tenantId is provided
+    // That means it’s a cron / global run
+    if (!tenantId && process.env.NODE_ENV !== "development") {
       const auth = req.headers.get("authorization");
 
       if (auth !== `Bearer ${process.env.CRON_SECRET}`) {
@@ -25,20 +43,46 @@ export async function GET(req: Request) {
       }
     }
 
-    const url = new URL(req.url);
+    // 🧠 Decide billing month
+    let billingMonth: string;
 
-    // Optional manual month override
-    const billingMonth =
-      url.searchParams.get("month") || firstOfPreviousMonthUTC();
+    if (manualMonth) {
+      // Explicit override (manual button)
+      billingMonth = manualMonth;
+    } else if (tenantId) {
+      // Manual single tenant, no month passed → use CURRENT month
+      billingMonth = firstOfCurrentMonthUTC();
+    } else {
+      // Cron run → use PREVIOUS month
+      billingMonth = firstOfPreviousMonthUTC();
+    }
 
     console.log("🚀 Running monthly billing for:", billingMonth);
 
-    const results = await runMonthlyBillingForAllTenants(
-      billingMonth
-    );
+    // ✅ Single tenant
+    if (tenantId) {
+      const result = await runMonthlyBilling({
+  tenantId,
+  billingMonth,
+  generatedByType: "admin",
+  generatedById: null,
+});
+
+      return NextResponse.json({
+        success: true,
+        mode: "single_tenant",
+        tenantId,
+        billingMonth,
+        result,
+      });
+    }
+
+    // ✅ All tenants (cron)
+    const results = await runMonthlyBillingForAllTenants(billingMonth);
 
     return NextResponse.json({
       success: true,
+      mode: "all_tenants",
       billingMonth,
       totalTenantsProcessed: results.length,
       results,
