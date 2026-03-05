@@ -1,13 +1,15 @@
 import { createClient } from "@/lib/supabase/server";
 import { generatePresetBookingsForMonth } from "./generatePresetBookingsForMonth";
-import {
-  attachBookingsToInvoiceForMonth,
-} from "@/lib/db/bookings";
+import { attachBookingsToInvoiceForMonth } from "@/lib/db/bookings";
 import {
   insertInvoice,
   insertInvoiceLineItems,
 } from "@/lib/db/invoices";
-import { getActiveHourlyRate } from "@/lib/db/tenantServices";
+import {
+  getActiveHourlyRate,
+  getActiveMonthlyServices,
+  getActivePerBookingServices,
+} from "@/lib/db/tenantServices";
 
 function getMonthBounds(billingMonth: string) {
   const start = new Date(`${billingMonth}T00:00:00.000Z`);
@@ -40,7 +42,10 @@ export async function runPresetMonthlyEngine(params: {
 
   const supabase = await createClient();
 
-  // Prevent duplicates
+  /* ---------------------------------- */
+  /* Prevent duplicate invoices         */
+  /* ---------------------------------- */
+
   const { data: existingInvoice } = await supabase
     .from("invoices")
     .select("id")
@@ -57,7 +62,10 @@ export async function runPresetMonthlyEngine(params: {
     };
   }
 
-  // Get tenant
+  /* ---------------------------------- */
+  /* Get tenant                         */
+  /* ---------------------------------- */
+
   const { data: tenant } = await supabase
     .from("tenants")
     .select("organization_id")
@@ -70,23 +78,32 @@ export async function runPresetMonthlyEngine(params: {
 
   const { startISO, nextISO } = getMonthBounds(billingMonth);
 
-  // Generate bookings
+  /* ---------------------------------- */
+  /* Generate bookings                  */
+  /* ---------------------------------- */
+
   await generatePresetBookingsForMonth(tenantId, billingMonth);
 
-  // Fetch bookings
   const { data: bookings } = await supabase
     .from("bookings")
     .select("id, start_time, total_hours")
     .eq("tenant_id", tenantId)
     .gte("start_time", startISO)
     .lt("start_time", nextISO)
-    .is("invoice_id", null);
+    .is("invoice_id", null)
+    .order("start_time", { ascending: true });
 
   if (!bookings || bookings.length === 0) {
     return { success: false, reason: "NOTHING_TO_BILL" };
   }
 
+  /* ---------------------------------- */
+  /* Load services                      */
+  /* ---------------------------------- */
+
   const hourlyRate = await getActiveHourlyRate(tenantId);
+  const perBookingServices = await getActivePerBookingServices(tenantId);
+  const monthlyServices = await getActiveMonthlyServices(tenantId);
 
   if (!hourlyRate) {
     return { success: false, reason: "NO_HOURLY_RATE" };
@@ -94,21 +111,98 @@ export async function runPresetMonthlyEngine(params: {
 
   let subtotal = 0;
 
-  const lineItems = bookings.map((booking) => {
+  const lineItems: any[] = [];
+
+  /* ---------------------------------- */
+  /* Kitchen Time                       */
+  /* ---------------------------------- */
+
+  for (const booking of bookings) {
 
     const hours = Number(booking.total_hours || 0);
     const amount = hours * hourlyRate;
 
     subtotal += amount;
 
-    return {
+    lineItems.push({
+      sortOrder: 1,
       description: "Kitchen Time",
       quantity: hours,
       rate: hourlyRate,
       amount,
       serviceDate: booking.start_time,
-    };
-  });
+    });
+  }
+
+  /* ---------------------------------- */
+  /* Per Booking Services               */
+  /* ---------------------------------- */
+
+  for (const service of perBookingServices) {
+
+    const total =
+      bookings.length *
+      Number(service.amount) *
+      Number(service.quantity || 1);
+
+    if (total <= 0) continue;
+
+    subtotal += total;
+
+    lineItems.push({
+      sortOrder: 2,
+      description: service.name,
+      quantity: bookings.length * Number(service.quantity || 1),
+      rate: Number(service.amount),
+      amount: total,
+      serviceDate: billingMonth,
+    });
+  }
+
+  /* ---------------------------------- */
+  /* Monthly Services                   */
+  /* ---------------------------------- */
+
+  for (const service of monthlyServices) {
+
+    const total =
+      Number(service.amount) *
+      Number(service.quantity || 1);
+
+    if (total <= 0) continue;
+
+    subtotal += total;
+
+    lineItems.push({
+      sortOrder: 3,
+      description: service.name,
+      quantity: Number(service.quantity || 1),
+      rate: Number(service.amount),
+      amount: total,
+      serviceDate: billingMonth,
+    });
+  }
+
+  /* ---------------------------------- */
+  /* Sort invoice items                 */
+  /* ---------------------------------- */
+
+  const sortedLineItems = lineItems
+    .sort((a, b) => {
+      if (a.sortOrder !== b.sortOrder) {
+        return a.sortOrder - b.sortOrder;
+      }
+
+      if (!a.serviceDate) return 1;
+      if (!b.serviceDate) return -1;
+
+      return new Date(a.serviceDate).getTime() - new Date(b.serviceDate).getTime();
+    })
+    .map(({ sortOrder, ...item }) => item);
+
+  /* ---------------------------------- */
+  /* Create invoice                     */
+  /* ---------------------------------- */
 
   const invoice = await insertInvoice({
     organizationId: tenant.organization_id,
@@ -131,7 +225,7 @@ export async function runPresetMonthlyEngine(params: {
     invoice.id,
     tenant.organization_id,
     tenantId,
-    lineItems
+    sortedLineItems
   );
 
   await attachBookingsToInvoiceForMonth(

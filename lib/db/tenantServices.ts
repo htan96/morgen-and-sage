@@ -9,7 +9,6 @@ export async function getActiveMonthlyServices(tenantId: string) {
       id,
       amount,
       quantity,
-      frequency,
       services (
         name
       )
@@ -23,14 +22,36 @@ export async function getActiveMonthlyServices(tenantId: string) {
   return (data || []).map((row: any) => ({
     name: row.services?.name || "Service",
     amount: Number(row.amount || 0),
-    quantity: Number(row.quantity || 0),
+    quantity: Number(row.quantity || 1),
   }));
 }
 
-/**
- * Returns active hourly rate for Kitchen Time billing.
- * If none exists, returns 0 (engine will likely return NOTHING_TO_BILL).
- */
+export async function getActivePerBookingServices(tenantId: string) {
+  const supabase = await createClient();
+
+  const { data, error } = await supabase
+    .from("tenant_services")
+    .select(`
+      id,
+      amount,
+      quantity,
+      services (
+        name
+      )
+    `)
+    .eq("tenant_id", tenantId)
+    .eq("frequency", "per_booking")
+    .eq("is_active", true);
+
+  if (error) throw error;
+
+  return (data || []).map((row: any) => ({
+    name: row.services?.name || "Service",
+    amount: Number(row.amount || 0),
+    quantity: Number(row.quantity || 1),
+  }));
+}
+
 export async function getActiveHourlyRate(tenantId: string) {
   const supabase = await createClient();
 
