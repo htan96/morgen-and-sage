@@ -59,7 +59,7 @@ export default function LoginPage() {
       return;
     }
 
-    router.replace("/admin/bookings");
+    router.replace("/");
   };
 
   return (
