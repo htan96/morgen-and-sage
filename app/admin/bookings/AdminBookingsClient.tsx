@@ -27,6 +27,7 @@ type Props = {
   bookings: Booking[];
   kitchens: Kitchen[];
   tenants: Tenant[];
+  portalMode?: boolean;
 };
 
 const formatForInput = (date: Date) => {
@@ -43,6 +44,7 @@ export default function AdminBookingsClient({
   bookings,
   kitchens,
   tenants,
+  portalMode = false,
 }: Props) {
   const [selectedKitchenId, setSelectedKitchenId] =
     useState<string | null>(null);
@@ -92,6 +94,7 @@ export default function AdminBookingsClient({
 
   const filteredBookings = useMemo(() => {
     if (!selectedKitchenId) return bookings;
+
     return bookings.filter(
       (b) => b.kitchen_space_id === selectedKitchenId
     );
@@ -175,6 +178,7 @@ export default function AdminBookingsClient({
 
   const handleDayClick = (date: Date) => {
     setEditingBooking(null);
+
     setPanelKitchenId(
       selectedKitchenId ?? kitchens[0]?.id ?? null
     );
@@ -233,6 +237,7 @@ export default function AdminBookingsClient({
         addNextDayDraft={addNextDayDraft}
         kitchens={kitchens}
         tenants={tenants}
+        portalMode={portalMode}
       />
     </>
   );

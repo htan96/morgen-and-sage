@@ -2,12 +2,28 @@
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { Sun, Moon, Calendar, FileText, Users, Activity, File, Shield } from "lucide-react";
+import {
+  Sun,
+  Moon,
+  Calendar,
+  FileText,
+  Users,
+  Activity,
+  File,
+  Shield,
+} from "lucide-react";
 import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 
 type SidebarProps = {
   variant?: "full" | "compact";
+};
+
+type NavItem = {
+  name: string;
+  href: string;
+  icon: any;
+  admin?: boolean;
 };
 
 export default function Sidebar({ variant = "full" }: SidebarProps) {
@@ -21,10 +37,14 @@ export default function Sidebar({ variant = "full" }: SidebarProps) {
 
   const isCompact = variant === "compact";
 
+  const isPortal = pathname.startsWith("/portal");
+  const isAdmin = pathname.startsWith("/admin");
+
   /* ---------------- Theme ---------------- */
 
   useEffect(() => {
     const savedTheme = localStorage.getItem("theme");
+
     if (savedTheme === "dark") {
       document.documentElement.classList.add("dark");
       setIsDark(true);
@@ -34,7 +54,9 @@ export default function Sidebar({ variant = "full" }: SidebarProps) {
   const toggleTheme = () => {
     const html = document.documentElement;
     html.classList.toggle("dark");
+
     const darkMode = html.classList.contains("dark");
+
     localStorage.setItem("theme", darkMode ? "dark" : "light");
     setIsDark(darkMode);
   };
@@ -71,9 +93,9 @@ export default function Sidebar({ variant = "full" }: SidebarProps) {
     router.push("/login");
   };
 
-  /* ---------------- Nav ---------------- */
+  /* ---------------- Navigation ---------------- */
 
-  const navItems = [
+  const adminNav: NavItem[] = [
     { name: "Bookings", href: "/admin/bookings", icon: Calendar },
     { name: "Invoices", href: "/admin/invoices", icon: FileText },
     { name: "Tenants", href: "/admin/tenants", icon: Users, admin: true },
@@ -81,6 +103,16 @@ export default function Sidebar({ variant = "full" }: SidebarProps) {
     { name: "Documents", href: "/admin/documents", icon: File, admin: true },
     { name: "Users", href: "/admin/users", icon: Shield, admin: true },
   ];
+
+  const portalNav: NavItem[] = [
+    { name: "Dashboard", href: "/portal", icon: Activity },
+    { name: "Bookings", href: "/portal/bookings", icon: Calendar },
+    { name: "Invoices", href: "/portal/invoices", icon: FileText },
+  ];
+
+  const navItems = isPortal ? portalNav : adminNav;
+
+  /* ---------------- Render ---------------- */
 
   return (
     <aside
@@ -93,6 +125,7 @@ export default function Sidebar({ variant = "full" }: SidebarProps) {
       }}
     >
       {/* Logo */}
+
       {!isCompact && (
         <div
           className="p-6 flex items-center justify-center"
@@ -110,13 +143,16 @@ export default function Sidebar({ variant = "full" }: SidebarProps) {
         </div>
       )}
 
-      {/* Nav */}
-      <nav className={`flex-1 p-2 space-y-2`}>
+      {/* Navigation */}
+
+      <nav className="flex-1 p-2 space-y-2">
         {navItems.map((item) => {
           if (item.admin && role !== "admin") return null;
 
           const Icon = item.icon;
-          const active = pathname.startsWith(item.href);
+
+          const active =
+            pathname === item.href || pathname.startsWith(item.href + "/");
 
           return (
             <Link
@@ -126,12 +162,11 @@ export default function Sidebar({ variant = "full" }: SidebarProps) {
                 isCompact ? "justify-center" : "gap-3"
               } px-3 py-2 rounded-lg transition`}
               style={{
-                background: active
-                  ? "var(--sidebar-hover)"
-                  : "transparent",
+                background: active ? "var(--sidebar-hover)" : "transparent",
               }}
             >
               <Icon size={18} />
+
               {!isCompact && <span>{item.name}</span>}
             </Link>
           );
@@ -139,41 +174,52 @@ export default function Sidebar({ variant = "full" }: SidebarProps) {
       </nav>
 
       {/* Bottom */}
+
       {!isCompact && (
         <div
           className="p-4 space-y-4"
           style={{ borderTop: "1px solid var(--sidebar-border)" }}
         >
+          {/* Theme Toggle */}
+
           <button
             onClick={toggleTheme}
             className="w-full flex items-center justify-center gap-2 px-4 py-2 rounded-lg"
             style={{ background: "var(--sidebar-hover)" }}
           >
             {isDark ? <Sun size={16} /> : <Moon size={16} />}
+
             {isDark ? "Light Mode" : "Dark Mode"}
           </button>
 
-    <Link
-      href="/admin/settings"
-      className="flex items-center gap-3 p-3 rounded-lg transition cursor-pointer"
-      style={{ background: "var(--sidebar-hover)" }}
-    >
-      <div className="w-8 h-8 rounded-full bg-black text-white flex items-center justify-center font-bold text-sm">
-        {initials}
-      </div>
+          {/* Admin Settings ONLY */}
 
-      <div className="flex flex-col leading-tight">
-        <span className="text-sm font-medium">
-          {role ?? "Loading"}
-        </span>
-        <span
-          className="text-xs"
-          style={{ color: "var(--text-muted)" }}
-        >
-          Settings
-        </span>
-      </div>
-    </Link>
+          {isAdmin && (
+            <Link
+              href="/admin/settings"
+              className="flex items-center gap-3 p-3 rounded-lg transition cursor-pointer"
+              style={{ background: "var(--sidebar-hover)" }}
+            >
+              <div className="w-8 h-8 rounded-full bg-black text-white flex items-center justify-center font-bold text-sm">
+                {initials}
+              </div>
+
+              <div className="flex flex-col leading-tight">
+                <span className="text-sm font-medium">
+                  {role ?? "Loading"}
+                </span>
+
+                <span
+                  className="text-xs"
+                  style={{ color: "var(--text-muted)" }}
+                >
+                  Settings
+                </span>
+              </div>
+            </Link>
+          )}
+
+          {/* Logout */}
 
           <button
             onClick={logout}

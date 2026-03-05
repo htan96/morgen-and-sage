@@ -11,6 +11,10 @@ export default async function AdminLayout({
 }) {
   const supabase = await createClient();
 
+  /* ----------------------------- */
+  /* Auth Check                    */
+  /* ----------------------------- */
+
   const {
     data: { user },
   } = await supabase.auth.getUser();
@@ -23,10 +27,12 @@ export default async function AdminLayout({
     .eq("id", user.id)
     .single();
 
-  if (!profile || profile.role !== "admin") redirect("/dashboard");
+  if (!profile || profile.role !== "admin") {
+    redirect("/portal");
+  }
 
   /* ----------------------------- */
-  /* Get Draft Invoice Count       */
+  /* Draft Invoice Count           */
   /* ----------------------------- */
 
   const { count: draftCount } = await supabase
@@ -63,7 +69,13 @@ export default async function AdminLayout({
               <strong>
                 {draftCount} invoice{draftCount > 1 ? "s" : ""} need review
               </strong>
-              <div style={{ color: "var(--text-muted)", fontSize: 14 }}>
+
+              <div
+                style={{
+                  color: "var(--text-muted)",
+                  fontSize: 14,
+                }}
+              >
                 Draft invoices must be reviewed before sending.
               </div>
             </div>
@@ -82,7 +94,6 @@ export default async function AdminLayout({
         )}
 
         {children}
-
       </main>
     </div>
   );

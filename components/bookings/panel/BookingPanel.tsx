@@ -38,6 +38,7 @@ type Props = {
   kitchens: Kitchen[];
   clearDrafts: () => void;
   addNextDayDraft: () => void;
+  portalMode?: boolean;
 };
 
 export default function BookingPanel({
@@ -51,6 +52,7 @@ export default function BookingPanel({
   kitchens,
   clearDrafts,
   addNextDayDraft,
+  portalMode = false,
 }: Props) {
   const router = useRouter();
 
@@ -65,7 +67,16 @@ export default function BookingPanel({
   const organizationId = "49c3ef02-cb09-4fde-82d8-2012e5945ba2";
   const isEditMode = !!editingBooking;
 
-  // Reset when panel closes
+  /* ---------------- Portal Tenant Auto Assign ---------------- */
+
+  useEffect(() => {
+    if (portalMode && tenants.length > 0) {
+      setTenantId(tenants[0].id);
+    }
+  }, [portalMode, tenants]);
+
+  /* ---------------- Reset when panel closes ---------------- */
+
   useEffect(() => {
     if (!isOpen) {
       setStep("build");
@@ -75,9 +86,10 @@ export default function BookingPanel({
 
   if (!isOpen) return null;
 
-  // =============================
-  // REVIEW HANDLER (Fetch Preview)
-  // =============================
+  /* =============================
+     REVIEW HANDLER (Fetch Preview)
+     ============================= */
+
   const handleReview = async () => {
     if (!tenantId || !panelKitchenId || draftBookings.length === 0) return;
 
@@ -116,9 +128,10 @@ export default function BookingPanel({
     }
   };
 
-  // =============================
-  // SUBMIT HANDLER
-  // =============================
+  /* =============================
+     SUBMIT HANDLER
+     ============================= */
+
   const handleSubmit = async () => {
     if (loading || previewLoading) return;
 
@@ -153,18 +166,20 @@ export default function BookingPanel({
     }
   };
 
-  // =============================
-  // REVIEW GATE
-  // =============================
+  /* =============================
+     REVIEW GATE
+     ============================= */
+
   const canReview =
     !!tenantId &&
     !!panelKitchenId &&
     draftBookings.length > 0 &&
     !previewLoading;
 
-  // =============================
-  // RENDER
-  // =============================
+  /* =============================
+     RENDER
+     ============================= */
+
   return (
     <>
       <div
@@ -196,7 +211,7 @@ export default function BookingPanel({
                 setTenantId={setTenantId}
                 panelKitchenId={panelKitchenId}
                 setPanelKitchenId={setPanelKitchenId}
-                tenants={tenants}
+                tenants={portalMode ? [] : tenants}
                 kitchens={kitchens}
               />
 
