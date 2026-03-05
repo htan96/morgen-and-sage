@@ -24,7 +24,7 @@ export async function POST(req: Request) {
   const { data: profile, error: profileError } =
     await supabase
       .from("profiles")
-      .select("google_refresh_token")
+      .select("google_refresh_token, organization_id")
       .eq("id", user.id)
       .maybeSingle();
 
@@ -40,6 +40,17 @@ export async function POST(req: Request) {
       { error: "Connect Google first" },
       { status: 400 }
     );
+  }
+
+  /* ------------------------------ */
+  /* Ensure only ONE sender         */
+  /* ------------------------------ */
+
+  if (enabled) {
+    await supabase
+      .from("profiles")
+      .update({ is_email_sender: false })
+      .eq("organization_id", profile.organization_id);
   }
 
   /* ------------------------------ */
