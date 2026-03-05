@@ -1,96 +1,87 @@
-"use client";
+import { NextResponse } from "next/server";
+import { supabaseAdmin } from "@/lib/supabase/supabase-admin";
 
-import { useState, useEffect } from "react";
-import { createClient } from "@/lib/supabase/client";
-import { useRouter } from "next/navigation";
+export async function POST(req: Request) {
+  try {
 
-export default function LoginPage() {
-  const supabase = createClient();
-  const router = useRouter();
+    const { tenantId, email } = await req.json();
 
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [loading, setLoading] = useState(false);
-
-  /*
-  --------------------------------
-  Handle Supabase recovery links
-  --------------------------------
-  */
-
-  useEffect(() => {
-    async function checkRecovery() {
-      const hash = window.location.hash;
-
-      if (hash.includes("access_token")) {
-        const { data } = await supabase.auth.getSession();
-
-        if (data.session) {
-          router.replace("/set-password");
-        }
-      }
+    if (!tenantId || !email) {
+      return NextResponse.json(
+        { error: "Missing tenantId or email" },
+        { status: 400 }
+      );
     }
 
-    checkRecovery();
-  }, [router, supabase]);
+    const supabase = supabaseAdmin;
 
-  const handleLogin = async () => {
-    setLoading(true);
+    /*
+    --------------------------------
+    Get tenant
+    --------------------------------
+    */
 
-    const { error } = await supabase.auth.signInWithPassword({
-      email,
-      password,
+    const { data: tenant, error: tenantError } = await supabase
+      .from("tenants")
+      .select("id")
+      .eq("id", tenantId)
+      .single();
+
+    if (tenantError || !tenant) {
+      return NextResponse.json(
+        { error: "Tenant not found" },
+        { status: 404 }
+      );
+    }
+
+    /*
+    --------------------------------
+    Invite user (Supabase sends email)
+    --------------------------------
+    */
+
+    const { data, error: inviteError } =
+      await supabase.auth.admin.inviteUserByEmail(email, {
+        redirectTo: `${process.env.NEXT_PUBLIC_APP_URL}/set-password`,
+        data: {
+          role: "tenant",
+          tenant_id: tenantId
+        }
+      });
+
+    if (inviteError) {
+      return NextResponse.json(
+        { error: inviteError.message },
+        { status: 500 }
+      );
+    }
+
+    /*
+    --------------------------------
+    Link tenant to auth user
+    --------------------------------
+    */
+
+    await supabase
+      .from("tenants")
+      .update({
+        auth_user_id: data.user?.id,
+        must_reset_password: true
+      })
+      .eq("id", tenantId);
+
+    return NextResponse.json({
+      success: true
     });
 
-    if (error) {
-      alert(error.message);
-      setLoading(false);
-      return;
-    }
+  } catch (err) {
 
-    router.push("/admin/bookings");
-  };
+    console.error(err);
 
-  return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-100">
-      <div className="bg-white shadow-2xl rounded-2xl p-10 w-full max-w-md">
+    return NextResponse.json(
+      { error: "Failed to create portal user" },
+      { status: 500 }
+    );
 
-        {/* Logo */}
-        <div className="flex justify-center mb-8">
-          <img
-            src="/logos/morgens-kitchen-dark.svg"
-            alt="Morgan's Kitchen"
-            className="h-14"
-          />
-        </div>
-
-        <div className="space-y-4">
-          <input
-            type="email"
-            placeholder="Email address"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-black"
-          />
-
-          <input
-            type="password"
-            placeholder="Password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-black"
-          />
-
-          <button
-            type="button"
-            onClick={handleLogin}
-            disabled={loading}
-            className="w-full bg-black text-white py-3 rounded-lg font-semibold hover:bg-gray-800 transition duration-200 disabled:opacity-50"
-          >
-            {loading ? "Logging in..." : "Login"}
-          </button>
-        </div>
-      </div>
-    </div>
-  );
+  }
 }
