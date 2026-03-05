@@ -7,18 +7,22 @@ export default async function Page({
   params,
   searchParams,
 }: {
-  params: { id: string };
+  params: { id?: string };
   searchParams?: { print?: string };
 }) {
-  const id = params.id;
 
-  if (!id) return notFound();
+  const id = params?.id;
+
+  if (!id) {
+    console.log("Missing invoice id:", params);
+    return notFound();
+  }
 
   const isPrint = searchParams?.print === "true";
 
   const supabase = await createClient();
 
-  // 🔐 Only require login when NOT generating PDF
+  // Require login unless generating printable view
   if (!isPrint) {
     const {
       data: { user },
@@ -27,25 +31,23 @@ export default async function Page({
     if (!user) redirect("/login");
   }
 
-const { data: invoice } = await supabase
-  .from("invoices")
-  .select(`
-    *,
-    tenant:tenants(name),
-    invoice_line_items(*),
-    payments(*)
-  `)
-  .eq("id", id)
-  .maybeSingle();
+  const { data: invoice, error } = await supabase
+    .from("invoices")
+    .select(`
+      *,
+      tenant:tenants(name),
+      invoice_line_items(*),
+      payments(*)
+    `)
+    .eq("id", id)
+    .maybeSingle();
 
-if (!invoice) {
-  if (isPrint) {
-    return <div>Invoice not found</div>;
+  if (error || !invoice) {
+    console.log("Invoice fetch failed:", error);
+    return notFound();
   }
 
-  return notFound();
-}
-  const total = Number(invoice.total_amount);
+  const total = Number(invoice.total_amount || 0);
 
   const totalPaid =
     invoice.payments?.reduce(
@@ -62,8 +64,9 @@ if (!invoice) {
   else if (totalPaid > 0) status = "Partially Paid";
 
   // Sort line items
-  const sortedLineItems = [...invoice.invoice_line_items].sort(
+  const sortedLineItems = [...(invoice.invoice_line_items || [])].sort(
     (a: any, b: any) => {
+
       const dateA = a.service_date
         ? new Date(a.service_date).getTime()
         : null;
@@ -76,12 +79,12 @@ if (!invoice) {
       if (dateA && !dateB) return -1;
       if (!dateA && dateB) return 1;
 
-      return a.description.localeCompare(b.description);
+      return (a.description || "").localeCompare(b.description || "");
     }
   );
 
   return (
-    <div className="px-8 py-8 max-w-4xl mx-auto">
+    <div className={isPrint ? "" : "px-8 py-8 max-w-4xl mx-auto"}>
 
       {/* HEADER */}
       <div className="mb-16 flex items-start justify-between">
@@ -102,12 +105,13 @@ if (!invoice) {
           </h1>
 
           <div className="text-sm text-gray-500 mt-2 space-y-1">
-            <p>
-              Issued:{" "}
-              {invoice.invoice_date
-                ? new Date(invoice.invoice_date).toLocaleDateString()
-                : ""}
-            </p>
+
+            {invoice.invoice_date && (
+              <p>
+                Issued:{" "}
+                {new Date(invoice.invoice_date).toLocaleDateString()}
+              </p>
+            )}
 
             {invoice.due_date && (
               <p>
@@ -115,8 +119,10 @@ if (!invoice) {
                 {new Date(invoice.due_date).toLocaleDateString()}
               </p>
             )}
+
           </div>
         </div>
+
       </div>
 
       {/* BILL TO */}
@@ -134,6 +140,7 @@ if (!invoice) {
       <div className="p-6">
 
         <table className="w-full text-sm">
+
           <thead>
             <tr>
               <th className="text-left p-3">Description</th>
@@ -145,6 +152,7 @@ if (!invoice) {
           </thead>
 
           <tbody>
+
             {sortedLineItems.map((item: any) => (
               <tr key={item.id} className="border-t">
 
@@ -172,7 +180,9 @@ if (!invoice) {
 
               </tr>
             ))}
+
           </tbody>
+
         </table>
 
       </div>
