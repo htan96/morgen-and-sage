@@ -14,6 +14,20 @@ type CreateBookingSessionInput = {
   bookings: BookingInput[];
 };
 
+/* ---------------- Generate Invoice Number ---------------- */
+
+function generateInvoiceNumber(billingMonth: string) {
+
+  const month = new Date(`${billingMonth}T00:00:00Z`)
+    .toLocaleString("en-US", { month: "short", year: "numeric" })
+    .replace(" ", "")
+    .toUpperCase();
+
+  const random = Math.floor(1000 + Math.random() * 9000);
+
+  return `INV-${month}-${random}`;
+}
+
 export async function createBookingSession({
   organizationId,
   tenantId,
@@ -69,7 +83,13 @@ export async function createBookingSession({
     1
   );
 
+  const billingMonthISO =
+    billingMonth.toISOString().split("T")[0];
+
   /* ---------------- CREATE INVOICE ---------------- */
+
+  const invoiceNumber =
+    generateInvoiceNumber(billingMonthISO);
 
   const { data: invoice, error: invoiceError } =
     await supabase
@@ -78,6 +98,7 @@ export async function createBookingSession({
         organization_id: organizationId,
         tenant_id: tenantId,
         billing_month: billingMonth,
+        invoice_number: invoiceNumber,
         status: "draft",
       })
       .select()
@@ -92,9 +113,10 @@ export async function createBookingSession({
       .from("tenant_services")
       .select(`
         id,
+        service_id,
         amount,
-        frequency,
-        service_id
+        quantity,
+        frequency
       `)
       .eq("tenant_id", tenantId)
       .eq("is_active", true);
@@ -143,7 +165,7 @@ export async function createBookingSession({
           service_id: service.service_id,
           description:
             serviceMap[service.service_id] ??
-            "Hourly Service",
+            "Kitchen Time",
           quantity,
           rate,
           amount,
@@ -152,9 +174,9 @@ export async function createBookingSession({
     }
   }
 
-  /* ---------------- PER DAY SERVICES ---------------- */
+  /* ---------------- PER BOOKING SERVICES ---------------- */
 
-  const perDayServices =
+  const perBookingServices =
     tenantServices?.filter(
       (s) => s.frequency === "per_booking"
     ) ?? [];
@@ -171,12 +193,16 @@ export async function createBookingSession({
 
     const serviceDate = new Date(date);
 
-    for (const service of perDayServices) {
+    for (const service of perBookingServices) {
 
-      const quantity = 1;
-      const rate = service.amount;
+      const quantity =
+        service.quantity ?? 1;
 
-      const amount = quantity * rate;
+      const rate =
+        service.amount;
+
+      const amount =
+        quantity * rate;
 
       await supabase
         .from("invoice_line_items")
@@ -203,33 +229,45 @@ export async function createBookingSession({
       (s) => s.frequency === "monthly"
     ) ?? [];
 
+  const startOfMonth = new Date(
+    billingMonth.getFullYear(),
+    billingMonth.getMonth(),
+    1
+  );
+
+  const nextMonth = new Date(
+    billingMonth.getFullYear(),
+    billingMonth.getMonth() + 1,
+    1
+  );
+
+  const { data: existingMonthly } =
+    await supabase
+      .from("invoice_line_items")
+      .select("service_id")
+      .eq("tenant_id", tenantId)
+      .gte("service_date", startOfMonth)
+      .lt("service_date", nextMonth);
+
+  const billedSet =
+    new Set(
+      existingMonthly?.map(
+        (i) => i.service_id
+      )
+    );
+
   for (const service of monthlyServices) {
 
-    const startOfMonth = new Date(
-      billingMonth.getFullYear(),
-      billingMonth.getMonth(),
-      1
-    );
+    if (billedSet.has(service.service_id)) continue;
 
-    const nextMonth = new Date(
-      billingMonth.getFullYear(),
-      billingMonth.getMonth() + 1,
-      1
-    );
+    const quantity =
+      service.quantity ?? 1;
 
-    const { data: existing } =
-      await supabase
-        .from("invoice_line_items")
-        .select("id")
-        .eq("tenant_id", tenantId)
-        .eq("service_id", service.service_id)
-        .gte("service_date", startOfMonth)
-        .lt("service_date", nextMonth)
-        .maybeSingle();
+    const rate =
+      service.amount;
 
-    if (existing) continue;
-
-    const rate = service.amount;
+    const amount =
+      quantity * rate;
 
     await supabase
       .from("invoice_line_items")
@@ -241,14 +279,14 @@ export async function createBookingSession({
         description:
           serviceMap[service.service_id] ??
           "Monthly Service",
-        quantity: 1,
+        quantity,
         rate,
-        amount: rate,
+        amount,
         service_date: startOfMonth,
       });
   }
 
-  /* ---------------- LINK BOOKINGS TO INVOICE ---------------- */
+  /* ---------------- LINK BOOKINGS ---------------- */
 
   for (const booking of createdBookings) {
 

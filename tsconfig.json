@@ -30,6 +30,6 @@
     ".next/types/**/*.ts",
     ".next/dev/types/**/*.ts",
     "**/*.mts"
-, "lib/billing/previewBookingInvoice"  ],
+, "lib/billing/previewBookingInvoice", "components/invoices/AdminDraftInvoiceAlert"  ],
   "exclude": ["node_modules"]
 }

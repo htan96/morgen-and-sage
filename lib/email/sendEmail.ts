@@ -20,7 +20,10 @@ export async function sendEmail({
   attachments = [],
 }: SendEmailParams) {
 
-  // Get sender profile
+  /* ------------------------------ */
+  /* Get Email Sender               */
+  /* ------------------------------ */
+
   const { data: profile, error } = await supabaseAdmin
     .from("profiles")
     .select("*")
@@ -32,21 +35,38 @@ export async function sendEmail({
     throw new Error("No email sender configured for this organization.");
   }
 
+  if (!profile.google_email) {
+    throw new Error("Sender email missing.");
+  }
+
+  if (!profile.google_refresh_token) {
+    throw new Error("Google account not connected.");
+  }
+
+  /* ------------------------------ */
+  /* Access Token                   */
+  /* ------------------------------ */
+
   let accessToken = profile.google_access_token;
 
-  // Check token expiration
   const now = new Date();
-  const expiresAt = new Date(profile.google_token_expires_at);
+  const expiresAt = profile.google_token_expires_at
+    ? new Date(profile.google_token_expires_at)
+    : null;
 
-  if (!accessToken || now >= expiresAt) {
+  if (!accessToken || !expiresAt || now >= expiresAt) {
     accessToken = await refreshGoogleAccessToken(profile);
   }
 
-  // MIME boundary
-  const boundary = "boundary123";
+  /* ------------------------------ */
+  /* Build MIME Email               */
+  /* ------------------------------ */
+
+  const boundary = "invoice_boundary";
 
   const messageParts = [
     `From: Morgen's Kitchen <${profile.google_email}>`,
+    `Reply-To: ${profile.google_email}`,
     `To: ${to}`,
     `Subject: ${subject}`,
     "MIME-Version: 1.0",
@@ -58,7 +78,10 @@ export async function sendEmail({
     html,
   ];
 
-  // Attachments
+  /* ------------------------------ */
+  /* Attachments                    */
+  /* ------------------------------ */
+
   for (const file of attachments) {
     messageParts.push(
       `--${boundary}`,
@@ -80,6 +103,10 @@ export async function sendEmail({
     .replace(/\//g, "_")
     .replace(/=+$/, "");
 
+  /* ------------------------------ */
+  /* Send via Gmail API             */
+  /* ------------------------------ */
+
   const gmailResponse = await fetch(
     "https://gmail.googleapis.com/gmail/v1/users/me/messages/send",
     {
@@ -98,7 +125,7 @@ export async function sendEmail({
 
   if (!gmailResponse.ok) {
     throw new Error(
-      `Gmail send failed: ${gmailData.error?.message || "Unknown error"}`
+      `Gmail send failed: ${gmailData?.error?.message || "Unknown error"}`
     );
   }
 

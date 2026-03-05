@@ -50,6 +50,7 @@ style={{ border: "1px solid var(--border)" }}
 
   </div>
 ))}
+
   <div className="border-t pt-2 font-medium text-sm">
     Total: ${invoicePreview.total}
   </div>
