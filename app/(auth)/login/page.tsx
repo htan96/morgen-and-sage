@@ -5,7 +5,6 @@ import { createClient } from "@/lib/supabase/client";
 import { useRouter } from "next/navigation";
 
 export default function LoginPage() {
-
   const supabase = createClient();
   const router = useRouter();
 
@@ -13,47 +12,40 @@ export default function LoginPage() {
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
 
-  /*
-  --------------------------------
-  Detect Supabase recovery login
-  --------------------------------
-  */
+  /* -------------------------------- */
+  /* Check if user already logged in  */
+  /* -------------------------------- */
 
-useEffect(() => {
+  useEffect(() => {
+    async function checkSession() {
+      const { data } = await supabase.auth.getSession();
 
-  async function checkSession() {
+      if (!data.session) return;
 
-    const { data } = await supabase.auth.getSession();
+      const user = data.session.user;
 
-    if (!data.session) return;
+      const { data: tenant } = await supabase
+        .from("tenants")
+        .select("id, must_reset_password")
+        .eq("auth_user_id", user.id)
+        .maybeSingle();
 
-    const user = data.session.user;
+      if (tenant?.must_reset_password) {
+        router.replace("/set-password");
+        return;
+      }
 
-    const { data: tenant } = await supabase
-      .from("tenants")
-      .select("id, must_reset_password")
-      .eq("auth_user_id", user.id)
-      .maybeSingle();
-
-    if (tenant?.must_reset_password) {
-      router.replace("/set-password");
-      return;
+      if (tenant) {
+        router.replace("/portal");
+      } else {
+        router.replace("/admin/bookings");
+      }
     }
 
-    if (tenant) {
-      router.replace("/portal");
-    } else {
-      router.replace("/admin/bookings");
-    }
-
-  }
-
-  checkSession();
-
-}, []);
+    checkSession();
+  }, []);
 
   const handleLogin = async () => {
-
     setLoading(true);
 
     const { error } = await supabase.auth.signInWithPassword({
@@ -68,12 +60,10 @@ useEffect(() => {
     }
 
     router.replace("/admin/bookings");
-
   };
 
   return (
     <div className="bg-white shadow-2xl rounded-2xl p-10 w-full max-w-md">
-
       <h1 className="text-3xl font-bold text-gray-900 mb-2 text-center">
         Morgen & Sage
       </h1>
@@ -83,7 +73,6 @@ useEffect(() => {
       </p>
 
       <div className="space-y-4">
-
         <input
           type="email"
           placeholder="Email address"
@@ -107,9 +96,7 @@ useEffect(() => {
         >
           {loading ? "Logging in..." : "Login"}
         </button>
-
       </div>
-
     </div>
   );
 }
