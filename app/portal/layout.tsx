@@ -22,7 +22,7 @@ export default async function PortalLayout({
 
   const { data: profile } = await supabase
     .from("profiles")
-    .select("role")
+    .select("role, tenant_id")
     .eq("id", user.id)
     .single();
 
@@ -34,6 +34,14 @@ export default async function PortalLayout({
 
   if (profile.role === "admin") {
     redirect("/admin");
+  }
+
+  /* ----------------------------- */
+  /* Ensure Tenant Exists          */
+  /* ----------------------------- */
+
+  if (!profile.tenant_id) {
+    redirect("/login");
   }
 
   /* ----------------------------- */
@@ -49,9 +57,7 @@ export default async function PortalLayout({
       </div>
 
       {/* Mobile Sidebar */}
-      <div>
-        <MobileSidebar />
-      </div>
+      <MobileSidebar />
 
       {/* Main Content */}
       <main className="flex-1 md:ml-64 ml-14 px-2 sm:px-4 md:px-6 py-4 md:py-6">
