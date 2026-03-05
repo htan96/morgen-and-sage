@@ -13,17 +13,17 @@ export default async function PortalBookingsPage() {
 
   if (!user) redirect("/login");
 
-  /* ---------------- Profile ---------------- */
+  /* ---------------- Tenant ---------------- */
 
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("tenant_id")
-    .eq("id", user.id)
+  const { data: tenant } = await supabase
+    .from("tenants")
+    .select("id, name")
+    .eq("auth_user_id", user.id)
     .maybeSingle();
 
-  if (!profile?.tenant_id) redirect("/portal");
+  if (!tenant) redirect("/portal");
 
-  const tenantId = profile.tenant_id;
+  const tenantId = tenant.id;
 
   /* ---------------- Kitchens ---------------- */
 
@@ -49,14 +49,6 @@ export default async function PortalBookingsPage() {
     `)
     .eq("tenant_id", tenantId);
 
-  /* ---------------- Tenant ---------------- */
-
-  const { data: tenant } = await supabase
-    .from("tenants")
-    .select("id, name")
-    .eq("id", tenantId)
-    .maybeSingle();
-
   /* ---------------- Normalize Supabase Relation ---------------- */
 
   const normalizedBookings =
@@ -73,7 +65,7 @@ export default async function PortalBookingsPage() {
     <AdminBookingsClient
       kitchens={kitchens ?? []}
       bookings={normalizedBookings}
-      tenants={tenant ? [tenant] : []}
+      tenants={[tenant]}
       portalMode
     />
   );

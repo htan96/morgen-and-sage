@@ -10,9 +10,7 @@ export default async function PortalLayout({
 }) {
   const supabase = await createClient();
 
-  /* ----------------------------- */
-  /* Auth Check                    */
-  /* ----------------------------- */
+  /* ---------------- Auth ---------------- */
 
   const {
     data: { user },
@@ -20,46 +18,27 @@ export default async function PortalLayout({
 
   if (!user) redirect("/login");
 
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("role, tenant_id")
-    .eq("id", user.id)
-    .maybeSingle(); // safer than .single()
+  /* ---------------- Tenant Check ---------------- */
 
-  if (!profile) redirect("/login");
+  const { data: tenant } = await supabase
+    .from("tenants")
+    .select("id, name")
+    .eq("auth_user_id", user.id)
+    .maybeSingle();
 
-  /* ----------------------------- */
-  /* Prevent Admin Access          */
-  /* ----------------------------- */
+  if (!tenant) redirect("/login");
 
-  if (profile.role === "admin") {
-    redirect("/admin");
-  }
-
-  /* ----------------------------- */
-  /* Ensure Tenant Exists          */
-  /* ----------------------------- */
-
-  if (!profile.tenant_id) {
-    redirect("/login");
-  }
-
-  /* ----------------------------- */
-  /* Layout                        */
-  /* ----------------------------- */
+  /* ---------------- Layout ---------------- */
 
   return (
     <div className="flex min-h-screen">
 
-      {/* Desktop Sidebar */}
       <div className="hidden md:flex fixed left-0 top-0 h-screen">
         <Sidebar variant="full" />
       </div>
 
-      {/* Mobile Sidebar */}
       <MobileSidebar />
 
-      {/* Main Content */}
       <main className="flex-1 md:ml-64 ml-14 px-2 sm:px-4 md:px-6 py-4 md:py-6">
         {children}
       </main>
