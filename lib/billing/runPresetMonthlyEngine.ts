@@ -22,8 +22,19 @@ function getMonthBounds(billingMonth: string) {
   };
 }
 
-function generateInvoiceNumber() {
-  return `INV-${Date.now()}`;
+/* ---------------------------------- */
+/* Generate Invoice Number            */
+/* ---------------------------------- */
+
+function generateInvoiceNumber(billingMonth: string) {
+  const month = new Date(`${billingMonth}T00:00:00Z`)
+    .toLocaleString("en-US", { month: "short", year: "numeric" })
+    .replace(" ", "")
+    .toUpperCase();
+
+  const random = Math.floor(1000 + Math.random() * 9000);
+
+  return `INV-${month}-${random}`;
 }
 
 export async function runPresetMonthlyEngine(params: {
@@ -43,18 +54,19 @@ export async function runPresetMonthlyEngine(params: {
   const supabase = await createClient();
 
   /* ---------------------------------- */
-  /* Prevent duplicate invoices         */
+  /* Prevent duplicate active invoices  */
+  /* Allow regeneration if VOID         */
   /* ---------------------------------- */
 
   const { data: existingInvoice } = await supabase
     .from("invoices")
-    .select("id")
+    .select("id, status")
     .eq("tenant_id", tenantId)
     .eq("billing_month", billingMonth)
     .eq("invoice_type", "preset")
     .maybeSingle();
 
-  if (existingInvoice) {
+  if (existingInvoice && existingInvoice.status !== "void") {
     return {
       success: false,
       reason: "INVOICE_ALREADY_EXISTS",
@@ -211,7 +223,7 @@ export async function runPresetMonthlyEngine(params: {
     billingMonth,
     generatedByType,
     generatedById,
-    invoiceNumber: generateInvoiceNumber(),
+    invoiceNumber: generateInvoiceNumber(billingMonth),
     invoiceDate: new Date(),
     dueDate: new Date(),
     subtotal,

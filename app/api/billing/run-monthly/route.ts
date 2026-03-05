@@ -5,19 +5,25 @@ import {
   runMonthlyBillingForAllTenants,
 } from "@/app/actions/billing/runMonthlyBilling";
 
+/**
+ * Get first day of previous month
+ */
 function firstOfPreviousMonthUTC() {
   const now = new Date();
   const year = now.getUTCFullYear();
   const month = now.getUTCMonth();
 
-  const previousMonthDate = new Date(Date.UTC(year, month - 1, 1));
+  const previousMonth = new Date(Date.UTC(year, month - 1, 1));
 
-  const yyyy = previousMonthDate.getUTCFullYear();
-  const mm = String(previousMonthDate.getUTCMonth() + 1).padStart(2, "0");
+  const yyyy = previousMonth.getUTCFullYear();
+  const mm = String(previousMonth.getUTCMonth() + 1).padStart(2, "0");
 
   return `${yyyy}-${mm}-01`;
 }
 
+/**
+ * Get first day of current month
+ */
 function firstOfCurrentMonthUTC() {
   const now = new Date();
   const yyyy = now.getUTCFullYear();
@@ -28,6 +34,7 @@ function firstOfCurrentMonthUTC() {
 
 export async function GET(req: Request) {
   try {
+
     const supabase = await createClient();
 
     const url = new URL(req.url);
@@ -36,10 +43,13 @@ export async function GET(req: Request) {
     const manualMonth = url.searchParams.get("month");
 
     /**
-     * 🔒 USER AUTHENTICATION
-     * Require logged-in user unless this is a cron run
+     * ------------------------------------------------
+     * USER AUTH CHECK (manual runs only)
+     * ------------------------------------------------
      */
+
     if (tenantId || manualMonth) {
+
       const {
         data: { user },
       } = await supabase.auth.getUser();
@@ -51,7 +61,6 @@ export async function GET(req: Request) {
         );
       }
 
-      // Check admin role
       const { data: profile } = await supabase
         .from("profiles")
         .select("role")
@@ -67,10 +76,13 @@ export async function GET(req: Request) {
     }
 
     /**
-     * 🔒 CRON PROTECTION
-     * Only enforce CRON_SECRET when it’s a pure cron run
+     * ------------------------------------------------
+     * CRON PROTECTION
+     * ------------------------------------------------
      */
+
     if (!tenantId && !manualMonth && process.env.NODE_ENV !== "development") {
+
       const auth = req.headers.get("authorization");
 
       if (auth !== `Bearer ${process.env.CRON_SECRET}`) {
@@ -82,8 +94,11 @@ export async function GET(req: Request) {
     }
 
     /**
-     * 🧠 Determine billing month
+     * ------------------------------------------------
+     * DETERMINE BILLING MONTH
+     * ------------------------------------------------
      */
+
     let billingMonth: string;
 
     if (manualMonth) {
@@ -97,9 +112,13 @@ export async function GET(req: Request) {
     console.log("🚀 Running monthly billing for:", billingMonth);
 
     /**
+     * ------------------------------------------------
      * SINGLE TENANT BILLING
+     * ------------------------------------------------
      */
+
     if (tenantId) {
+
       const result = await runMonthlyBilling({
         tenantId,
         billingMonth,
@@ -117,8 +136,11 @@ export async function GET(req: Request) {
     }
 
     /**
-     * ALL TENANTS BILLING
+     * ------------------------------------------------
+     * ALL TENANTS BILLING (CRON)
+     * ------------------------------------------------
      */
+
     const results = await runMonthlyBillingForAllTenants(billingMonth);
 
     return NextResponse.json({
@@ -130,6 +152,7 @@ export async function GET(req: Request) {
     });
 
   } catch (error: any) {
+
     console.error("❌ Monthly billing failed:", error);
 
     return NextResponse.json(

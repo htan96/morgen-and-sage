@@ -18,24 +18,34 @@ type Invoice = {
 };
 
 export default function InvoicesTab({ tenantId }: Props) {
+
   const supabase = createClient();
 
   const [invoices, setInvoices] = useState<Invoice[]>([]);
   const [loading, setLoading] = useState(true);
+  const [regenerating, setRegenerating] = useState<string | null>(null);
 
   useEffect(() => {
     fetchInvoices();
   }, [tenantId]);
 
   async function fetchInvoices() {
+
     const { data, error } = await supabase
       .from("invoices")
-      .select("*")
+      .select(`
+        id,
+        invoice_number,
+        invoice_date,
+        total_amount,
+        balance_due,
+        status
+      `)
       .eq("tenant_id", tenantId)
       .order("invoice_date", { ascending: false });
 
     if (error) {
-      console.error(error);
+      console.error("Invoice fetch error:", error);
       setInvoices([]);
     } else {
       setInvoices(data || []);
@@ -44,15 +54,64 @@ export default function InvoicesTab({ tenantId }: Props) {
     setLoading(false);
   }
 
+  async function handleRegenerate(invoiceDate: string, invoiceId: string) {
+
+    try {
+
+      setRegenerating(invoiceId);
+
+      const billingMonth = invoiceDate.slice(0, 7);
+
+      const res = await fetch("/api/invoices/generate", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          tenantId,
+          billingMonth,
+          generatedByType: "admin",
+        }),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+
+        const message =
+          data.reason ||
+          data.error ||
+          "Failed to regenerate invoice";
+
+        alert(message);
+
+        setRegenerating(null);
+        return;
+      }
+
+      await fetchInvoices();
+
+    } catch (err) {
+
+      console.error("Regenerate error:", err);
+      alert("Failed to regenerate invoice");
+
+    } finally {
+
+      setRegenerating(null);
+
+    }
+  }
+
   const totalInvoiced = useMemo(() => {
     return invoices
-      .reduce((sum, inv) => sum + inv.total_amount, 0)
+      .reduce((sum, inv) => sum + Number(inv.total_amount || 0), 0)
       .toFixed(2);
   }, [invoices]);
 
   const totalOutstanding = useMemo(() => {
     return invoices
-      .reduce((sum, inv) => sum + inv.balance_due, 0)
+      .reduce((sum, inv) => sum + Number(inv.balance_due || 0), 0)
       .toFixed(2);
   }, [invoices]);
 
@@ -63,7 +122,9 @@ export default function InvoicesTab({ tenantId }: Props) {
     }).format(value);
   }
 
-  if (loading) return <div>Loading invoices...</div>;
+  if (loading) {
+    return <div>Loading invoices...</div>;
+  }
 
   return (
     <div className="space-y-6">
@@ -73,14 +134,19 @@ export default function InvoicesTab({ tenantId }: Props) {
         <h2 className="text-lg font-semibold text-[var(--text)]">
           Invoice History
         </h2>
+
         <p className="text-sm text-[var(--text-muted)] mt-1">
-          {invoices.length} invoices · {formatCurrency(Number(totalInvoiced))} total · {formatCurrency(Number(totalOutstanding))} outstanding
+          {invoices.length} invoices ·{" "}
+          {formatCurrency(Number(totalInvoiced))} total ·{" "}
+          {formatCurrency(Number(totalOutstanding))} outstanding
         </p>
       </div>
 
       {/* Table */}
       <div className="ui-table-wrapper">
+
         <table className="w-full text-sm">
+
           <thead className="ui-table-head">
             <tr>
               <th className="px-6 py-4 text-left">Invoice #</th>
@@ -93,6 +159,7 @@ export default function InvoicesTab({ tenantId }: Props) {
           </thead>
 
           <tbody>
+
             {invoices.length === 0 && (
               <tr>
                 <td colSpan={6} className="ui-table-empty">
@@ -102,10 +169,12 @@ export default function InvoicesTab({ tenantId }: Props) {
             )}
 
             {invoices.map((inv) => (
+
               <tr
                 key={inv.id}
                 className="border-t border-[var(--border)] hover:bg-[var(--hover)] transition-colors"
               >
+
                 <td className="px-6 py-4 font-medium">
                   {inv.invoice_number}
                 </td>
@@ -126,19 +195,41 @@ export default function InvoicesTab({ tenantId }: Props) {
                   {inv.status}
                 </td>
 
-                <td className="px-6 py-4 text-right">
+                <td className="px-6 py-4 text-right space-x-2">
+
                   <Link
                     href={`/admin/invoices/${inv.id}`}
                     className="ui-btn ui-btn-edit"
                   >
                     View
                   </Link>
+
+                  {inv.status === "void" && (
+                    <button
+                      onClick={() =>
+                        handleRegenerate(inv.invoice_date, inv.id)
+                      }
+                      disabled={regenerating === inv.id}
+                      className="ui-btn ui-btn-primary"
+                    >
+                      {regenerating === inv.id
+                        ? "Generating..."
+                        : "Regenerate"}
+                    </button>
+                  )}
+
                 </td>
+
               </tr>
+
             ))}
+
           </tbody>
+
         </table>
+
       </div>
+
     </div>
   );
 }

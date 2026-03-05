@@ -2,8 +2,20 @@ import { createClient } from "@/lib/supabase/server";
 import { getActiveMonthlyServices } from "@/lib/db/tenantServices";
 import { insertInvoice, insertInvoiceLineItems } from "@/lib/db/invoices";
 
-function generateInvoiceNumber() {
-  return `INV-${Date.now()}`;
+/* ---------------------------------- */
+/* Generate Invoice Number            */
+/* ---------------------------------- */
+
+function generateInvoiceNumber(billingMonth: string) {
+
+  const month = new Date(`${billingMonth}T00:00:00Z`)
+    .toLocaleString("en-US", { month: "short", year: "numeric" })
+    .replace(" ", "")
+    .toUpperCase();
+
+  const random = Math.floor(1000 + Math.random() * 9000);
+
+  return `INV-${month}-${random}`;
 }
 
 export async function runCommissaryMonthlyEngine(params: {
@@ -12,6 +24,7 @@ export async function runCommissaryMonthlyEngine(params: {
   generatedByType?: "admin" | "system" | "tenant";
   generatedById?: string | null;
 }) {
+
   const {
     tenantId,
     billingMonth,
@@ -21,23 +34,30 @@ export async function runCommissaryMonthlyEngine(params: {
 
   const supabase = await createClient();
 
-  // 🔎 1️⃣ Prevent duplicate invoices
+  /* ---------------------------------- */
+  /* Prevent duplicate active invoices  */
+  /* Allow regeneration if VOID         */
+  /* ---------------------------------- */
+
   const { data: existingInvoice } = await supabase
     .from("invoices")
-    .select("id")
+    .select("id, status")
     .eq("tenant_id", tenantId)
     .eq("billing_month", billingMonth)
     .eq("invoice_type", "commissary")
     .maybeSingle();
 
-  if (existingInvoice) {
+  if (existingInvoice && existingInvoice.status !== "void") {
     return {
       success: false,
       reason: "INVOICE_ALREADY_EXISTS",
     };
   }
 
-  // 🔎 2️⃣ Get tenant
+  /* ---------------------------------- */
+  /* Get tenant                         */
+  /* ---------------------------------- */
+
   const { data: tenant, error } = await supabase
     .from("tenants")
     .select("organization_id")
@@ -50,7 +70,10 @@ export async function runCommissaryMonthlyEngine(params: {
     return { success: false, reason: "TENANT_NOT_FOUND" };
   }
 
-  // 🔎 3️⃣ Get active monthly services
+  /* ---------------------------------- */
+  /* Get active monthly services        */
+  /* ---------------------------------- */
+
   const monthlyServices = await getActiveMonthlyServices(tenantId);
 
   if (!monthlyServices.length) {
@@ -61,6 +84,7 @@ export async function runCommissaryMonthlyEngine(params: {
   const lineItems: any[] = [];
 
   for (const service of monthlyServices) {
+
     const total =
       Number(service.amount || 0) *
       Number(service.quantity || 0);
@@ -82,7 +106,10 @@ export async function runCommissaryMonthlyEngine(params: {
     return { success: false, reason: "NOTHING_TO_BILL" };
   }
 
-  // 🧾 4️⃣ Create invoice
+  /* ---------------------------------- */
+  /* Create invoice                     */
+  /* ---------------------------------- */
+
   const invoice = await insertInvoice({
     organizationId: tenant.organization_id,
     tenantId,
@@ -90,7 +117,7 @@ export async function runCommissaryMonthlyEngine(params: {
     billingMonth,
     generatedByType,
     generatedById,
-    invoiceNumber: generateInvoiceNumber(),
+    invoiceNumber: generateInvoiceNumber(billingMonth),
     invoiceDate: new Date(),
     dueDate: new Date(),
     subtotal,
@@ -100,7 +127,10 @@ export async function runCommissaryMonthlyEngine(params: {
     status: "draft",
   });
 
-  // 🧾 5️⃣ Insert line items
+  /* ---------------------------------- */
+  /* Insert line items                  */
+  /* ---------------------------------- */
+
   await insertInvoiceLineItems(
     invoice.id,
     tenant.organization_id,
