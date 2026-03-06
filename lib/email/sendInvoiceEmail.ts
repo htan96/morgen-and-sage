@@ -3,17 +3,22 @@ import { sendEmail } from "./sendEmail";
 import { generateInvoicePdf } from "@/lib/invoices/generateInvoicePdf";
 
 export async function sendInvoiceEmail(invoiceId: string) {
+
   const { data: invoice } = await supabaseAdmin
     .from("invoices")
     .select(`
       *,
-      tenant:tenants(name,email)
+      tenant:tenants(id,name,email)
     `)
     .eq("id", invoiceId)
     .single();
 
   if (!invoice) {
     throw new Error("Invoice not found");
+  }
+
+  if (!invoice.tenant?.email) {
+    throw new Error("Tenant email missing.");
   }
 
   const pdf = await generateInvoicePdf(invoice.id);
@@ -36,7 +41,7 @@ export async function sendInvoiceEmail(invoiceId: string) {
 
   await sendEmail({
     organizationId: invoice.organization_id,
-    to: invoice.tenant?.email,
+    to: invoice.tenant.email,
     subject: `Invoice ${invoice.invoice_number}`,
     html,
     attachments: [
@@ -46,4 +51,5 @@ export async function sendInvoiceEmail(invoiceId: string) {
       },
     ],
   });
+
 }

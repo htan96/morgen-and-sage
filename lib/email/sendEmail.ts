@@ -1,5 +1,6 @@
 import { supabaseAdmin } from "@/lib/supabase/supabase-admin";
 import { refreshGoogleAccessToken } from "./refreshToken";
+import { sendSystemEmail } from "./sendSystemEmail";
 
 type SendEmailParams = {
   organizationId: string;
@@ -29,18 +30,31 @@ export async function sendEmail({
     .select("*")
     .eq("organization_id", organizationId)
     .eq("is_email_sender", true)
-    .single();
+    .maybeSingle();
 
-  if (error || !profile) {
-    throw new Error("No email sender configured for this organization.");
+  if (error) {
+    console.error("PROFILE ERROR:", error);
+  }
+
+  /* -------------------------------- */
+  /* If Gmail NOT connected → fallback */
+  /* -------------------------------- */
+
+  if (!profile || !profile.google_refresh_token) {
+
+    console.warn("Google not connected. Using system email.");
+
+    return sendSystemEmail({
+      to,
+      subject,
+      html,
+      attachments,
+    });
+
   }
 
   if (!profile.google_email) {
     throw new Error("Sender email missing.");
-  }
-
-  if (!profile.google_refresh_token) {
-    throw new Error("Google account not connected.");
   }
 
   /* ------------------------------ */
@@ -62,10 +76,10 @@ export async function sendEmail({
   /* Build MIME Email               */
   /* ------------------------------ */
 
-  const boundary = "invoice_boundary";
+  const boundary = `boundary_${Date.now()}`;
 
   const messageParts = [
-    `From: Morgen's Kitchen <${profile.google_email}>`,
+    `From: "Morgan & Sage Billing" <${profile.google_email}>`,
     `Reply-To: ${profile.google_email}`,
     `To: ${to}`,
     `Subject: ${subject}`,
@@ -108,6 +122,7 @@ export async function sendEmail({
   /* ------------------------------ */
 
   async function sendWithToken(token: string) {
+
     const res = await fetch(
       "https://gmail.googleapis.com/gmail/v1/users/me/messages/send",
       {
@@ -133,7 +148,7 @@ export async function sendEmail({
 
   let { res, data } = await sendWithToken(accessToken);
 
-  /* Retry if token invalid */
+  /* Retry if token expired */
 
   if (res.status === 401) {
 
