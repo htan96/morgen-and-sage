@@ -14,8 +14,6 @@ type CreateBookingSessionInput = {
   bookings: BookingInput[];
 };
 
-/* ---------------- Generate Invoice Number ---------------- */
-
 function generateInvoiceNumber(billingMonth: string) {
   const month = new Date(`${billingMonth}T00:00:00Z`)
     .toLocaleString("en-US", { month: "short", year: "numeric" })
@@ -54,21 +52,15 @@ export async function createBookingSession({
         organization_id: organizationId,
         tenant_id: tenantId,
         kitchen_space_id: kitchenSpaceId,
-        start_time: start,
-        end_time: end,
+        start_time: start.toISOString(),
+        end_time: end.toISOString(),
         total_hours: totalHours,
       })
       .select()
       .single();
 
     if (error) {
-
-      if (error.code === "23P01") {
-        throw new Error(
-          "This kitchen is already booked during that time."
-        );
-      }
-
+      console.error("BOOKING INSERT ERROR:", error);
       throw error;
     }
 
@@ -91,28 +83,33 @@ export async function createBookingSession({
     1
   );
 
-  const billingMonthISO =
-    billingMonth.toISOString().split("T")[0];
+  const billingMonthISO = billingMonth.toISOString().split("T")[0];
 
   /* ---------------- CREATE INVOICE ---------------- */
 
-  const invoiceNumber =
-    generateInvoiceNumber(billingMonthISO);
+  const invoiceNumber = generateInvoiceNumber(billingMonthISO);
 
-  const { data: invoice, error: invoiceError } =
-    await supabase
-      .from("invoices")
-      .insert({
-        organization_id: organizationId,
-        tenant_id: tenantId,
-        billing_month: billingMonth,
-        invoice_number: invoiceNumber,
-        status: "draft",
-      })
-      .select()
-      .single();
+  const invoiceDate = new Date();
 
-  if (invoiceError) throw invoiceError;
+  const { data: invoice, error: invoiceError } = await supabase
+    .from("invoices")
+    .insert({
+      organization_id: organizationId,
+      tenant_id: tenantId,
+      invoice_number: invoiceNumber,
+      invoice_date: invoiceDate,
+      due_date: invoiceDate, // your rule
+      billing_month: billingMonth,
+      status: "draft",
+      invoice_type: "manual",
+    })
+    .select()
+    .single();
+
+  if (invoiceError) {
+    console.error("INVOICE INSERT ERROR:", invoiceError);
+    throw invoiceError;
+  }
 
   /* ---------------- GET TENANT SERVICES ---------------- */
 
@@ -124,186 +121,201 @@ export async function createBookingSession({
         service_id,
         amount,
         quantity,
-        frequency
+        frequency,
+        services!service_id (
+          id,
+          name
+        )
       `)
       .eq("tenant_id", tenantId)
       .eq("is_active", true);
 
-  if (servicesError) throw servicesError;
+  if (servicesError) {
+    console.error("TENANT SERVICES ERROR:", servicesError);
+    throw servicesError;
+  }
 
-  /* ---------------- GET SERVICE NAMES ---------------- */
-
-  const serviceIds =
-    tenantServices?.map((s) => s.service_id) ?? [];
-
-  const { data: services } = await supabase
-    .from("services")
-    .select("id,name")
-    .in("id", serviceIds);
-
-  const serviceMap: Record<string, string> = {};
-
-  services?.forEach((s) => {
-    serviceMap[s.id] = s.name;
-  });
+  if (!tenantServices || tenantServices.length === 0) {
+    return { invoiceId: invoice.id };
+  }
 
   /* ---------------- HOURLY SERVICES ---------------- */
 
-  const hourlyServices =
-    tenantServices?.filter(
-      (s) => s.frequency === "hourly"
-    ) ?? [];
+const hourlyServices = tenantServices.filter(
+  (s: any) => s.frequency === "hourly"
+);
 
-  for (const booking of createdBookings) {
+for (const booking of createdBookings) {
 
-    for (const service of hourlyServices) {
+  for (const service of hourlyServices) {
 
-      const quantity = booking.total_hours;
-      const rate = service.amount;
+    const serviceRelation: any = service.services;
 
-      const amount = quantity * rate;
+    const serviceName =
+      Array.isArray(serviceRelation)
+        ? serviceRelation[0]?.name
+        : serviceRelation?.name;
 
-      await supabase
-        .from("invoice_line_items")
-        .insert({
-          organization_id: organizationId,
-          tenant_id: tenantId,
-          invoice_id: invoice.id,
-          booking_id: booking.id,
-          service_id: service.service_id,
-          description:
-            serviceMap[service.service_id] ??
-            "Kitchen Time",
-          quantity,
-          rate,
-          amount,
-          service_date: booking.start_time,
-        });
+    const quantity = Number(booking.total_hours) || 1;
+
+    const rate = Number(service.amount) || 0;
+
+    const amount = quantity * rate;
+
+    const { error } = await supabase
+      .from("invoice_line_items")
+      .insert({
+        organization_id: organizationId,
+        tenant_id: tenantId,
+        invoice_id: invoice.id,
+        booking_id: booking.id,
+        service_id: service.service_id,
+        description: serviceName ?? "Service",
+        quantity,
+        rate,
+        amount,
+        service_date: booking.start_time,
+      });
+
+    if (error) {
+      console.error("HOURLY LINE ITEM ERROR:", error);
+      throw error;
     }
   }
+}
 
   /* ---------------- PER BOOKING SERVICES ---------------- */
+const perBookingServices = tenantServices.filter(
+  (s: any) => s.frequency === "per_booking"
+);
 
-  const perBookingServices =
-    tenantServices?.filter(
-      (s) => s.frequency === "per_booking"
-    ) ?? [];
+const uniqueDates = new Set(
+  createdBookings.map((b: any) =>
+    new Date(b.start_time).toISOString().split("T")[0]
+  )
+);
 
-  const uniqueDates = new Set(
-    createdBookings.map((b) =>
-      new Date(b.start_time)
-        .toISOString()
-        .split("T")[0]
-    )
-  );
+for (const date of uniqueDates) {
 
-  for (const date of uniqueDates) {
+  const serviceDate = new Date(date);
 
-    const serviceDate = new Date(date);
+  for (const service of perBookingServices) {
 
-    for (const service of perBookingServices) {
+    const serviceRelation: any = service.services;
 
-      const quantity =
-        service.quantity ?? 1;
+    const serviceName =
+      Array.isArray(serviceRelation)
+        ? serviceRelation[0]?.name
+        : serviceRelation?.name;
 
-      const rate =
-        service.amount;
+    const quantity = Number(service.quantity) || 1;
 
-      const amount =
-        quantity * rate;
+    const rate = Number(service.amount) || 0;
 
-      await supabase
-        .from("invoice_line_items")
-        .insert({
-          organization_id: organizationId,
-          tenant_id: tenantId,
-          invoice_id: invoice.id,
-          service_id: service.service_id,
-          description:
-            serviceMap[service.service_id] ??
-            "Daily Service",
-          quantity,
-          rate,
-          amount,
-          service_date: serviceDate,
-        });
-    }
-  }
+    const amount = quantity * rate;
 
-  /* ---------------- MONTHLY SERVICES ---------------- */
-
-  const monthlyServices =
-    tenantServices?.filter(
-      (s) => s.frequency === "monthly"
-    ) ?? [];
-
-  const startOfMonth = new Date(
-    billingMonth.getFullYear(),
-    billingMonth.getMonth(),
-    1
-  );
-
-  const nextMonth = new Date(
-    billingMonth.getFullYear(),
-    billingMonth.getMonth() + 1,
-    1
-  );
-
-  const { data: existingMonthly } =
-    await supabase
-      .from("invoice_line_items")
-      .select("service_id")
-      .eq("tenant_id", tenantId)
-      .gte("service_date", startOfMonth)
-      .lt("service_date", nextMonth);
-
-  const billedSet =
-    new Set(
-      existingMonthly?.map(
-        (i) => i.service_id
-      )
-    );
-
-  for (const service of monthlyServices) {
-
-    if (billedSet.has(service.service_id)) continue;
-
-    const quantity =
-      service.quantity ?? 1;
-
-    const rate =
-      service.amount;
-
-    const amount =
-      quantity * rate;
-
-    await supabase
+    const { error } = await supabase
       .from("invoice_line_items")
       .insert({
         organization_id: organizationId,
         tenant_id: tenantId,
         invoice_id: invoice.id,
         service_id: service.service_id,
-        description:
-          serviceMap[service.service_id] ??
-          "Monthly Service",
+        description: serviceName ?? "Service",
         quantity,
         rate,
         amount,
-        service_date: startOfMonth,
+        service_date: serviceDate,
       });
+
+    if (error) {
+      console.error("PER BOOKING LINE ITEM ERROR:", error);
+      throw error;
+    }
   }
+}
+
+  /* ---------------- MONTHLY SERVICES ---------------- */
+
+const monthlyServices = tenantServices.filter(
+  (s: any) => s.frequency === "monthly"
+);
+
+const startOfMonth = new Date(
+  billingMonth.getFullYear(),
+  billingMonth.getMonth(),
+  1
+);
+
+const nextMonth = new Date(
+  billingMonth.getFullYear(),
+  billingMonth.getMonth() + 1,
+  1
+);
+
+const { data: existingMonthly } = await supabase
+  .from("invoice_line_items")
+  .select("service_id")
+  .eq("tenant_id", tenantId)
+  .gte("service_date", startOfMonth)
+  .lt("service_date", nextMonth);
+
+const billedSet = new Set(
+  existingMonthly?.map((i: any) => i.service_id)
+);
+
+for (const service of monthlyServices) {
+
+  if (billedSet.has(service.service_id)) continue;
+
+  const serviceRelation: any = service.services;
+
+  const serviceName =
+    Array.isArray(serviceRelation)
+      ? serviceRelation[0]?.name
+      : serviceRelation?.name;
+
+  const quantity = Number(service.quantity) || 1;
+
+  const rate = Number(service.amount) || 0;
+
+  const amount = quantity * rate;
+
+  const { error } = await supabase
+    .from("invoice_line_items")
+    .insert({
+      organization_id: organizationId,
+      tenant_id: tenantId,
+      invoice_id: invoice.id,
+      service_id: service.service_id,
+      description: serviceName ?? "Service",
+      quantity,
+      rate,
+      amount,
+      service_date: startOfMonth,
+    });
+
+  if (error) {
+    console.error("MONTHLY LINE ITEM ERROR:", error);
+    throw error;
+  }
+}
 
   /* ---------------- LINK BOOKINGS ---------------- */
 
   for (const booking of createdBookings) {
 
-    await supabase
+    const { error } = await supabase
       .from("bookings")
       .update({
         invoice_id: invoice.id,
       })
       .eq("id", booking.id);
+
+    if (error) {
+      console.error("BOOKING UPDATE ERROR:", error);
+      throw error;
+    }
   }
 
   return {

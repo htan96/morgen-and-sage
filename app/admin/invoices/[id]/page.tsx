@@ -1,48 +1,35 @@
 import { createClient } from "@/lib/supabase/server";
 import { notFound } from "next/navigation";
 import Link from "next/link";
+import RecordPaymentButton from "@/components/invoices/RecordPaymentButton";
+import InvoiceActions from "@/components/invoices/InvoiceActions";
+import DeletePaymentButton from "@/components/invoices/DeletePaymentButton";
 
 export const revalidate = 0;
 
-export default async function PortalInvoiceDetailPage({
+export default async function InvoiceDetailPage({
   params,
 }: {
   params: Promise<{ id: string }>;
 }) {
-
   const { id } = await params;
 
   const supabase = await createClient();
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  if (!user) return notFound();
-
-  /* Get tenant linked to user */
-
-  const { data: tenant } = await supabase
-    .from("tenants")
-    .select("id")
-    .eq("auth_user_id", user.id)
-    .single();
-
-  if (!tenant) return notFound();
-
-  /* Load invoice */
-
   const { data: invoice, error } = await supabase
-    .from("invoices")
-    .select(`
-      *,
-      tenant:tenants(name),
-      invoice_line_items(*),
-      payments(*)
-    `)
-    .eq("id", id)
-    .eq("tenant_id", tenant.id)   // 🔒 prevents viewing other invoices
-    .single();
+  .from("invoices")
+  .select(`
+    *,
+    tenant:tenants(name),
+    invoice_line_items(*),
+    payments(*)
+  `)
+  .eq("id", id)
+  .single();
+
+console.log("INVOICE ID:", id);
+console.log("INVOICE DATA:", invoice);
+console.log("INVOICE ERROR:", error);
 
   if (!invoice || error) return notFound();
 
@@ -57,38 +44,47 @@ export default async function PortalInvoiceDetailPage({
   return (
     <div className="w-full px-3 sm:px-5 md:px-8 py-5 md:py-6 space-y-6 md:space-y-8">
 
-      {/* BACK */}
-      <Link
-        href="/portal/invoices"
-        className="inline-flex items-center gap-2 px-3 py-2 rounded-lg text-sm"
-        style={{
-          background: "var(--hover)",
-          border: "1px solid var(--border)",
-          color: "var(--text-muted)",
-        }}
-      >
-        ← Back
-      </Link>
+      {/* TOP BAR */}
+      <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4">
+
+        <Link
+          href="/admin/invoices"
+          className="inline-flex items-center gap-2 px-3 py-2 rounded-lg text-sm transition w-fit"
+          style={{
+            background: "var(--hover)",
+            border: "1px solid var(--border)",
+            color: "var(--text-muted)",
+          }}
+        >
+          ← Back
+        </Link>
+
+        <div className="flex flex-col sm:flex-row gap-3 w-full sm:w-auto">
+          <RecordPaymentButton
+            invoiceId={invoice.id}
+            tenantId={invoice.tenant_id}
+            organizationId={invoice.organization_id}
+          />
+          <InvoiceActions invoiceId={invoice.id} />
+        </div>
+      </div>
 
       {/* HEADER */}
-
       <div>
         <h1 className="text-xl sm:text-2xl md:text-3xl font-semibold">
           Invoice #{invoice.invoice_number}
         </h1>
-
         <p
           className="text-sm mt-1"
           style={{ color: "var(--text-muted)" }}
         >
-          {invoice.tenant?.name ?? "Tenant"}
+          {invoice.tenant?.name ?? "Unknown Tenant"}
         </p>
       </div>
 
       {/* SUMMARY */}
-
       <div
-        className="rounded-2xl p-4 sm:p-6 grid grid-cols-1 sm:grid-cols-3 gap-4 text-center"
+        className="rounded-2xl p-4 sm:p-6 grid grid-cols-1 sm:grid-cols-3 gap-4 sm:gap-6 text-center"
         style={{
           background: "var(--surface)",
           border: "1px solid var(--border)",
@@ -117,7 +113,6 @@ export default async function PortalInvoiceDetailPage({
       </div>
 
       {/* LINE ITEMS */}
-
       <div
         className="rounded-2xl p-4 sm:p-6"
         style={{
@@ -125,7 +120,6 @@ export default async function PortalInvoiceDetailPage({
           border: "1px solid var(--border)",
         }}
       >
-
         <h2 className="text-base sm:text-lg font-semibold mb-4">
           Line Items
         </h2>
@@ -135,11 +129,8 @@ export default async function PortalInvoiceDetailPage({
             No line items.
           </p>
         ) : (
-
           <div className="overflow-x-auto">
-
             <table className="min-w-[520px] w-full text-xs sm:text-sm">
-
               <thead
                 style={{
                   background: "var(--hover)",
@@ -147,7 +138,6 @@ export default async function PortalInvoiceDetailPage({
                   color: "var(--text-muted)",
                 }}
               >
-
                 <tr>
                   <th className="p-3 text-left">Description</th>
                   <th className="p-3 text-left">Service Date</th>
@@ -155,52 +145,35 @@ export default async function PortalInvoiceDetailPage({
                   <th className="p-3 text-left">Rate</th>
                   <th className="p-3 text-left">Amount</th>
                 </tr>
-
               </thead>
-
               <tbody>
-
                 {invoice.invoice_line_items.map((item: any) => (
-
                   <tr
                     key={item.id}
                     style={{ borderBottom: "1px solid var(--border)" }}
                   >
-
                     <td className="p-3">{item.description}</td>
-
                     <td className="p-3">
                       {item.service_date
                         ? new Date(item.service_date).toLocaleDateString()
                         : "-"}
                     </td>
-
                     <td className="p-3">{item.quantity}</td>
-
                     <td className="p-3">
                       ${Number(item.rate).toFixed(2)}
                     </td>
-
                     <td className="p-3 font-medium">
                       ${Number(item.amount).toFixed(2)}
                     </td>
-
                   </tr>
-
                 ))}
-
               </tbody>
-
             </table>
-
           </div>
-
         )}
-
       </div>
 
       {/* PAYMENTS */}
-
       <div
         className="rounded-2xl p-4 sm:p-6"
         style={{
@@ -208,7 +181,6 @@ export default async function PortalInvoiceDetailPage({
           border: "1px solid var(--border)",
         }}
       >
-
         <h2 className="text-base sm:text-lg font-semibold mb-4">
           Payments
         </h2>
@@ -218,11 +190,8 @@ export default async function PortalInvoiceDetailPage({
             No payments recorded.
           </p>
         ) : (
-
           <div className="overflow-x-auto">
-
             <table className="min-w-[520px] w-full text-xs sm:text-sm">
-
               <thead
                 style={{
                   background: "var(--hover)",
@@ -230,55 +199,45 @@ export default async function PortalInvoiceDetailPage({
                   color: "var(--text-muted)",
                 }}
               >
-
                 <tr>
                   <th className="p-3 text-left">Date</th>
                   <th className="p-3 text-left">Method</th>
                   <th className="p-3 text-left">Amount</th>
                   <th className="p-3 text-left">Notes</th>
+                  <th className="p-3 text-right"></th>
                 </tr>
-
               </thead>
-
               <tbody>
-
                 {invoice.payments.map((payment: any) => (
-
                   <tr
                     key={payment.id}
                     style={{ borderBottom: "1px solid var(--border)" }}
                   >
-
                     <td className="p-3">
                       {payment.payment_date
                         ? new Date(payment.payment_date).toLocaleDateString()
                         : "-"}
                     </td>
-
                     <td className="p-3">
                       {payment.payment_method ?? "-"}
                     </td>
-
                     <td className="p-3 font-medium text-green-500">
                       ${Number(payment.amount).toFixed(2)}
                     </td>
-
                     <td className="p-3">
                       {payment.notes ?? "-"}
                     </td>
-
+                    <td className="p-3 text-right">
+                      <DeletePaymentButton
+                        paymentId={payment.id}
+                      />
+                    </td>
                   </tr>
-
                 ))}
-
               </tbody>
-
             </table>
-
           </div>
-
         )}
-
       </div>
 
     </div>

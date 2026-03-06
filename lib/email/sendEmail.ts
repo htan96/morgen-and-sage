@@ -95,7 +95,7 @@ export async function sendEmail({
 
   messageParts.push(`--${boundary}--`);
 
- const message = messageParts.join("\r\n");
+  const message = messageParts.join("\r\n");
 
   const encodedMessage = Buffer.from(message)
     .toString("base64")
@@ -104,30 +104,57 @@ export async function sendEmail({
     .replace(/=+$/, "");
 
   /* ------------------------------ */
-  /* Send via Gmail API             */
+  /* Gmail Send Function            */
   /* ------------------------------ */
 
-  const gmailResponse = await fetch(
-    "https://gmail.googleapis.com/gmail/v1/users/me/messages/send",
-    {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${accessToken}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        raw: encodedMessage,
-      }),
-    }
-  );
+  async function sendWithToken(token: string) {
+    const res = await fetch(
+      "https://gmail.googleapis.com/gmail/v1/users/me/messages/send",
+      {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          raw: encodedMessage,
+        }),
+      }
+    );
 
-  const gmailData = await gmailResponse.json();
+    const data = await res.json();
 
-  if (!gmailResponse.ok) {
+    return { res, data };
+  }
+
+  /* ------------------------------ */
+  /* Send Email                     */
+  /* ------------------------------ */
+
+  let { res, data } = await sendWithToken(accessToken);
+
+  /* Retry if token invalid */
+
+  if (res.status === 401) {
+
+    console.warn("Access token expired. Refreshing...");
+
+    accessToken = await refreshGoogleAccessToken(profile);
+
+    const retry = await sendWithToken(accessToken);
+
+    res = retry.res;
+    data = retry.data;
+  }
+
+  if (!res.ok) {
+
+    console.error("GMAIL SEND ERROR:", data);
+
     throw new Error(
-      `Gmail send failed: ${gmailData?.error?.message || "Unknown error"}`
+      `Gmail send failed: ${data?.error?.message || "Unknown error"}`
     );
   }
 
-  return gmailData;
+  return data;
 }

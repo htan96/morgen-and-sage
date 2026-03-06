@@ -3,6 +3,7 @@
 import { supabaseAdmin } from "@/lib/supabase/supabase-admin";
 
 export async function refreshGoogleAccessToken(profile: any) {
+
   if (!profile.google_refresh_token) {
     throw new Error("No refresh token stored.");
   }
@@ -10,11 +11,11 @@ export async function refreshGoogleAccessToken(profile: any) {
   const response = await fetch("https://oauth2.googleapis.com/token", {
     method: "POST",
     headers: {
-      "Content-Type": "application/json",
+      "Content-Type": "application/x-www-form-urlencoded",
     },
-    body: JSON.stringify({
-      client_id: process.env.GOOGLE_CLIENT_ID,
-      client_secret: process.env.GOOGLE_CLIENT_SECRET,
+    body: new URLSearchParams({
+      client_id: process.env.GOOGLE_CLIENT_ID!,
+      client_secret: process.env.GOOGLE_CLIENT_SECRET!,
       refresh_token: profile.google_refresh_token,
       grant_type: "refresh_token",
     }),
@@ -23,6 +24,8 @@ export async function refreshGoogleAccessToken(profile: any) {
   const data = await response.json();
 
   if (!response.ok) {
+    console.error("GOOGLE REFRESH ERROR:", data);
+
     throw new Error(
       `Failed to refresh token: ${data.error || "Unknown error"}`
     );
