@@ -5,11 +5,13 @@ export async function GET(request: NextRequest) {
   const supabase = await createClient();
 
   const { data: userData } = await supabase.auth.getUser();
+
   if (!userData?.user) {
     return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
   }
 
   const code = request.nextUrl.searchParams.get("code");
+
   if (!code) {
     return NextResponse.json({ error: "No code returned" }, { status: 400 });
   }
@@ -34,12 +36,14 @@ export async function GET(request: NextRequest) {
 
   const tokenRes = await fetch("https://oauth2.googleapis.com/token", {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
+    headers: {
+      "Content-Type": "application/x-www-form-urlencoded",
+    },
+    body: new URLSearchParams({
       code,
-      client_id: process.env.GOOGLE_CLIENT_ID,
-      client_secret: process.env.GOOGLE_CLIENT_SECRET,
-      redirect_uri: process.env.GOOGLE_REDIRECT_URI,
+      client_id: process.env.GOOGLE_CLIENT_ID!,
+      client_secret: process.env.GOOGLE_CLIENT_SECRET!,
+      redirect_uri: process.env.GOOGLE_REDIRECT_URI!,
       grant_type: "authorization_code",
     }),
   });
@@ -48,7 +52,10 @@ export async function GET(request: NextRequest) {
 
   if (!tokenRes.ok || !tokens.access_token) {
     return NextResponse.json(
-      { error: tokens?.error_description || "Token exchange failed", tokens },
+      {
+        error: tokens?.error_description || "Token exchange failed",
+        tokens,
+      },
       { status: 400 }
     );
   }
@@ -89,7 +96,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json(
       {
         error:
-          "No refresh token available. Revoke app access in Google Account → Security → Third-party access, then reconnect.",
+          "No refresh token available. Revoke the app in Google Account → Security → Third-party access, then reconnect.",
       },
       { status: 400 }
     );

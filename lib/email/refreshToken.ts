@@ -33,14 +33,21 @@ export async function refreshGoogleAccessToken(profile: any) {
 
   const expiresAt = new Date(Date.now() + data.expires_in * 1000);
 
-  // Update profile with new access token + expiry
-  await supabaseAdmin
+  /* -------------------------------- */
+  /* Update Supabase profile          */
+  /* -------------------------------- */
+
+  const { error } = await supabaseAdmin
     .from("profiles")
     .update({
       google_access_token: data.access_token,
-      google_token_expires_at: expiresAt,
+      google_token_expires_at: expiresAt.toISOString(),
     })
     .eq("id", profile.id);
+
+  if (error) {
+    console.error("SUPABASE TOKEN UPDATE ERROR:", error);
+  }
 
   return data.access_token;
 }
