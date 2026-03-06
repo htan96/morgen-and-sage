@@ -49,7 +49,7 @@ export async function GET() {
   // Build raw email
   const email = [
     `From: ${profile.google_email}`,
-    `To: ${profile.google_email}`,
+    `To: htprofitsllc@gmail.com`,
     "Subject: Morgan & Sage Test Email",
     "",
     "If you received this, Gmail API is working 🎉",
