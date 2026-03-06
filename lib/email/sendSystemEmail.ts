@@ -17,7 +17,7 @@ export async function sendSystemEmail({
     from: "Morgens Kitchen Billing <MorgensKitchen@pulsexflow.xyz>",
     to,
     cc: "morgenskitchen@gmail.com",
-    reply_to: "morgenskitchen@gmail.com",
+    replyTo: "morgenskitchen@gmail.com",
     subject,
     html,
     attachments,
