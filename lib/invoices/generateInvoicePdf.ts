@@ -17,10 +17,6 @@ export async function generateInvoicePdf(invoiceId: string) {
 
     const page = await browser.newPage();
 
-    /* ------------------------------------------------ */
-    /* Resolve Base URL                                 */
-    /* ------------------------------------------------ */
-
     const baseUrl =
       process.env.NEXT_PUBLIC_APP_URL ||
       "https://morgen-and-sage.vercel.app";
@@ -31,44 +27,11 @@ export async function generateInvoicePdf(invoiceId: string) {
     console.log("Invoice ID:", invoiceId);
     console.log("URL:", url);
 
-    /* ------------------------------------------------ */
-    /* Load Page                                        */
-    /* ------------------------------------------------ */
-
-    const response = await page.goto(url, {
-      waitUntil: "domcontentloaded",
+    await page.goto(url, {
+      waitUntil: "networkidle",
     });
 
-    const status = response?.status();
-
-    console.log("Response Status:", status);
-
-    if (!response) {
-      throw new Error("No response received when loading invoice page.");
-    }
-
-    if (status && status >= 400) {
-
-      console.log("⚠️ Page returned error status");
-
-      const html = await page.content();
-
-      console.log("----- PAGE HTML START -----");
-      console.log(html.slice(0, 1500)); // first part of page
-      console.log("----- PAGE HTML END -----");
-
-      throw new Error(`Unexpected status code: ${status}`);
-    }
-
-    /* ------------------------------------------------ */
-    /* Wait for render                                  */
-    /* ------------------------------------------------ */
-
     await page.waitForSelector("body");
-
-    /* ------------------------------------------------ */
-    /* Generate PDF                                     */
-    /* ------------------------------------------------ */
 
     const pdf = await page.pdf({
       format: "A4",
