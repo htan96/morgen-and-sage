@@ -1,92 +1,118 @@
 import { NextResponse } from "next/server";
-import { createClient } from "@/lib/supabase/server";
+import { supabaseAdmin } from "@/lib/supabase/supabase-admin";
+import { refreshGoogleAccessToken } from "@/lib/email/refreshToken";
 
 export async function GET() {
-  const supabase = await createClient();
+  try {
 
-  // Get logged in user
-  const { data: userData } = await supabase.auth.getUser();
+    /* -------------------------------- */
+    /* Find organization sender         */
+    /* -------------------------------- */
 
-  if (!userData?.user) {
-    return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
-  }
+    const { data: profile, error } = await supabaseAdmin
+      .from("profiles")
+      .select("*")
+      .not("google_refresh_token", "is", null)
+      .maybeSingle();
 
-  // Get stored Google connection
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("google_refresh_token, google_email")
-    .eq("id", userData.user.id)
-    .single();
-
-  if (!profile?.google_refresh_token) {
-    return NextResponse.json(
-      { error: "Google not connected" },
-      { status: 400 }
-    );
-  }
-
-  // Exchange refresh token for access token
-  const tokenRes = await fetch("https://oauth2.googleapis.com/token", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      client_id: process.env.GOOGLE_CLIENT_ID,
-      client_secret: process.env.GOOGLE_CLIENT_SECRET,
-      refresh_token: profile.google_refresh_token,
-      grant_type: "refresh_token",
-    }),
-  });
-
-  const tokenData = await tokenRes.json();
-
-  if (!tokenData.access_token) {
-    return NextResponse.json(
-      { error: "Failed to refresh access token", tokenData },
-      { status: 400 }
-    );
-  }
-
-  // Build raw email
-  const email = [
-    `From: ${profile.google_email}`,
-    `To: htprofitsllc@gmail.com`,
-    "Subject: Morgan & Sage Test Email",
-    "",
-    "If you received this, Gmail API is working 🎉",
-  ].join("\n");
-
-  const encodedMessage = Buffer.from(email)
-    .toString("base64")
-    .replace(/\+/g, "-")
-    .replace(/\//g, "_")
-    .replace(/=+$/, "");
-
-  // Send email
-  const sendRes = await fetch(
-    "https://gmail.googleapis.com/gmail/v1/users/me/messages/send",
-    {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${tokenData.access_token}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        raw: encodedMessage,
-      }),
+    if (error) {
+      console.error("PROFILE ERROR:", error);
+      return NextResponse.json(
+        { success: false, error: error.message },
+        { status: 500 }
+      );
     }
-  );
 
-  const sendData = await sendRes.json();
+    if (!profile) {
+      return NextResponse.json({
+        success: false,
+        error: "No Google account connected",
+      });
+    }
 
-  if (!sendRes.ok) {
+    let accessToken = profile.google_access_token;
+
+    /* -------------------------------- */
+    /* Refresh token if expired         */
+    /* -------------------------------- */
+
+    const now = new Date();
+    const expiresAt = profile.google_token_expires_at
+      ? new Date(profile.google_token_expires_at)
+      : null;
+
+    if (!accessToken || !expiresAt || now >= expiresAt) {
+      console.log("Refreshing Google access token...");
+
+      accessToken = await refreshGoogleAccessToken(profile);
+    }
+
+    /* -------------------------------- */
+    /* Build raw email                  */
+    /* -------------------------------- */
+
+    const email = [
+      `From: ${profile.google_email}`,
+      `To: htprofitsllc@gmail.com`,
+      `Subject: Morgan & Sage Test Email`,
+      "MIME-Version: 1.0",
+      "Content-Type: text/plain; charset=UTF-8",
+      "",
+      "If you received this, Gmail API is working 🎉",
+    ].join("\n");
+
+    const encodedEmail = Buffer.from(email)
+      .toString("base64")
+      .replace(/\+/g, "-")
+      .replace(/\//g, "_")
+      .replace(/=+$/, "");
+
+    /* -------------------------------- */
+    /* Send Gmail API request           */
+    /* -------------------------------- */
+
+    const gmailResponse = await fetch(
+      "https://gmail.googleapis.com/gmail/v1/users/me/messages/send",
+      {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          raw: encodedEmail,
+        }),
+      }
+    );
+
+    const gmailResult = await gmailResponse.json();
+
+    console.log("📬 Gmail API Response:", gmailResult);
+
+    if (!gmailResponse.ok) {
+      console.error("❌ Gmail Send Failed:", gmailResult);
+
+      return NextResponse.json({
+        success: false,
+        error: gmailResult,
+      });
+    }
+
+    console.log("✅ Email sent successfully");
+
+    return NextResponse.json({
+      success: true,
+      message: "Email sent successfully",
+      gmailMessageId: gmailResult.id,
+    });
+
+  } catch (err: any) {
+
+    console.error("SERVER ERROR:", err);
+
     return NextResponse.json(
-      { error: "Email send failed", sendData },
-      { status: 400 }
+      { success: false, error: err.message },
+      { status: 500 }
     );
   }
-
-  return NextResponse.json({
-    success: true,
-    message: "Email sent successfully",
-  });
 }

@@ -8,18 +8,23 @@ export async function refreshGoogleAccessToken(profile: any) {
     throw new Error("No refresh token stored.");
   }
 
-  const response = await fetch("https://oauth2.googleapis.com/token", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/x-www-form-urlencoded",
-    },
-    body: new URLSearchParams({
-      client_id: process.env.GOOGLE_CLIENT_ID!,
-      client_secret: process.env.GOOGLE_CLIENT_SECRET!,
-      refresh_token: profile.google_refresh_token,
-      grant_type: "refresh_token",
-    }),
-  });
+  console.log("Refreshing Google access token for:", profile.google_email);
+
+  const response = await fetch(
+    "https://oauth2.googleapis.com/token",
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/x-www-form-urlencoded",
+      },
+      body: new URLSearchParams({
+        client_id: process.env.GOOGLE_CLIENT_ID!,
+        client_secret: process.env.GOOGLE_CLIENT_SECRET!,
+        refresh_token: profile.google_refresh_token,
+        grant_type: "refresh_token",
+      }),
+    }
+  );
 
   const data = await response.json();
 
@@ -27,14 +32,18 @@ export async function refreshGoogleAccessToken(profile: any) {
     console.error("GOOGLE REFRESH ERROR:", data);
 
     throw new Error(
-      `Failed to refresh token: ${data.error || "Unknown error"}`
+      `Google token refresh failed: ${data.error || "Unknown error"}`
     );
   }
 
-  const expiresAt = new Date(Date.now() + data.expires_in * 1000);
+  const expiresAt = new Date(
+    Date.now() + data.expires_in * 1000
+  );
+
+  console.log("New token expires at:", expiresAt);
 
   /* -------------------------------- */
-  /* Update Supabase profile          */
+  /* Save new token to Supabase       */
   /* -------------------------------- */
 
   const { error } = await supabaseAdmin
@@ -47,7 +56,10 @@ export async function refreshGoogleAccessToken(profile: any) {
 
   if (error) {
     console.error("SUPABASE TOKEN UPDATE ERROR:", error);
+    throw new Error("Failed to save refreshed token.");
   }
+
+  console.log("Token refreshed and saved.");
 
   return data.access_token;
 }

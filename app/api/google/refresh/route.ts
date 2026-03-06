@@ -6,6 +6,10 @@ export async function POST() {
 
   const supabase = await createClient();
 
+  /* -------------------------------- */
+  /* Get logged in user               */
+  /* -------------------------------- */
+
   const {
     data: { user },
   } = await supabase.auth.getUser();
@@ -17,30 +21,52 @@ export async function POST() {
     );
   }
 
-  const { data: profile } = await supabase
+  /* -------------------------------- */
+  /* Find profile with Google token   */
+  /* (organization sender)            */
+  /* -------------------------------- */
+
+  const { data: profile, error } = await supabase
     .from("profiles")
     .select("*")
-    .eq("id", user.id)
+    .not("google_refresh_token", "is", null)
     .maybeSingle();
 
-  if (!profile?.google_refresh_token) {
+  if (error) {
+    console.error("Profile lookup error:", error);
+
     return NextResponse.json(
-      { error: "Google not connected" },
+      { error: error.message },
+      { status: 500 }
+    );
+  }
+
+  if (!profile) {
+    return NextResponse.json(
+      { error: "No Google account connected for this organization" },
       { status: 400 }
     );
   }
 
   try {
 
-    const accessToken =
-      await refreshGoogleAccessToken(profile);
+    /* -------------------------------- */
+    /* Refresh token                    */
+    /* -------------------------------- */
+
+    const accessToken = await refreshGoogleAccessToken(profile);
+
+    console.log("Google token refreshed successfully");
 
     return NextResponse.json({
       success: true,
       accessToken,
+      message: "Google token refreshed successfully",
     });
 
   } catch (err: any) {
+
+    console.error("Token refresh error:", err);
 
     return NextResponse.json(
       { error: err.message },
@@ -48,4 +74,5 @@ export async function POST() {
     );
 
   }
+
 }
