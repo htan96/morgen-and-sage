@@ -76,47 +76,50 @@ export default function ReviewInvoicesModal({
 
   /* ---------------- SEND ALL ---------------- */
 
-  async function sendAll() {
+      async function sendAll() {
 
-    if (sending) return;
+        if (sending) return;
 
-    setSending(true);
+        setSending(true);
 
-    try {
+        let failed = 0;
 
-      const responses = await Promise.all(
-        invoices.map((inv) =>
-          fetch("/api/invoices/send", {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-            },
-            body: JSON.stringify({
-              invoiceId: inv.id,
-            }),
-          })
-        )
-      );
+        try {
 
-      const failed = responses.filter((r) => !r.ok);
+          for (const inv of invoices) {
 
-      if (failed.length > 0) {
-        alert(`${failed.length} invoices failed to send`);
+            const res = await fetch("/api/invoices/send", {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+              },
+              body: JSON.stringify({
+                invoiceId: inv.id,
+              }),
+            });
+
+            if (!res.ok) {
+              failed++;
+            }
+
+          }
+
+          if (failed > 0) {
+            alert(`${failed} invoices failed to send`);
+          }
+
+          router.refresh();
+          onClose();
+
+        } catch (err) {
+
+          console.error("Batch send failed:", err);
+          alert("Batch send failed");
+
+        } finally {
+          setSending(false);
+        }
       }
-
-      router.refresh();
-      onClose();
-
-    } catch (err) {
-
-      console.error("Batch send failed:", err);
-      alert("Batch send failed");
-
-    } finally {
-      setSending(false);
-    }
-  }
-
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
 

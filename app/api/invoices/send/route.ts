@@ -6,6 +6,7 @@ import { sendInvoiceEmail } from "@/lib/email/sendInvoiceEmail";
 
 export async function POST(req: Request) {
   try {
+
     const { invoiceId } = await req.json();
 
     if (!invoiceId) {
@@ -15,10 +16,10 @@ export async function POST(req: Request) {
       );
     }
 
-    // send email
+    // Send invoice email
     await sendInvoiceEmail(invoiceId);
 
-    // mark invoice sent
+    // Update invoice status
     const { error } = await supabaseAdmin
       .from("invoices")
       .update({
@@ -29,6 +30,7 @@ export async function POST(req: Request) {
 
     if (error) {
       console.error("Invoice update error:", error);
+
       return NextResponse.json(
         { error: "Invoice email sent but failed to update status" },
         { status: 500 }
@@ -38,6 +40,7 @@ export async function POST(req: Request) {
     return NextResponse.json({ success: true });
 
   } catch (err: any) {
+
     console.error("Send invoice error:", err);
 
     return NextResponse.json(
