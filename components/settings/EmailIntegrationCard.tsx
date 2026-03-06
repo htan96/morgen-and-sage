@@ -34,6 +34,17 @@ export default function EmailIntegrationCard({ profile }: any) {
     setLoading(false);
   };
 
+  const refreshToken = async () => {
+    setLoading(true);
+
+    await fetch("/api/google/refresh", {
+      method: "POST",
+    });
+
+    setLoading(false);
+    router.refresh();
+  };
+
   const toggleAutomation = async () => {
     setLoading(true);
 
@@ -143,6 +154,7 @@ export default function EmailIntegrationCard({ profile }: any) {
           </div>
 
           <div className="flex gap-3">
+
             <button
               onClick={testSend}
               disabled={loading}
@@ -152,12 +164,21 @@ export default function EmailIntegrationCard({ profile }: any) {
             </button>
 
             <button
+              onClick={refreshToken}
+              disabled={loading}
+              className="ui-btn"
+            >
+              Refresh Token
+            </button>
+
+            <button
               onClick={disconnect}
               disabled={loading}
               className="ui-btn ui-btn-delete"
             >
               Disconnect
             </button>
+
           </div>
         </>
       ) : (

@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 
 export async function GET() {
+
   const params = new URLSearchParams({
     client_id: process.env.GOOGLE_CLIENT_ID!,
     redirect_uri: process.env.GOOGLE_REDIRECT_URI!,
@@ -15,6 +16,9 @@ export async function GET() {
 
     access_type: "offline",
     prompt: "consent",
+
+    // prevents refresh token issues
+    include_granted_scopes: "true",
   });
 
   return NextResponse.redirect(
