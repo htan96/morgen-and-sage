@@ -4,9 +4,10 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "build": "npx playwright install chromium && next build",
+    "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "postinstall": "npx playwright install chromium"
   },
   "dependencies": {
     "@supabase/ssr": "^0.8.0",
