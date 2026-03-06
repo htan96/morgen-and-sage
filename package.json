@@ -6,10 +6,10 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint",
-    "postinstall": "npx playwright install"
+    "lint": "eslint"
   },
   "dependencies": {
+    "@sparticuz/chromium": "^143.0.4",
     "@supabase/ssr": "^0.8.0",
     "@supabase/supabase-js": "^2.97.0",
     "csv-parse": "^6.1.0",
@@ -17,7 +17,7 @@
     "lucide-react": "^0.575.0",
     "next": "16.1.6",
     "openai": "^6.25.0",
-    "playwright": "^1.58.2",
+    "playwright-core": "^1.58.2",
     "react": "19.2.3",
     "react-dom": "19.2.3",
     "resend": "^6.9.3",
