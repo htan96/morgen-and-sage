@@ -3,9 +3,13 @@ import { chromium as playwright } from "playwright-core";
 
 export async function generateInvoicePdf(invoiceId: string) {
 
+  const executablePath = await chromium.executablePath(
+    "https://github.com/Sparticuz/chromium/releases/download/v143.0.0/chromium-v143.0.0-pack.tar"
+  );
+
   const browser = await playwright.launch({
     args: chromium.args,
-    executablePath: await chromium.executablePath(),
+    executablePath,
     headless: true,
   });
 
