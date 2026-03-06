@@ -17,35 +17,60 @@ export async function generateInvoicePdf(invoiceId: string) {
 
     const page = await browser.newPage();
 
-    const url = `${process.env.NEXT_PUBLIC_APP_URL}/reports/invoice/${invoiceId}?print=true`;
+    /* ------------------------------------------------ */
+    /* Resolve Base URL (important for Vercel runtime)  */
+    /* ------------------------------------------------ */
 
-    console.log("Generating invoice PDF from:", url);
+    const baseUrl =
+      process.env.NEXT_PUBLIC_APP_URL ||
+      "https://morgen-and-sage.vercel.app";
+
+    const url = `${baseUrl}/reports/invoice/${invoiceId}?print=true`;
+
+    console.log("📄 Generating invoice PDF");
+    console.log("Invoice ID:", invoiceId);
+    console.log("URL:", url);
+
+    /* ------------------------------------------------ */
+    /* Load Page                                        */
+    /* ------------------------------------------------ */
 
     const response = await page.goto(url, {
       waitUntil: "domcontentloaded",
     });
+
+    console.log("Response Status:", response?.status());
 
     if (!response) {
       throw new Error("No response received when loading invoice page.");
     }
 
     if (response.status() >= 400) {
-      throw new Error(`Invoice page returned status ${response.status()}`);
+      throw new Error(`Unexpected status code: ${response.status()}`);
     }
 
-    // wait for page to fully render
+    /* ------------------------------------------------ */
+    /* Wait for render                                  */
+    /* ------------------------------------------------ */
+
     await page.waitForSelector("body");
+
+    /* ------------------------------------------------ */
+    /* Generate PDF                                     */
+    /* ------------------------------------------------ */
 
     const pdf = await page.pdf({
       format: "A4",
       printBackground: true,
     });
 
+    console.log("✅ PDF generated successfully");
+
     return Buffer.from(pdf);
 
   } catch (error) {
 
-    console.error("PDF generation failed:", error);
+    console.error("❌ PDF generation failed:", error);
     throw error;
 
   } finally {
