@@ -54,7 +54,14 @@ export async function sendEmail({
   }
 
   if (!profile.google_email) {
-    throw new Error("Sender email missing.");
+    console.warn("Sender email missing. Using system email.");
+
+    return sendSystemEmail({
+      to,
+      subject,
+      html,
+      attachments,
+    });
   }
 
   /* ------------------------------ */
@@ -146,30 +153,44 @@ export async function sendEmail({
   /* Send Email                     */
   /* ------------------------------ */
 
-  let { res, data } = await sendWithToken(accessToken);
+  try {
 
-  /* Retry if token expired */
+    let { res, data } = await sendWithToken(accessToken);
 
-  if (res.status === 401) {
+    /* Retry if token expired */
 
-    console.warn("Access token expired. Refreshing...");
+    if (res.status === 401) {
 
-    accessToken = await refreshGoogleAccessToken(profile);
+      console.warn("Access token expired. Refreshing...");
 
-    const retry = await sendWithToken(accessToken);
+      accessToken = await refreshGoogleAccessToken(profile);
 
-    res = retry.res;
-    data = retry.data;
+      const retry = await sendWithToken(accessToken);
+
+      res = retry.res;
+      data = retry.data;
+    }
+
+    if (!res.ok) {
+
+      console.error("GMAIL SEND ERROR:", data);
+      throw new Error("Gmail failed");
+
+    }
+
+    return data;
+
+  } catch (err) {
+
+    console.warn("Falling back to system email");
+
+    return sendSystemEmail({
+      to,
+      subject,
+      html,
+      attachments,
+    });
+
   }
 
-  if (!res.ok) {
-
-    console.error("GMAIL SEND ERROR:", data);
-
-    throw new Error(
-      `Gmail send failed: ${data?.error?.message || "Unknown error"}`
-    );
-  }
-
-  return data;
 }
