@@ -1,9 +1,9 @@
-import { chromium } from "playwright-core";
+import { chromium } from "playwright";
 
 export async function generateInvoicePdf(invoiceId: string) {
 
   const browser = await chromium.launch({
-    headless: true,
+    headless: true
   });
 
   const page = await browser.newPage();
@@ -15,7 +15,7 @@ export async function generateInvoicePdf(invoiceId: string) {
 
   const pdf = await page.pdf({
     format: "A4",
-    printBackground: true,
+    printBackground: true
   });
 
   await browser.close();
