@@ -17,10 +17,24 @@ export async function generateInvoicePdf(invoiceId: string) {
 
     const page = await browser.newPage();
 
-    await page.goto(
-      `${process.env.NEXT_PUBLIC_APP_URL}/reports/invoice/${invoiceId}?print=true`,
-      { waitUntil: "domcontentloaded" }
-    );
+    const url = `${process.env.NEXT_PUBLIC_APP_URL}/reports/invoice/${invoiceId}?print=true`;
+
+    console.log("Generating invoice PDF from:", url);
+
+    const response = await page.goto(url, {
+      waitUntil: "domcontentloaded",
+    });
+
+    if (!response) {
+      throw new Error("No response received when loading invoice page.");
+    }
+
+    if (response.status() >= 400) {
+      throw new Error(`Invoice page returned status ${response.status()}`);
+    }
+
+    // wait for page to fully render
+    await page.waitForSelector("body");
 
     const pdf = await page.pdf({
       format: "A4",
@@ -29,7 +43,14 @@ export async function generateInvoicePdf(invoiceId: string) {
 
     return Buffer.from(pdf);
 
+  } catch (error) {
+
+    console.error("PDF generation failed:", error);
+    throw error;
+
   } finally {
+
     await browser.close();
+
   }
 }
