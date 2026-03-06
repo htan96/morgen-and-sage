@@ -10,13 +10,9 @@ export default async function SettingsPage() {
     data: { user },
   } = await supabase.auth.getUser();
 
-  if (!user) {
-    return null;
-  }
+  if (!user) return null;
 
-  /* -------------------------------- */
-  /* Get current user profile         */
-  /* -------------------------------- */
+  /* Current user profile */
 
   const { data: myProfile } = await supabase
     .from("profiles")
@@ -26,9 +22,7 @@ export default async function SettingsPage() {
 
   if (!myProfile) return null;
 
-  /* -------------------------------- */
-  /* Get organization email sender    */
-  /* -------------------------------- */
+  /* Organization sender */
 
   const { data: senderProfile } = await supabase
     .from("profiles")
@@ -42,7 +36,10 @@ export default async function SettingsPage() {
       title="Settings"
       description="Manage organization integrations and configuration."
     >
-      <EmailIntegrationCard profile={senderProfile} />
+      <EmailIntegrationCard
+        myProfile={myProfile}
+        senderProfile={senderProfile}
+      />
     </SettingsLayout>
   );
 }

@@ -7,13 +7,20 @@ export default function EmailIntegrationCard({ profile }: any) {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
 
-  const isConnected = !!profile?.google_refresh_token;
+  /* Determine connection state */
+
+  const isConnected =
+    !!profile?.google_refresh_token || !!profile?.google_email;
 
   const automationEnabled = !!profile?.is_email_sender;
+
+  /* Connect Google */
 
   const connect = () => {
     window.location.href = "/api/google/connect";
   };
+
+  /* Disconnect Google */
 
   const disconnect = async () => {
     setLoading(true);
@@ -26,6 +33,8 @@ export default function EmailIntegrationCard({ profile }: any) {
     router.refresh();
   };
 
+  /* Send test email */
+
   const testSend = async () => {
     setLoading(true);
 
@@ -33,6 +42,8 @@ export default function EmailIntegrationCard({ profile }: any) {
 
     setLoading(false);
   };
+
+  /* Force refresh token */
 
   const refreshToken = async () => {
     setLoading(true);
@@ -44,6 +55,8 @@ export default function EmailIntegrationCard({ profile }: any) {
     setLoading(false);
     router.refresh();
   };
+
+  /* Toggle automation */
 
   const toggleAutomation = async () => {
     setLoading(true);
@@ -64,6 +77,8 @@ export default function EmailIntegrationCard({ profile }: any) {
 
   return (
     <div className="ui-card p-6 space-y-6">
+      {/* Header */}
+
       <div>
         <h2 className="text-lg font-semibold">
           Email Sending Account
@@ -73,10 +88,11 @@ export default function EmailIntegrationCard({ profile }: any) {
           className="text-sm"
           style={{ color: "var(--text-muted)" }}
         >
-          Connect a Google account to send invoices and
-          automated emails.
+          Connect a Google account to send invoices and automated emails.
         </p>
       </div>
+
+      {/* Connected State */}
 
       {isConnected ? (
         <>
@@ -90,7 +106,7 @@ export default function EmailIntegrationCard({ profile }: any) {
               </p>
 
               <p className="font-medium">
-                {profile.google_email}
+                {profile?.google_email}
               </p>
             </div>
 
@@ -127,13 +143,10 @@ export default function EmailIntegrationCard({ profile }: any) {
 
                 <p
                   className="text-sm"
-                  style={{
-                    color: "var(--text-muted)",
-                  }}
+                  style={{ color: "var(--text-muted)" }}
                 >
-                  Enables scheduled invoice emails and
-                  automatic notifications using this
-                  Google account.
+                  Enables scheduled invoice emails and automatic notifications
+                  using this Google account.
                 </p>
               </div>
 
@@ -146,15 +159,14 @@ export default function EmailIntegrationCard({ profile }: any) {
                     : "ui-btn-filled-save"
                 }
               >
-                {automationEnabled
-                  ? "Disable"
-                  : "Enable"}
+                {automationEnabled ? "Disable" : "Enable"}
               </button>
             </div>
           </div>
 
-          <div className="flex gap-3">
+          {/* Actions */}
 
+          <div className="flex gap-3 flex-wrap">
             <button
               onClick={testSend}
               disabled={loading}
@@ -178,10 +190,11 @@ export default function EmailIntegrationCard({ profile }: any) {
             >
               Disconnect
             </button>
-
           </div>
         </>
       ) : (
+        /* Not Connected */
+
         <button
           onClick={connect}
           className="ui-btn-filled-save"
