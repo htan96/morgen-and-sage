@@ -1,5 +1,5 @@
-import chromium from "@sparticuz/chromium";
 import puppeteer from "puppeteer-core";
+import chromium from "@sparticuz/chromium";
 
 export async function generateInvoicePdf(invoiceId: string) {
 
@@ -19,6 +19,7 @@ export async function generateInvoicePdf(invoiceId: string) {
   const pdf = await page.pdf({
     format: "A4",
     printBackground: true,
+    preferCSSPageSize: true,
   });
 
   await browser.close();
