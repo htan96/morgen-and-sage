@@ -1,12 +1,12 @@
-import puppeteer from "puppeteer-core";
 import chromium from "@sparticuz/chromium";
+import puppeteer from "puppeteer-core";
 
 export async function generateInvoicePdf(invoiceId: string) {
 
   const browser = await puppeteer.launch({
-    args: chromium.args,
+    args: [...chromium.args, "--no-sandbox", "--disable-setuid-sandbox"],
     executablePath: await chromium.executablePath(),
-    headless: true,
+    headless: chromium.headless,
   });
 
   const page = await browser.newPage();
