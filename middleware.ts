@@ -3,7 +3,7 @@ import { createServerClient } from "@supabase/ssr";
 
 export async function middleware(request: NextRequest) {
 
-  const { pathname } = request.nextUrl;
+  const { pathname, searchParams } = request.nextUrl;
 
   let response = NextResponse.next({
     request: { headers: request.headers },
@@ -17,6 +17,17 @@ export async function middleware(request: NextRequest) {
     pathname.startsWith("/login") ||
     pathname.startsWith("/invite") ||
     pathname.startsWith("/set-password")
+  ) {
+    return response;
+  }
+
+  /* ======================================================
+     Allow Printable Invoice (Playwright PDF)
+  ====================================================== */
+
+  if (
+    pathname.startsWith("/reports/invoice") &&
+    searchParams.get("print") === "true"
   ) {
     return response;
   }
@@ -79,7 +90,6 @@ export async function middleware(request: NextRequest) {
 
   /* ======================================================
      REPORT ROUTES (Invoice / Printable Pages)
-     These must work inside iframe previews
   ====================================================== */
 
   if (pathname.startsWith("/reports")) {
