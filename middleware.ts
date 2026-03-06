@@ -3,37 +3,27 @@ import { createServerClient } from "@supabase/ssr";
 
 export async function middleware(request: NextRequest) {
 
-  const { pathname, searchParams } = request.nextUrl;
+  const { pathname } = request.nextUrl;
 
   let response = NextResponse.next({
     request: { headers: request.headers },
   });
 
   /* ======================================================
-     Allow Public Pages
+     PUBLIC ROUTES
   ====================================================== */
 
   if (
     pathname.startsWith("/login") ||
     pathname.startsWith("/invite") ||
-    pathname.startsWith("/set-password")
+    pathname.startsWith("/set-password") ||
+    pathname.startsWith("/reports") // 👈 allow invoice rendering
   ) {
     return response;
   }
 
   /* ======================================================
-     Allow Printable Invoice (Playwright PDF)
-  ====================================================== */
-
-  if (
-    pathname.startsWith("/reports/invoice") &&
-    searchParams.get("print") === "true"
-  ) {
-    return response;
-  }
-
-  /* ======================================================
-     Create Supabase Client
+     SUPABASE AUTH
   ====================================================== */
 
   const supabase = createServerClient(
@@ -53,15 +43,9 @@ export async function middleware(request: NextRequest) {
     }
   );
 
-  /* ======================================================
-     Get Authenticated User
-  ====================================================== */
-
   const {
     data: { user },
   } = await supabase.auth.getUser();
-
-  console.log("MIDDLEWARE USER:", user?.id);
 
   if (!user) {
     const url = request.nextUrl.clone();
@@ -70,7 +54,7 @@ export async function middleware(request: NextRequest) {
   }
 
   /* ======================================================
-     Load User Role + Tenant Once
+     LOAD PROFILE + TENANT
   ====================================================== */
 
   const { data: profile } = await supabase
@@ -84,28 +68,6 @@ export async function middleware(request: NextRequest) {
     .select("id")
     .eq("auth_user_id", user.id)
     .maybeSingle();
-
-  console.log("PROFILE:", profile);
-  console.log("TENANT:", tenant);
-
-  /* ======================================================
-     REPORT ROUTES (Invoice / Printable Pages)
-  ====================================================== */
-
-  if (pathname.startsWith("/reports")) {
-
-    if (profile?.role === "admin") {
-      return response;
-    }
-
-    if (tenant) {
-      return response;
-    }
-
-    const url = request.nextUrl.clone();
-    url.pathname = "/login";
-    return NextResponse.redirect(url);
-  }
 
   /* ======================================================
      ADMIN ROUTES
@@ -137,25 +99,7 @@ export async function middleware(request: NextRequest) {
     return response;
   }
 
-  /* ======================================================
-     FALLBACK REDIRECT
-  ====================================================== */
-
-  if (profile?.role === "admin") {
-    const url = request.nextUrl.clone();
-    url.pathname = "/admin/bookings";
-    return NextResponse.redirect(url);
-  }
-
-  if (tenant) {
-    const url = request.nextUrl.clone();
-    url.pathname = "/portal/bookings";
-    return NextResponse.redirect(url);
-  }
-
-  const url = request.nextUrl.clone();
-  url.pathname = "/login";
-  return NextResponse.redirect(url);
+  return response;
 }
 
 export const config = {
