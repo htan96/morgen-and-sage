@@ -10,6 +10,7 @@ type Props = {
   setMonth: (v: string) => void;
   search: string;
   setSearch: (v: string) => void;
+  portalMode?: boolean;
 };
 
 export default function InvoiceFilters({
@@ -22,6 +23,7 @@ export default function InvoiceFilters({
   setMonth,
   search,
   setSearch,
+  portalMode = false,
 }: Props) {
   const uniqueTenants = Array.from(
     new Map(
@@ -75,10 +77,35 @@ export default function InvoiceFilters({
         <option value="void">Void</option>
       </select>
 
-      {/* Tenant */}
+      {/* Tenant (ADMIN ONLY) */}
+      {!portalMode && (
+        <select
+          value={tenant}
+          onChange={(e) => setTenant(e.target.value)}
+          className="px-3 py-1.5 rounded-md text-sm"
+          style={{
+            background: "var(--surface)",
+            border: "1px solid var(--border)",
+            color: "var(--text)",
+            appearance: "none",
+            WebkitAppearance: "none",
+            MozAppearance: "none",
+          }}
+        >
+          <option value="all">All Tenants</option>
+
+          {uniqueTenants.map(([id, name]) => (
+            <option key={id} value={id}>
+              {name}
+            </option>
+          ))}
+        </select>
+      )}
+
+      {/* Month */}
       <select
-        value={tenant}
-        onChange={(e) => setTenant(e.target.value)}
+        value={month}
+        onChange={(e) => setMonth(e.target.value)}
         className="px-3 py-1.5 rounded-md text-sm"
         style={{
           background: "var(--surface)",
@@ -89,32 +116,13 @@ export default function InvoiceFilters({
           MozAppearance: "none",
         }}
       >
-        <option value="all">All Tenants</option>
-        {uniqueTenants.map(([id, name]) => (
-          <option key={id} value={id}>
-            {name}
-          </option>
-        ))}
-      </select>
-
-      {/* Month */}
-      <select
-        value={month}
-        onChange={(e) => setMonth(e.target.value)}
-        className="px-3 py-2 rounded-lg text-sm"
-        style={{
-          background: "var(--surface)",
-          border: "1px solid var(--border)",
-          color: "var(--text)",
-          appearance: "none",
-          WebkitAppearance: "none",
-          MozAppearance: "none",
-        }}
-      >
         <option value="all">All Months</option>
+
         {Array.from({ length: 12 }).map((_, i) => (
           <option key={i} value={i.toString()}>
-            {new Date(0, i).toLocaleString("default", { month: "long" })}
+            {new Date(0, i).toLocaleString("default", {
+              month: "long",
+            })}
           </option>
         ))}
       </select>

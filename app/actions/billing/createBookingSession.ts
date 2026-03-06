@@ -49,20 +49,30 @@ export async function createBookingSession({
     const totalHours =
       (end.getTime() - start.getTime()) / 1000 / 60 / 60;
 
-    const { data, error } = await supabase
-      .from("bookings")
-      .insert({
-        organization_id: organizationId,
-        tenant_id: tenantId,
-        kitchen_space_id: kitchenSpaceId,
-        start_time: start,
-        end_time: end,
-        total_hours: totalHours,
-      })
-      .select()
-      .single();
+const { data, error } = await supabase
+  .from("bookings")
+  .insert({
+    organization_id: organizationId,
+    tenant_id: tenantId,
+    kitchen_space_id: kitchenSpaceId,
+    start_time: start,
+    end_time: end,
+    total_hours: totalHours,
+  })
+  .select()
+  .single();
 
-    if (error) throw error;
+if (error) {
+
+  // Booking overlap constraint
+  if (error.code === "23P01") {
+    throw new Error(
+      "This kitchen is already booked during that time."
+    );
+  }
+
+  throw error;
+}
 
     createdBookings.push(data);
   }

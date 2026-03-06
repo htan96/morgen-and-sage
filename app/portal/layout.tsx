@@ -1,7 +1,6 @@
+import { createClient } from "@/lib/supabase/server";
 import Sidebar from "@/components/Sidebar";
 import MobileSidebar from "@/components/MobileSidebar";
-import { createClient } from "@/lib/supabase/server";
-import { redirect } from "next/navigation";
 
 export default async function PortalLayout({
   children,
@@ -10,45 +9,32 @@ export default async function PortalLayout({
 }) {
   const supabase = await createClient();
 
-  /* ---------------- Auth ---------------- */
-
   const {
     data: { user },
   } = await supabase.auth.getUser();
 
-  if (!user) {
-    redirect("/login");
-  }
-
-  /* ---------------- Tenant ---------------- */
-
-  const { data: tenant, error } = await supabase
-    .from("tenants")
-    .select("id")
-    .eq("auth_user_id", user.id)
-    .maybeSingle();
-
-  if (error) {
-    console.error("Tenant lookup failed:", error);
-    redirect("/login");
-  }
-
-  if (!tenant) {
-    console.error("No tenant linked to auth user:", user.id);
-    redirect("/login");
-  }
+  if (!user) return null;
 
   return (
     <div className="flex min-h-screen">
-      <div className="hidden md:flex fixed left-0 top-0 h-screen">
+
+      {/* Desktop Sidebar */}
+      <div className="hidden md:block">
         <Sidebar variant="full" />
       </div>
 
-      <MobileSidebar />
+      {/* Page Area */}
+      <div className="flex-1 flex flex-col">
 
-      <main className="flex-1 md:ml-64 ml-14 px-2 sm:px-4 md:px-6 py-4 md:py-6">
-        {children}
-      </main>
+        {/* Mobile Header + Sidebar Trigger */}
+        <MobileSidebar />
+
+        {/* Main Content */}
+        <main className="flex-1 p-6">
+          {children}
+        </main>
+
+      </div>
     </div>
   );
 }

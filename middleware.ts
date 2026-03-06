@@ -8,11 +8,7 @@ export async function middleware(request: NextRequest) {
     request: { headers: request.headers },
   });
 
-  /*
-  --------------------------------
-  Public routes
-  --------------------------------
-  */
+  /* ---------------- Allow Public Pages ---------------- */
 
   if (
     pathname.startsWith("/login") ||
@@ -21,6 +17,8 @@ export async function middleware(request: NextRequest) {
   ) {
     return response;
   }
+
+  /* ---------------- Create Supabase Client ---------------- */
 
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -39,9 +37,13 @@ export async function middleware(request: NextRequest) {
     }
   );
 
+  /* ---------------- Get Auth User ---------------- */
+
   const {
     data: { user },
   } = await supabase.auth.getUser();
+
+  console.log("MIDDLEWARE USER:", user?.id);
 
   if (!user) {
     const url = request.nextUrl.clone();
@@ -49,42 +51,20 @@ export async function middleware(request: NextRequest) {
     return NextResponse.redirect(url);
   }
 
-  /*
-  --------------------------------
-  Check Admin
-  --------------------------------
-  */
+  /* ======================================================
+     ADMIN ROUTES
+  ====================================================== */
 
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("role")
-    .eq("id", user.id)
-    .maybeSingle();
+  if (pathname.startsWith("/admin")) {
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("role")
+      .eq("id", user.id)
+      .maybeSingle();
 
-  if (profile?.role === "admin") {
-    if (!pathname.startsWith("/admin")) {
-      const url = request.nextUrl.clone();
-      url.pathname = "/admin/bookings";
-      return NextResponse.redirect(url);
-    }
+    console.log("PROFILE:", profile);
 
-    return response;
-  }
-
-  /*
-  --------------------------------
-  Check Tenant
-  --------------------------------
-  */
-
-  const { data: tenant } = await supabase
-    .from("tenants")
-    .select("id")
-    .eq("auth_user_id", user.id)
-    .maybeSingle();
-
-  if (tenant) {
-    if (!pathname.startsWith("/portal")) {
+    if (!profile || profile.role !== "admin") {
       const url = request.nextUrl.clone();
       url.pathname = "/portal";
       return NextResponse.redirect(url);
@@ -93,11 +73,55 @@ export async function middleware(request: NextRequest) {
     return response;
   }
 
-  /*
-  --------------------------------
-  Fallback
-  --------------------------------
-  */
+  /* ======================================================
+     PORTAL ROUTES
+  ====================================================== */
+
+  if (pathname.startsWith("/portal")) {
+    const { data: tenant } = await supabase
+      .from("tenants")
+      .select("id")
+      .eq("auth_user_id", user.id)
+      .maybeSingle();
+
+    console.log("TENANT:", tenant);
+
+    if (!tenant) {
+      const url = request.nextUrl.clone();
+      url.pathname = "/login";
+      return NextResponse.redirect(url);
+    }
+
+    return response;
+  }
+
+  /* ======================================================
+     FALLBACK REDIRECT
+  ====================================================== */
+
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("role")
+    .eq("id", user.id)
+    .maybeSingle();
+
+  if (profile?.role === "admin") {
+    const url = request.nextUrl.clone();
+    url.pathname = "/admin/bookings";
+    return NextResponse.redirect(url);
+  }
+
+  const { data: tenant } = await supabase
+    .from("tenants")
+    .select("id")
+    .eq("auth_user_id", user.id)
+    .maybeSingle();
+
+  if (tenant) {
+    const url = request.nextUrl.clone();
+    url.pathname = "/portal/bookings";
+    return NextResponse.redirect(url);
+  }
 
   const url = request.nextUrl.clone();
   url.pathname = "/login";
@@ -105,7 +129,5 @@ export async function middleware(request: NextRequest) {
 }
 
 export const config = {
-  matcher: [
-    "/((?!api|_next/static|_next/image|favicon.ico|invite|set-password|login).*)",
-  ],
+  matcher: ["/((?!api|_next|favicon.ico|.*\\..*).*)"],
 };

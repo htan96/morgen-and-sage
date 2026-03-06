@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react";
 import { v4 as uuidv4 } from "uuid";
 import { Booking } from "@/types/booking";
+
 import MonthView from "@/components/bookings/calendar/MonthView";
 import BookingsHeader from "@/components/bookings/calendar/BookingsHeader";
 import BookingPanel from "@/components/bookings/panel/BookingPanel";
@@ -27,6 +28,8 @@ type Props = {
   bookings: Booking[];
   kitchens: Kitchen[];
   tenants: Tenant[];
+  organizationId: string;
+  tenantIdFromPortal?: string;
   portalMode?: boolean;
 };
 
@@ -44,27 +47,22 @@ export default function AdminBookingsClient({
   bookings,
   kitchens,
   tenants,
+  organizationId,
+  tenantIdFromPortal,
   portalMode = false,
 }: Props) {
-  const [selectedKitchenId, setSelectedKitchenId] =
-    useState<string | null>(null);
 
-  const [currentDate, setCurrentDate] =
-    useState(new Date());
+    console.log("BOOKINGS PROP:", bookings); // 👈 ADD THIS
 
-  const [isPanelOpen, setIsPanelOpen] =
-    useState(false);
 
-  const [editingBooking, setEditingBooking] =
-    useState<Booking | null>(null);
+  const [selectedKitchenId, setSelectedKitchenId] = useState<string | null>(null);
+  const [currentDate, setCurrentDate] = useState(new Date());
+  const [isPanelOpen, setIsPanelOpen] = useState(false);
+  const [editingBooking, setEditingBooking] = useState<Booking | null>(null);
+  const [draftBookings, setDraftBookings] = useState<DraftBooking[]>([]);
+  const [panelKitchenId, setPanelKitchenId] = useState<string | null>(null);
 
-  const [draftBookings, setDraftBookings] =
-    useState<DraftBooking[]>([]);
-
-  const [panelKitchenId, setPanelKitchenId] =
-    useState<string | null>(null);
-
-  /* ---------------- Month Nav ---------------- */
+  /* ---------------- Month Navigation ---------------- */
 
   const handlePrevMonth = () => {
     setCurrentDate(
@@ -100,15 +98,18 @@ export default function AdminBookingsClient({
     );
   }, [bookings, selectedKitchenId]);
 
+  /* ---------------- Group Bookings by Date ---------------- */
+
   const bookingsByDate = useMemo(() => {
     const map: Record<string, Booking[]> = {};
 
     for (const booking of filteredBookings) {
-      const key = new Date(booking.start_time)
-        .toISOString()
-        .split("T")[0];
+
+      // 🔥 Use raw timestamp slice instead of Date conversion
+      const key = booking.start_time.slice(0, 10);
 
       if (!map[key]) map[key] = [];
+
       map[key].push(booking);
     }
 
@@ -176,6 +177,8 @@ export default function AdminBookingsClient({
     setDraftBookings([]);
   };
 
+  /* ---------------- Calendar Clicks ---------------- */
+
   const handleDayClick = (date: Date) => {
     setEditingBooking(null);
 
@@ -198,6 +201,8 @@ export default function AdminBookingsClient({
     setEditingBooking(null);
     clearDrafts();
   };
+
+  /* ---------------- Render ---------------- */
 
   return (
     <>
@@ -237,6 +242,8 @@ export default function AdminBookingsClient({
         addNextDayDraft={addNextDayDraft}
         kitchens={kitchens}
         tenants={tenants}
+        organizationId={organizationId}
+        tenantIdFromPortal={tenantIdFromPortal}
         portalMode={portalMode}
       />
     </>

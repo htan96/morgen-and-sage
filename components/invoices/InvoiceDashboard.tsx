@@ -21,9 +21,14 @@ export type Invoice = {
 
 type Props = {
   invoices: Invoice[];
+  portalMode?: boolean;
 };
 
-export default function InvoicesDashboard({ invoices }: Props) {
+export default function InvoicesDashboard({
+  invoices,
+  portalMode = false,
+}: Props) {
+
   const [status, setStatus] = useState<string>("all");
   const [tenant, setTenant] = useState<string>("all");
   const [month, setMonth] = useState<string>("all");
@@ -33,13 +38,18 @@ export default function InvoicesDashboard({ invoices }: Props) {
   const [showBillingModal, setShowBillingModal] = useState(false);
   const [showReviewModal, setShowReviewModal] = useState(false);
 
-  // 🔹 Draft invoices for review
+  /* ---------------- Draft Invoices ---------------- */
+
   const draftInvoices = useMemo(() => {
     return invoices.filter((inv) => inv.status === "draft");
   }, [invoices]);
 
+  /* ---------------- Run Billing ---------------- */
+
   const generateAllInvoices = async () => {
+
     try {
+
       setLoadingBilling(true);
 
       const now = new Date();
@@ -63,21 +73,33 @@ export default function InvoicesDashboard({ invoices }: Props) {
       );
 
       location.reload();
+
     } catch (err) {
+
       console.error(err);
       alert("Error running billing.");
+
     } finally {
+
       setLoadingBilling(false);
+
     }
+
   };
 
+  /* ---------------- Filtering ---------------- */
+
   const filteredInvoices = useMemo(() => {
+
     return invoices.filter((inv: Invoice) => {
+
       const matchesStatus =
         status === "all" || inv.status === status;
 
       const matchesTenant =
-        tenant === "all" || inv.tenant?.id === tenant;
+        portalMode || tenant === "all"
+          ? true
+          : inv.tenant?.id === tenant;
 
       const matchesMonth =
         month === "all" ||
@@ -99,16 +121,24 @@ export default function InvoicesDashboard({ invoices }: Props) {
         matchesMonth &&
         matchesSearch
       );
+
     });
-  }, [invoices, status, tenant, month, search]);
+
+  }, [invoices, status, tenant, month, search, portalMode]);
+
+  /* ================================
+     UI
+  ================================= */
 
   return (
     <div className="w-full px-4 sm:px-6 md:px-8 py-6 space-y-8">
 
       {/* HEADER */}
+
       <div className="flex items-center justify-between flex-wrap gap-4">
 
         <div>
+
           <h1 className="text-2xl md:text-3xl font-semibold">
             Invoices
           </h1>
@@ -117,59 +147,75 @@ export default function InvoicesDashboard({ invoices }: Props) {
             className="text-sm mt-1"
             style={{ color: "var(--text-muted)" }}
           >
-            Manage and monitor all invoices.
+            {portalMode
+              ? "View and manage your invoices."
+              : "Manage and monitor all invoices."}
           </p>
-        </div>
-
-        <div className="flex gap-3 flex-wrap">
-
-          {/* REVIEW DRAFT INVOICES */}
-          <button
-            onClick={() => setShowReviewModal(true)}
-            disabled={draftInvoices.length === 0}
-            className="px-4 py-2 rounded-lg font-medium transition"
-            style={{
-              background: "var(--surface)",
-              border: "1px solid var(--border)",
-              color: "var(--text)",
-              opacity: draftInvoices.length === 0 ? 0.6 : 1,
-            }}
-            onMouseEnter={(e) =>
-              (e.currentTarget.style.background = "var(--hover)")
-            }
-            onMouseLeave={(e) =>
-              (e.currentTarget.style.background = "var(--surface)")
-            }
-          >
-            Review Drafts ({draftInvoices.length})
-          </button>
-
-          {/* GENERATE BILLING */}
-          <button
-            onClick={() => setShowBillingModal(true)}
-            disabled={loadingBilling}
-            className="px-4 py-2 rounded-lg font-medium transition"
-            style={{
-              background: "var(--surface)",
-              border: "1px solid var(--border)",
-              color: "var(--text)",
-            }}
-            onMouseEnter={(e) =>
-              (e.currentTarget.style.background = "var(--hover)")
-            }
-            onMouseLeave={(e) =>
-              (e.currentTarget.style.background = "var(--surface)")
-            }
-          >
-            {loadingBilling
-              ? "Running Billing..."
-              : "Generate Current Month"}
-          </button>
 
         </div>
+
+        {/* ADMIN BUTTONS */}
+
+        {!portalMode && (
+
+          <div className="flex gap-3 flex-wrap">
+
+            {/* REVIEW DRAFT INVOICES */}
+
+            <button
+              onClick={() => setShowReviewModal(true)}
+              disabled={draftInvoices.length === 0}
+              className="px-4 py-2 rounded-lg font-medium transition"
+              style={{
+                background: "var(--surface)",
+                border: "1px solid var(--border)",
+                color: "var(--text)",
+                opacity: draftInvoices.length === 0 ? 0.6 : 1,
+              }}
+              onMouseEnter={(e) =>
+                (e.currentTarget.style.background = "var(--hover)")
+              }
+              onMouseLeave={(e) =>
+                (e.currentTarget.style.background = "var(--surface)")
+              }
+            >
+              Review Drafts ({draftInvoices.length})
+            </button>
+
+            {/* GENERATE BILLING */}
+
+            <button
+              onClick={() => setShowBillingModal(true)}
+              disabled={loadingBilling}
+              className="px-4 py-2 rounded-lg font-medium transition"
+              style={{
+                background: "var(--surface)",
+                border: "1px solid var(--border)",
+                color: "var(--text)",
+              }}
+              onMouseEnter={(e) =>
+                (e.currentTarget.style.background = "var(--hover)")
+              }
+              onMouseLeave={(e) =>
+                (e.currentTarget.style.background = "var(--surface)")
+              }
+            >
+              {loadingBilling
+                ? "Running Billing..."
+                : "Generate Current Month"}
+            </button>
+
+          </div>
+
+        )}
+
       </div>
 
+      {/* KPI CARDS */}
+
       <InvoiceKPICards invoices={invoices} />
+
+      {/* FILTERS */}
 
       <InvoiceFilters
         invoices={invoices}
@@ -181,16 +227,25 @@ export default function InvoicesDashboard({ invoices }: Props) {
         setMonth={setMonth}
         search={search}
         setSearch={setSearch}
+        portalMode={portalMode}
       />
 
-      <InvoicesTable invoices={filteredInvoices} />
+      {/* TABLE */}
+
+      <InvoicesTable
+        invoices={filteredInvoices}
+        portalMode={portalMode}
+      />
 
       {/* BILLING MODAL */}
-      {showBillingModal && (
+
+      {!portalMode && showBillingModal && (
+
         <div
           className="fixed inset-0 flex items-center justify-center z-50"
           style={{ background: "rgba(0,0,0,0.45)" }}
         >
+
           <div
             className="w-full max-w-md rounded-xl p-6"
             style={{
@@ -198,6 +253,7 @@ export default function InvoicesDashboard({ invoices }: Props) {
               border: "1px solid var(--border)",
             }}
           >
+
             <h2 className="text-lg font-semibold mb-2">
               Generate Monthly Invoices
             </h2>
@@ -211,6 +267,7 @@ export default function InvoicesDashboard({ invoices }: Props) {
             </p>
 
             <div className="flex justify-end gap-3">
+
               <button
                 onClick={() => setShowBillingModal(false)}
                 className="px-4 py-2 rounded-lg"
@@ -236,17 +293,24 @@ export default function InvoicesDashboard({ invoices }: Props) {
               >
                 Run Billing
               </button>
+
             </div>
+
           </div>
+
         </div>
+
       )}
 
-      {/* REVIEW INVOICES MODAL */}
-      {showReviewModal && (
+      {/* REVIEW MODAL */}
+
+      {!portalMode && showReviewModal && (
+
         <ReviewInvoicesModal
           invoices={draftInvoices}
           onClose={() => setShowReviewModal(false)}
         />
+
       )}
 
     </div>

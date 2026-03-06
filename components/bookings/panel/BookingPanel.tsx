@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { createBooking } from "@/app/actions/createBooking";
+import { createBookingSession } from "@/app/actions/billing/createBookingSession";
 import { Booking } from "@/types/booking";
 
 import BookingPanelHeader from "./BookingPanelHeader";
@@ -38,6 +38,8 @@ type Props = {
   kitchens: Kitchen[];
   clearDrafts: () => void;
   addNextDayDraft: () => void;
+  organizationId: string;
+  tenantIdFromPortal?: string;
   portalMode?: boolean;
 };
 
@@ -52,6 +54,8 @@ export default function BookingPanel({
   kitchens,
   clearDrafts,
   addNextDayDraft,
+  organizationId,
+  tenantIdFromPortal,
   portalMode = false,
 }: Props) {
   const router = useRouter();
@@ -64,16 +68,25 @@ export default function BookingPanel({
   const [panelKitchenId, setPanelKitchenId] = useState<string | null>(null);
   const [invoicePreview, setInvoicePreview] = useState<any | null>(null);
 
-  const organizationId = "49c3ef02-cb09-4fde-82d8-2012e5945ba2";
-  const isEditMode = !!editingBooking;
+  const isViewMode = !!editingBooking;
+
+  const effectiveTenantId = tenantId ?? tenantIdFromPortal;
 
   /* ---------------- Portal Tenant Auto Assign ---------------- */
 
   useEffect(() => {
-    if (portalMode && tenants.length > 0) {
-      setTenantId(tenants[0].id);
+    if (portalMode && tenantIdFromPortal) {
+      setTenantId(tenantIdFromPortal);
     }
-  }, [portalMode, tenants]);
+  }, [portalMode, tenantIdFromPortal]);
+
+  /* ---------------- Default Kitchen ---------------- */
+
+  useEffect(() => {
+    if (isOpen && !panelKitchenId && kitchens.length > 0) {
+      setPanelKitchenId(kitchens[0].id);
+    }
+  }, [isOpen, kitchens, panelKitchenId]);
 
   /* ---------------- Reset when panel closes ---------------- */
 
@@ -81,17 +94,20 @@ export default function BookingPanel({
     if (!isOpen) {
       setStep("build");
       setInvoicePreview(null);
+      setTenantId(null);
+      setPanelKitchenId(null);
     }
   }, [isOpen]);
 
   if (!isOpen) return null;
 
   /* =============================
-     REVIEW HANDLER (Fetch Preview)
-     ============================= */
+     REVIEW HANDLER
+  ============================= */
 
   const handleReview = async () => {
-    if (!tenantId || !panelKitchenId || draftBookings.length === 0) return;
+    if (!effectiveTenantId || !panelKitchenId || draftBookings.length === 0)
+      return;
 
     try {
       setPreviewLoading(true);
@@ -99,10 +115,12 @@ export default function BookingPanel({
 
       const res = await fetch("/api/bookings/preview", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+        },
         body: JSON.stringify({
           organizationId,
-          tenantId,
+          tenantId: effectiveTenantId,
           kitchenSpaceId: panelKitchenId,
           bookings: draftBookings.map((d) => ({
             startTime: new Date(d.startTime).toISOString(),
@@ -120,6 +138,7 @@ export default function BookingPanel({
 
       setInvoicePreview(data);
       setStep("confirm");
+
     } catch (err) {
       console.error("Preview error:", err);
       alert("Preview failed");
@@ -130,55 +149,63 @@ export default function BookingPanel({
 
   /* =============================
      SUBMIT HANDLER
-     ============================= */
+  ============================= */
 
   const handleSubmit = async () => {
     if (loading || previewLoading) return;
+    if (!effectiveTenantId || !panelKitchenId) return;
 
     setLoading(true);
 
     try {
-      for (const draft of draftBookings) {
-        const result = await createBooking({
-          organizationId,
-          tenantId: tenantId!,
-          kitchenSpaceId: panelKitchenId!,
-          startTime: new Date(draft.startTime).toISOString(),
-          endTime: new Date(draft.endTime).toISOString(),
-        });
 
-        if (!result?.booking) {
-          alert(result?.error || "Booking failed");
-          return;
-        }
+      const result = await createBookingSession({
+        organizationId,
+        tenantId: effectiveTenantId,
+        kitchenSpaceId: panelKitchenId,
+        bookings: draftBookings.map((b) => ({
+          startTime: b.startTime,
+          endTime: b.endTime,
+        })),
+      });
+
+      if (!result?.invoiceId) {
+        alert("Failed to generate invoice.");
+        return;
       }
 
       clearDrafts();
       setStep("build");
       setInvoicePreview(null);
       onClose();
+
       router.refresh();
+
     } catch (err) {
+
       console.error("Submit failed:", err);
       alert("Something went wrong");
+
     } finally {
+
       setLoading(false);
+
     }
   };
 
   /* =============================
      REVIEW GATE
-     ============================= */
+  ============================= */
 
   const canReview =
-    !!tenantId &&
+    !!effectiveTenantId &&
     !!panelKitchenId &&
     draftBookings.length > 0 &&
     !previewLoading;
 
   /* =============================
      RENDER
-     ============================= */
+  ============================= */
 
   return (
     <>
@@ -195,16 +222,19 @@ export default function BookingPanel({
         }}
       >
         <BookingPanelHeader
-          isEditMode={isEditMode}
+          isEditMode={isViewMode}
           title={
-            step === "build"
+            isViewMode
+              ? "Booking Details"
+              : step === "build"
               ? "Create Booking"
               : "Confirm Booking Submission"
           }
         />
 
         <div className="flex-1 overflow-y-auto p-6 space-y-6">
-          {step === "build" && (
+
+          {!isViewMode && step === "build" && (
             <>
               <BookingSelectors
                 tenantId={tenantId}
@@ -213,6 +243,7 @@ export default function BookingPanel({
                 setPanelKitchenId={setPanelKitchenId}
                 tenants={portalMode ? [] : tenants}
                 kitchens={kitchens}
+                portalMode={portalMode}
               />
 
               <DraftBookingList
@@ -224,7 +255,7 @@ export default function BookingPanel({
             </>
           )}
 
-          {step === "confirm" && invoicePreview && (
+          {!isViewMode && step === "confirm" && invoicePreview && (
             <>
               <InvoicePreviewCard invoicePreview={invoicePreview} />
 
@@ -237,30 +268,28 @@ export default function BookingPanel({
           )}
         </div>
 
-        <BookingPanelFooter
-          loading={loading}
-          isEditMode={false}
-          onSubmit={
-            step === "build"
-              ? handleReview
-              : handleSubmit
-          }
-          disabled={
-            step === "build"
-              ? !canReview
-              : loading || previewLoading
-          }
-          label={
-            step === "build"
-              ? "Review & Confirm"
-              : "Confirm & Submit"
-          }
-          secondaryAction={
-            step === "confirm"
-              ? () => setStep("build")
-              : undefined
-          }
-        />
+        {!isViewMode && (
+          <BookingPanelFooter
+            loading={loading}
+            isEditMode={false}
+            onSubmit={step === "build" ? handleReview : handleSubmit}
+            disabled={
+              step === "build"
+                ? !canReview
+                : loading || previewLoading
+            }
+            label={
+              step === "build"
+                ? "Review & Confirm"
+                : "Confirm & Submit"
+            }
+            secondaryAction={
+              step === "confirm"
+                ? () => setStep("build")
+                : undefined
+            }
+          />
+        )}
       </div>
     </>
   );

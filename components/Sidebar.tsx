@@ -14,6 +14,7 @@ import {
 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
+import Image from "next/image";
 
 type SidebarProps = {
   variant?: "full" | "compact";
@@ -131,14 +132,16 @@ export default function Sidebar({ variant = "full" }: SidebarProps) {
           className="p-6 flex items-center justify-center"
           style={{ borderBottom: "1px solid var(--sidebar-border)" }}
         >
-          <img
+          <Image
             src={
               isDark
                 ? "/logos/morgens-kitchen-light.svg"
                 : "/logos/morgens-kitchen-dark.svg"
             }
             alt="Morgen's Kitchen"
-            className="h-12"
+            width={160}
+            height={48}
+            priority
           />
         </div>
       )}

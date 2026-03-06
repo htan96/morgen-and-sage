@@ -1,57 +1,55 @@
 import { createClient } from "@/lib/supabase/server";
-import { redirect } from "next/navigation";
 import AdminBookingsClient from "@/app/admin/bookings/AdminBookingsClient";
 
 export default async function PortalBookingsPage() {
   const supabase = await createClient();
 
-  /* ---------------- Auth ---------------- */
-
   const {
     data: { user },
   } = await supabase.auth.getUser();
 
-  if (!user) redirect("/login");
+  if (!user) return null;
 
-  /* ---------------- Tenant ---------------- */
+  /* Get tenant linked to this user */
 
   const { data: tenant } = await supabase
     .from("tenants")
-    .select("id, name, organization_id")
+    .select("id, organization_id")
     .eq("auth_user_id", user.id)
-    .maybeSingle();
+    .single();
 
-  if (!tenant) redirect("/login");
+  if (!tenant) return null;
 
-  const tenantId = tenant.id;
+  const orgId = tenant.organization_id;
 
-  /* ---------------- Kitchens ---------------- */
+  /* Kitchens */
 
   const { data: kitchens } = await supabase
     .from("kitchen_spaces")
     .select("id, name")
-    .eq("organization_id", tenant.organization_id)
+    .eq("organization_id", orgId)
     .order("name");
 
-  /* ---------------- Bookings ---------------- */
-
-  const { data: bookings } = await supabase
-    .from("bookings")
-    .select(`
+  /* Bookings (RLS will limit what tenant can see) */
+const { data: bookings } = await supabase
+  .from("bookings")
+  .select(`
+    id,
+    kitchen_space_id,
+    start_time,
+    end_time,
+    tenant_id,
+    tenant:tenants (
       id,
-      kitchen_space_id,
-      start_time,
-      end_time,
-      tenant_id,
-      tenant:tenants (
-        id,
-        name
-      )
-    `)
-    .eq("tenant_id", tenantId);
-
-  /* ---------------- Normalize Supabase Relation ---------------- */
-
+      name
+    ),
+    kitchen:kitchen_spaces (
+      id,
+      name
+    )
+  `)
+  .eq("organization_id", orgId)
+  
   const normalizedBookings =
     bookings?.map((b: any) => ({
       ...b,
@@ -60,14 +58,14 @@ export default async function PortalBookingsPage() {
         : b.tenant ?? null,
     })) ?? [];
 
-  /* ---------------- Render ---------------- */
-
   return (
     <AdminBookingsClient
       kitchens={kitchens ?? []}
       bookings={normalizedBookings}
-      tenants={[tenant]}
-      portalMode
+      tenants={[]}              // tenants hidden in portal
+      organizationId={orgId}
+      tenantIdFromPortal={tenant.id}
+      portalMode={true}
     />
   );
 }
