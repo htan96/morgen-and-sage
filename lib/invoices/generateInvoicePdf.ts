@@ -29,16 +29,22 @@ export async function generateInvoicePdf(invoiceId: string) {
       waitUntil: "networkidle",
     });
 
-    await page.waitForSelector("body");
+    // wait for invoice table instead of body
+    await page.waitForSelector("table");
 
     const pdf = await page.pdf({
       format: "A4",
       printBackground: true,
     });
 
-    console.log("PDF generated");
+    console.log("PDF generated successfully");
 
     return Buffer.from(pdf);
+
+  } catch (err) {
+
+    console.error("PDF generation failed:", err);
+    throw err;
 
   } finally {
 
