@@ -22,13 +22,13 @@ export default async function SettingsPage() {
 
   if (!myProfile) return null;
 
-  /* Organization sender */
+  /* Organization sender (who connected Google) */
 
   const { data: senderProfile } = await supabase
     .from("profiles")
     .select("*")
     .eq("organization_id", myProfile.organization_id)
-    .eq("is_email_sender", true)
+    .not("google_refresh_token", "is", null)
     .maybeSingle();
 
   return (
@@ -36,10 +36,7 @@ export default async function SettingsPage() {
       title="Settings"
       description="Manage organization integrations and configuration."
     >
-      <EmailIntegrationCard
-        myProfile={myProfile}
-        senderProfile={senderProfile}
-      />
+      <EmailIntegrationCard profile={senderProfile} />
     </SettingsLayout>
   );
 }
