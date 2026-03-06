@@ -1,6 +1,6 @@
 "use server";
 
-import { createClient } from "@/lib/supabase/server";
+import { supabaseAdmin } from "@/lib/supabase/supabase-admin";
 
 type BookingInput = {
   startTime: string;
@@ -17,7 +17,6 @@ type CreateBookingSessionInput = {
 /* ---------------- Generate Invoice Number ---------------- */
 
 function generateInvoiceNumber(billingMonth: string) {
-
   const month = new Date(`${billingMonth}T00:00:00Z`)
     .toLocaleString("en-US", { month: "short", year: "numeric" })
     .replace(" ", "")
@@ -35,7 +34,7 @@ export async function createBookingSession({
   bookings,
 }: CreateBookingSessionInput) {
 
-  const supabase = await createClient();
+  const supabase = supabaseAdmin;
 
   const createdBookings: any[] = [];
 
@@ -49,30 +48,29 @@ export async function createBookingSession({
     const totalHours =
       (end.getTime() - start.getTime()) / 1000 / 60 / 60;
 
-const { data, error } = await supabase
-  .from("bookings")
-  .insert({
-    organization_id: organizationId,
-    tenant_id: tenantId,
-    kitchen_space_id: kitchenSpaceId,
-    start_time: start,
-    end_time: end,
-    total_hours: totalHours,
-  })
-  .select()
-  .single();
+    const { data, error } = await supabase
+      .from("bookings")
+      .insert({
+        organization_id: organizationId,
+        tenant_id: tenantId,
+        kitchen_space_id: kitchenSpaceId,
+        start_time: start,
+        end_time: end,
+        total_hours: totalHours,
+      })
+      .select()
+      .single();
 
-if (error) {
+    if (error) {
 
-  // Booking overlap constraint
-  if (error.code === "23P01") {
-    throw new Error(
-      "This kitchen is already booked during that time."
-    );
-  }
+      if (error.code === "23P01") {
+        throw new Error(
+          "This kitchen is already booked during that time."
+        );
+      }
 
-  throw error;
-}
+      throw error;
+    }
 
     createdBookings.push(data);
   }
