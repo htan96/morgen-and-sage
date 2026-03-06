@@ -23,9 +23,7 @@ export async function generateInvoicePdf(invoiceId: string) {
 
     const url = `${baseUrl}/reports/invoice/${invoiceId}?print=true`;
 
-    console.log("📄 Generating invoice PDF");
-    console.log("Invoice ID:", invoiceId);
-    console.log("URL:", url);
+    console.log("Generating invoice PDF:", url);
 
     await page.goto(url, {
       waitUntil: "networkidle",
@@ -38,14 +36,9 @@ export async function generateInvoicePdf(invoiceId: string) {
       printBackground: true,
     });
 
-    console.log("✅ PDF generated successfully");
+    console.log("PDF generated");
 
     return Buffer.from(pdf);
-
-  } catch (error) {
-
-    console.error("❌ PDF generation failed:", error);
-    throw error;
 
   } finally {
 
