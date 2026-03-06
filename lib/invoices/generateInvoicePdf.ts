@@ -18,7 +18,7 @@ export async function generateInvoicePdf(invoiceId: string) {
     const page = await browser.newPage();
 
     /* ------------------------------------------------ */
-    /* Resolve Base URL (important for Vercel runtime)  */
+    /* Resolve Base URL                                 */
     /* ------------------------------------------------ */
 
     const baseUrl =
@@ -39,14 +39,25 @@ export async function generateInvoicePdf(invoiceId: string) {
       waitUntil: "domcontentloaded",
     });
 
-    console.log("Response Status:", response?.status());
+    const status = response?.status();
+
+    console.log("Response Status:", status);
 
     if (!response) {
       throw new Error("No response received when loading invoice page.");
     }
 
-    if (response.status() >= 400) {
-      throw new Error(`Unexpected status code: ${response.status()}`);
+    if (status && status >= 400) {
+
+      console.log("⚠️ Page returned error status");
+
+      const html = await page.content();
+
+      console.log("----- PAGE HTML START -----");
+      console.log(html.slice(0, 1500)); // first part of page
+      console.log("----- PAGE HTML END -----");
+
+      throw new Error(`Unexpected status code: ${status}`);
     }
 
     /* ------------------------------------------------ */
