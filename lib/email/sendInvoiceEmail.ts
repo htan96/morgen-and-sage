@@ -41,7 +41,7 @@ export async function sendInvoiceEmail(invoiceId: string) {
 
       <div style="margin-bottom:25px">
         <img
-          src="${process.env.NEXT_PUBLIC_APP_URL}/logos/morgens-kitchen-light.svg"
+          src="${process.env.NEXT_PUBLIC_APP_URL}/logos/morgens-kitchen-dark.svg"
           alt="Morgen's Kitchen"
           width="150"
           style="display:block"
