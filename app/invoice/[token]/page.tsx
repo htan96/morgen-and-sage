@@ -15,14 +15,16 @@ export default async function Page({
 
   console.log("----- PUBLIC INVOICE PAGE START -----");
 
-  const rawToken = params.token;
-  console.log("Raw token from URL:", rawToken);
+  const { token: rawToken } = params;
+
+  console.log("Raw token:", rawToken);
 
   const token = rawToken?.trim();
+
   console.log("Trimmed token:", token);
 
   if (!token) {
-    console.error("Token missing -> returning 404");
+    console.error("Token missing → returning 404");
     return notFound();
   }
 
