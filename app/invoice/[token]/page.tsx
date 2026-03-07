@@ -8,11 +8,11 @@ export default async function Page({
   params,
   searchParams,
 }: {
-  params: Promise<{ token: string }>;
+  params: { token: string };
   searchParams?: { print?: string };
 }) {
 
-  const { token } = await params;
+  const token = params.token;
 
   if (!token) return notFound();
 
@@ -74,7 +74,7 @@ export default async function Page({
 
         <div>
           <img
-            src="/logos/morgens-kitchen-dark.svg"
+            src="/logos/morgens-kitchen-light.svg"
             alt="Morgen's Kitchen"
             style={{ height: "60px", width: "auto" }}
           />
