@@ -5,16 +5,19 @@ import PrintButton from "@/components/PrintButton";
 
 export const revalidate = 0;
 
-export default async function Page(props: {
-  params: { token: string };
-  searchParams?: { print?: string };
-}) {
+export default async function Page(props: any) {
 
-  const { params, searchParams } = props;
+  console.log("===== PUBLIC INVOICE PAGE START =====");
 
-  console.log("----- PUBLIC INVOICE PAGE START -----");
+  /* ---------------- GET PARAMS ---------------- */
 
-const rawToken = params.token;
+  const params = props?.params;
+  const searchParams = props?.searchParams;
+
+  console.log("Props received:", props);
+  console.log("Params object:", params);
+
+  const rawToken = params?.token;
 
   console.log("Raw token:", rawToken);
 
@@ -23,12 +26,15 @@ const rawToken = params.token;
   console.log("Trimmed token:", token);
 
   if (!token) {
-    console.error("Token missing → returning 404");
+    console.error("Token missing -> returning 404");
     return notFound();
   }
 
- const isPrint = searchParams?.print === "true";
+  const isPrint = searchParams?.print === "true";
+
   console.log("Print mode:", isPrint);
+
+  /* ---------------- FETCH INVOICE ---------------- */
 
   console.log("Running Supabase query...");
 
@@ -44,8 +50,8 @@ const rawToken = params.token;
     .maybeSingle();
 
   console.log("Supabase query finished");
-  console.log("Error:", error);
-  console.log("Invoice returned:", invoice);
+  console.log("Supabase error:", error);
+  console.log("Invoice result:", invoice);
 
   if (error) {
     console.error("Supabase error:", error);
@@ -58,6 +64,8 @@ const rawToken = params.token;
 
   console.log("Invoice ID:", invoice.id);
   console.log("Invoice number:", invoice.invoice_number);
+
+  /* ---------------- TOTALS ---------------- */
 
   const total = Number(invoice.total_amount || 0);
 
@@ -72,6 +80,8 @@ const rawToken = params.token;
   console.log("Total:", total);
   console.log("Paid:", totalPaid);
   console.log("Remaining:", remaining);
+
+  /* ---------------- SORT LINE ITEMS ---------------- */
 
   const sortedLineItems = [...(invoice.invoice_line_items || [])].sort(
     (a: any, b: any) => {
@@ -94,7 +104,9 @@ const rawToken = params.token;
 
   console.log("Line items count:", sortedLineItems.length);
 
-  console.log("----- PUBLIC INVOICE PAGE RENDER -----");
+  console.log("===== PUBLIC INVOICE PAGE RENDER =====");
+
+  /* ---------------- UI ---------------- */
 
   return (
     <div className="px-8 py-8 max-w-4xl mx-auto bg-white">
