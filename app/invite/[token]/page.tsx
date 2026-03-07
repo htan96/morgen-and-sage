@@ -5,22 +5,25 @@ import PrintButton from "@/components/PrintButton";
 
 export const revalidate = 0;
 
-type PageProps = {
-  params: {
-    token: string;
-  };
-  searchParams?: {
-    print?: string;
-  };
-};
-
-export default async function Page({ params, searchParams }: PageProps) {
+export default async function Page(props: any) {
 
   console.log("===== PUBLIC INVOICE PAGE START =====");
 
-  const token = params.token?.trim();
+  /* ---------------- GET PARAMS ---------------- */
 
-  console.log("Token received:", token);
+  const params = await props.params;
+  const searchParams = await props.searchParams;
+
+  console.log("Props received:", props);
+  console.log("Params object:", params);
+
+  const rawToken = params?.token;
+
+  console.log("Raw token:", rawToken);
+
+  const token = rawToken?.trim();
+
+  console.log("Trimmed token:", token);
 
   if (!token) {
     console.error("Token missing -> returning 404");
@@ -29,7 +32,11 @@ export default async function Page({ params, searchParams }: PageProps) {
 
   const isPrint = searchParams?.print === "true";
 
+  console.log("Print mode:", isPrint);
+
   /* ---------------- FETCH INVOICE ---------------- */
+
+  console.log("Running Supabase query...");
 
   const { data: invoice, error } = await supabaseAdmin
     .from("invoices")
@@ -42,13 +49,21 @@ export default async function Page({ params, searchParams }: PageProps) {
     .eq("public_token", token)
     .maybeSingle();
 
+  console.log("Supabase query finished");
   console.log("Supabase error:", error);
   console.log("Invoice result:", invoice);
 
-  if (error || !invoice) {
-    console.error("Invoice not found for token:", token);
+  if (error) {
+    console.error("Supabase error:", error);
+  }
+
+  if (!invoice) {
+    console.error("No invoice found for token:", token);
     return notFound();
   }
+
+  console.log("Invoice ID:", invoice.id);
+  console.log("Invoice number:", invoice.invoice_number);
 
   /* ---------------- TOTALS ---------------- */
 
@@ -61,6 +76,10 @@ export default async function Page({ params, searchParams }: PageProps) {
     ) || 0;
 
   const remaining = total - totalPaid;
+
+  console.log("Total:", total);
+  console.log("Paid:", totalPaid);
+  console.log("Remaining:", remaining);
 
   /* ---------------- SORT LINE ITEMS ---------------- */
 
@@ -82,6 +101,10 @@ export default async function Page({ params, searchParams }: PageProps) {
       return (a.description || "").localeCompare(b.description || "");
     }
   );
+
+  console.log("Line items count:", sortedLineItems.length);
+
+  console.log("===== PUBLIC INVOICE PAGE RENDER =====");
 
   /* ---------------- UI ---------------- */
 
@@ -165,7 +188,9 @@ export default async function Page({ params, searchParams }: PageProps) {
             {sortedLineItems.map((item: any) => (
               <tr key={item.id} className="border-t">
 
-                <td className="p-3">{item.description}</td>
+                <td className="p-3">
+                  {item.description}
+                </td>
 
                 <td className="p-3">
                   {item.service_date
@@ -173,7 +198,9 @@ export default async function Page({ params, searchParams }: PageProps) {
                     : "-"}
                 </td>
 
-                <td className="p-3">{item.quantity}</td>
+                <td className="p-3">
+                  {item.quantity}
+                </td>
 
                 <td className="p-3">
                   ${Number(item.rate).toFixed(2)}
