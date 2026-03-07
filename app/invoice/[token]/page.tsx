@@ -1,6 +1,7 @@
 import { supabaseAdmin } from "@/lib/supabase/supabase-admin";
 import { notFound } from "next/navigation";
 import AutoPrint from "@/components/AutoPrint";
+import PrintButton from "@/components/PrintButton";
 
 export const revalidate = 0;
 
@@ -18,10 +19,6 @@ export default async function Page({
 
   const isPrint = searchParams?.print === "true";
 
-  /* -------------------------------- */
-  /* Get Invoice                      */
-  /* -------------------------------- */
-
   const { data: invoice, error } = await supabaseAdmin
     .from("invoices")
     .select(`
@@ -37,10 +34,6 @@ export default async function Page({
     console.error("Invoice fetch failed:", error);
     return notFound();
   }
-
-  /* -------------------------------- */
-  /* Calculations                     */
-  /* -------------------------------- */
 
   const total = Number(invoice.total_amount || 0);
 
@@ -70,10 +63,6 @@ export default async function Page({
       return (a.description || "").localeCompare(b.description || "");
     }
   );
-
-  /* -------------------------------- */
-  /* Render                           */
-  /* -------------------------------- */
 
   return (
     <div className="px-8 py-8 max-w-4xl mx-auto bg-white">
@@ -213,16 +202,7 @@ export default async function Page({
 
       </div>
 
-      {!isPrint && (
-        <div className="mt-10 text-center">
-          <button
-            onClick={() => window.print()}
-            className="px-6 py-3 bg-black text-white rounded-lg"
-          >
-            Print / Download PDF
-          </button>
-        </div>
-      )}
+      {!isPrint && <PrintButton />}
 
     </div>
   );
