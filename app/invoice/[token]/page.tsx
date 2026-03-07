@@ -13,11 +13,23 @@ export default async function Page({
   searchParams?: { print?: string };
 }) {
 
-  const token = params.token;
+  console.log("----- PUBLIC INVOICE PAGE START -----");
 
-  if (!token) return notFound();
+  const rawToken = params.token;
+  console.log("Raw token from URL:", rawToken);
+
+  const token = rawToken?.trim();
+  console.log("Trimmed token:", token);
+
+  if (!token) {
+    console.error("Token missing -> returning 404");
+    return notFound();
+  }
 
   const isPrint = searchParams?.print === "true";
+  console.log("Print mode:", isPrint);
+
+  console.log("Running Supabase query...");
 
   const { data: invoice, error } = await supabaseAdmin
     .from("invoices")
@@ -30,10 +42,21 @@ export default async function Page({
     .eq("public_token", token)
     .maybeSingle();
 
-  if (error || !invoice) {
-    console.error("Invoice fetch failed:", error);
+  console.log("Supabase query finished");
+  console.log("Error:", error);
+  console.log("Invoice returned:", invoice);
+
+  if (error) {
+    console.error("Supabase error:", error);
+  }
+
+  if (!invoice) {
+    console.error("No invoice found for token:", token);
     return notFound();
   }
+
+  console.log("Invoice ID:", invoice.id);
+  console.log("Invoice number:", invoice.invoice_number);
 
   const total = Number(invoice.total_amount || 0);
 
@@ -44,6 +67,10 @@ export default async function Page({
     ) || 0;
 
   const remaining = total - totalPaid;
+
+  console.log("Total:", total);
+  console.log("Paid:", totalPaid);
+  console.log("Remaining:", remaining);
 
   const sortedLineItems = [...(invoice.invoice_line_items || [])].sort(
     (a: any, b: any) => {
@@ -63,6 +90,10 @@ export default async function Page({
       return (a.description || "").localeCompare(b.description || "");
     }
   );
+
+  console.log("Line items count:", sortedLineItems.length);
+
+  console.log("----- PUBLIC INVOICE PAGE RENDER -----");
 
   return (
     <div className="px-8 py-8 max-w-4xl mx-auto bg-white">
