@@ -95,7 +95,7 @@ export default async function Page({
       <div className="mb-16 flex items-start justify-between">
 
 <Image
-  src="/logos/morgens-kitchen-light.svg"
+  src="/logos/morgens-kitchen-dark.svg"
   alt="Morgen's Kitchen"
   width={180}
   height={60}
