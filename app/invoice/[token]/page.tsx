@@ -5,17 +5,16 @@ import PrintButton from "@/components/PrintButton";
 
 export const revalidate = 0;
 
-export default async function Page({
-  params,
-  searchParams,
-}: {
+export default async function Page(props: {
   params: { token: string };
   searchParams?: { print?: string };
 }) {
 
+  const { params, searchParams } = props;
+
   console.log("----- PUBLIC INVOICE PAGE START -----");
 
-const rawToken = params?.token;
+const rawToken = params.token;
 
   console.log("Raw token:", rawToken);
 
