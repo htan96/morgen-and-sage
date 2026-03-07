@@ -15,7 +15,7 @@ export default async function Page({
 
   console.log("----- PUBLIC INVOICE PAGE START -----");
 
-  const { token: rawToken } = params;
+const rawToken = params?.token;
 
   console.log("Raw token:", rawToken);
 
@@ -28,7 +28,7 @@ export default async function Page({
     return notFound();
   }
 
-  const isPrint = searchParams?.print === "true";
+ const isPrint = searchParams?.print === "true";
   console.log("Print mode:", isPrint);
 
   console.log("Running Supabase query...");
