@@ -1,221 +1,225 @@
-"use client";
+import { supabaseAdmin } from "@/lib/supabase/supabase-admin";
+import { notFound } from "next/navigation";
+import AutoPrint from "@/components/AutoPrint";
+import PrintButton from "@/components/PrintButton";
 
-import { useEffect, useState } from "react";
-import { useParams, useRouter } from "next/navigation";
-import { createClient } from "@/lib/supabase/client";
+export const revalidate = 0;
 
-export default function InviteSetPasswordPage() {
-  const supabase = createClient();
-  const router = useRouter();
-const params = useParams();
+type PageProps = {
+  params: {
+    token: string;
+  };
+  searchParams?: {
+    print?: string;
+  };
+};
 
-const token = Array.isArray(params?.token)
-  ? params.token[0]
-  : params?.token;
+export default async function Page({ params, searchParams }: PageProps) {
 
-  const [email, setEmail] = useState("");
-  const [tenantId, setTenantId] = useState("");
-  const [password, setPassword] = useState("");
+  console.log("===== PUBLIC INVOICE PAGE START =====");
 
-  const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
+  const token = params.token?.trim();
 
-  /*
-  --------------------------------
-  Load invite data
-  --------------------------------
-  */
+  console.log("Token received:", token);
 
-  useEffect(() => {
-
-    if (!token) return;
-
-    async function loadInvite() {
-
-      setLoading(true);
-
-      const res = await fetch("/api/invites/get", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ token }),
-      });
-
-      const data = await res.json();
-
-      if (!res.ok) {
-        alert(data.error || "Invalid invite");
-        router.push("/login");
-        return;
-      }
-
-      setEmail(data.email);
-      setTenantId(data.tenantId);
-      setLoading(false);
-    }
-
-    loadInvite();
-
-  }, [token, router]);
-
-  /*
-  --------------------------------
-  Create account
-  --------------------------------
-  */
-
-  async function handleCreateAccount(e: React.FormEvent) {
-
-    e.preventDefault();
-    setSaving(true);
-
-    let { data, error } = await supabase.auth.signUp({
-      email,
-      password,
-      options: {
-        data: {
-          role: "tenant",
-          tenant_id: tenantId,
-        },
-      },
-    });
-
-    /*
-    --------------------------------
-    Handle existing user
-    --------------------------------
-    */
-
-    if (error && error.message.includes("User already registered")) {
-
-      const login = await supabase.auth.signInWithPassword({
-        email,
-        password,
-      });
-
-      if (login.error) {
-        alert(login.error.message);
-        setSaving(false);
-        return;
-      }
-
-      data = login.data;
-    }
-
-    if (error && !error.message.includes("User already registered")) {
-      alert(error.message);
-      setSaving(false);
-      return;
-    }
-
-    const userId = data.user?.id;
-
-    if (!userId) {
-      alert("Account created but user ID missing.");
-      setSaving(false);
-      return;
-    }
-
-    /*
-    --------------------------------
-    Ensure session exists
-    --------------------------------
-    */
-
-    await supabase.auth.refreshSession();
-
-    /*
-    --------------------------------
-    Link tenant + mark invite used
-    --------------------------------
-    */
-
-    const consumeRes = await fetch("/api/invites/consume", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        token,
-        userId,
-      }),
-    });
-
-    const consumeData = await consumeRes.json();
-
-    if (!consumeRes.ok) {
-      alert(consumeData.error || "Failed to complete invite");
-      setSaving(false);
-      return;
-    }
-
-    /*
-    --------------------------------
-    Redirect
-    --------------------------------
-    */
-
-    router.replace("/");
+  if (!token) {
+    console.error("Token missing -> returning 404");
+    return notFound();
   }
 
-  /*
-  --------------------------------
-  Loading state
-  --------------------------------
-  */
+  const isPrint = searchParams?.print === "true";
 
-  if (loading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        Loading invite...
-      </div>
-    );
+  /* ---------------- FETCH INVOICE ---------------- */
+
+  const { data: invoice, error } = await supabaseAdmin
+    .from("invoices")
+    .select(`
+      *,
+      tenant:tenants(name),
+      invoice_line_items(*),
+      payments(*)
+    `)
+    .eq("public_token", token)
+    .maybeSingle();
+
+  console.log("Supabase error:", error);
+  console.log("Invoice result:", invoice);
+
+  if (error || !invoice) {
+    console.error("Invoice not found for token:", token);
+    return notFound();
   }
 
-  /*
-  --------------------------------
-  Page UI
-  --------------------------------
-  */
+  /* ---------------- TOTALS ---------------- */
+
+  const total = Number(invoice.total_amount || 0);
+
+  const totalPaid =
+    invoice.payments?.reduce(
+      (sum: number, p: any) => sum + Number(p.amount),
+      0
+    ) || 0;
+
+  const remaining = total - totalPaid;
+
+  /* ---------------- SORT LINE ITEMS ---------------- */
+
+  const sortedLineItems = [...(invoice.invoice_line_items || [])].sort(
+    (a: any, b: any) => {
+
+      const dateA = a.service_date
+        ? new Date(a.service_date).getTime()
+        : null;
+
+      const dateB = b.service_date
+        ? new Date(b.service_date).getTime()
+        : null;
+
+      if (dateA && dateB) return dateA - dateB;
+      if (dateA && !dateB) return -1;
+      if (!dateA && dateB) return 1;
+
+      return (a.description || "").localeCompare(b.description || "");
+    }
+  );
+
+  /* ---------------- UI ---------------- */
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-[var(--bg)] p-6">
+    <div className="px-8 py-8 max-w-4xl mx-auto bg-white">
 
-      <form
-        onSubmit={handleCreateAccount}
-        className="w-full max-w-md p-6 rounded-2xl border border-[var(--border)] bg-[var(--surface)] space-y-4"
-      >
+      {isPrint && <AutoPrint />}
 
-        <h1 className="text-xl font-semibold text-[var(--text)]">
-          Set Your Password
-        </h1>
+      {/* HEADER */}
 
-        <div className="text-sm text-[var(--text-muted)]">
-          Account for:
-          <span className="font-medium text-[var(--text)] ml-1">
-            {email}
-          </span>
+      <div className="mb-16 flex items-start justify-between">
+
+        <div>
+          <img
+            src="/logos/morgens-kitchen-light.svg"
+            alt="Morgen's Kitchen"
+            style={{ height: "60px", width: "auto" }}
+          />
         </div>
 
-        <input
-          type="password"
-          placeholder="Create password"
-          required
-          value={password}
-          onChange={(e) => setPassword(e.target.value)}
-          className="w-full px-4 py-3 rounded-xl border border-[var(--border)] bg-[var(--bg)]"
-        />
+        <div className="text-right">
 
-        <button
-          type="submit"
-          disabled={saving}
-          className="w-full py-3 rounded-xl bg-[var(--text)] text-[var(--bg)] font-medium disabled:opacity-60"
-        >
-          {saving ? "Creating Account..." : "Create Account"}
-        </button>
+          <h1 className="text-lg font-semibold tracking-wider">
+            {invoice.invoice_number}
+          </h1>
 
-      </form>
+          <div className="text-sm text-gray-500 mt-2 space-y-1">
+
+            {invoice.invoice_date && (
+              <p>
+                Issued:{" "}
+                {new Date(invoice.invoice_date).toLocaleDateString()}
+              </p>
+            )}
+
+            {invoice.due_date && (
+              <p>
+                Due:{" "}
+                {new Date(invoice.due_date).toLocaleDateString()}
+              </p>
+            )}
+
+          </div>
+
+        </div>
+
+      </div>
+
+      {/* BILL TO */}
+
+      <div className="mt-4 mb-24">
+
+        <p className="text-xs uppercase tracking-widest text-gray-400 mb-2">
+          Bill To
+        </p>
+
+        <p className="text-lg font-medium">
+          {invoice.tenant?.name}
+        </p>
+
+      </div>
+
+      {/* LINE ITEMS */}
+
+      <div className="p-6">
+
+        <table className="w-full text-sm">
+
+          <thead>
+            <tr>
+              <th className="text-left p-3">Description</th>
+              <th className="text-left p-3">Service Date</th>
+              <th className="text-left p-3">Qty</th>
+              <th className="text-left p-3">Rate</th>
+              <th className="text-right p-3">Amount</th>
+            </tr>
+          </thead>
+
+          <tbody>
+
+            {sortedLineItems.map((item: any) => (
+              <tr key={item.id} className="border-t">
+
+                <td className="p-3">{item.description}</td>
+
+                <td className="p-3">
+                  {item.service_date
+                    ? new Date(item.service_date).toLocaleDateString()
+                    : "-"}
+                </td>
+
+                <td className="p-3">{item.quantity}</td>
+
+                <td className="p-3">
+                  ${Number(item.rate).toFixed(2)}
+                </td>
+
+                <td className="p-3 text-right font-medium">
+                  ${Number(item.amount).toFixed(2)}
+                </td>
+
+              </tr>
+            ))}
+
+          </tbody>
+
+        </table>
+
+      </div>
+
+      {/* SUMMARY */}
+
+      <div className="p-8 mt-12 flex justify-between text-center">
+
+        <div>
+          <p className="text-sm text-gray-500">Total</p>
+          <p className="text-xl font-semibold">
+            ${total.toFixed(2)}
+          </p>
+        </div>
+
+        <div>
+          <p className="text-sm text-gray-500">Paid</p>
+          <p className="text-xl font-semibold text-green-600">
+            ${totalPaid.toFixed(2)}
+          </p>
+        </div>
+
+        <div>
+          <p className="text-sm text-gray-500">Balance</p>
+          <p className="text-xl font-semibold text-red-600">
+            ${remaining.toFixed(2)}
+          </p>
+        </div>
+
+      </div>
+
+      {!isPrint && <PrintButton />}
 
     </div>
   );

@@ -20,8 +20,9 @@ export async function sendInvoiceEmail(invoiceId: string) {
     throw new Error("Tenant email missing.");
   }
 
-const invoiceUrl =
+  const invoiceUrl =
 `${process.env.NEXT_PUBLIC_APP_URL}/invoice/${invoice.public_token}?print=true`;
+
   const html = `
   <div style="
       font-family: Arial, Helvetica, sans-serif;
@@ -38,7 +39,6 @@ const invoiceUrl =
         border:1px solid #e6e6e6;
     ">
 
-      <!-- LOGO -->
       <div style="margin-bottom:25px">
         <img
           src="${process.env.NEXT_PUBLIC_APP_URL}/logos/morgens-kitchen-light.svg"
@@ -48,7 +48,6 @@ const invoiceUrl =
         />
       </div>
 
-      <!-- TITLE -->
       <h2 style="
           margin-top:0;
           color:#111;
@@ -57,7 +56,6 @@ const invoiceUrl =
         Invoice ${invoice.invoice_number}
       </h2>
 
-      <!-- GREETING -->
       <p style="color:#333">
         Hello ${invoice.tenant?.name},
       </p>
@@ -66,7 +64,6 @@ const invoiceUrl =
         Your invoice is ready. Click the button below to view or download it.
       </p>
 
-      <!-- BUTTON -->
       <div style="margin:30px 0">
         <a
           href="${invoiceUrl}"
@@ -84,7 +81,6 @@ const invoiceUrl =
         </a>
       </div>
 
-      <!-- FALLBACK LINK -->
       <p style="
           font-size:13px;
           color:#777;
@@ -101,7 +97,6 @@ const invoiceUrl =
         ${invoiceUrl}
       </p>
 
-      <!-- FOOTER -->
       <div style="
           margin-top:40px;
           padding-top:20px;
@@ -118,11 +113,27 @@ const invoiceUrl =
   </div>
   `;
 
+  /* ---------------- SEND EMAIL ---------------- */
+
   await sendEmail({
     organizationId: invoice.organization_id,
     to: invoice.tenant.email,
     subject: `Invoice ${invoice.invoice_number}`,
     html,
   });
+
+  /* ---------------- UPDATE INVOICE STATUS ---------------- */
+
+  const expires = new Date();
+  expires.setDate(expires.getDate() + 90);
+
+  await supabaseAdmin
+    .from("invoices")
+    .update({
+      email_sent: true,
+      email_sent_at: new Date().toISOString(),
+      token_expires_at: expires.toISOString(),
+    })
+    .eq("id", invoiceId);
 
 }
