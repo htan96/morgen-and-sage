@@ -1,3 +1,4 @@
+import Image from "next/image";
 import { supabaseAdmin } from "@/lib/supabase/supabase-admin";
 import { notFound } from "next/navigation";
 import AutoPrint from "@/components/AutoPrint";
@@ -13,6 +14,8 @@ export default async function Page({
   searchParams: Promise<{ print?: string }>;
 }) {
 
+  console.log("===== PUBLIC INVOICE PAGE START =====");
+
   /* ---------------- RESOLVE PARAMS ---------------- */
 
   const resolvedParams = await params;
@@ -20,7 +23,10 @@ export default async function Page({
 
   const token = resolvedParams?.token?.trim();
 
+  console.log("Resolved token:", token);
+
   if (!token) {
+    console.error("Token missing -> returning 404");
     return notFound();
   }
 
@@ -39,7 +45,11 @@ export default async function Page({
     .eq("public_token", token)
     .maybeSingle();
 
+  console.log("Invoice result:", invoice);
+  console.log("Supabase error:", error);
+
   if (error || !invoice) {
+    console.error("Invoice not found for token:", token);
     return notFound();
   }
 
@@ -55,11 +65,10 @@ export default async function Page({
 
   const remaining = total - totalPaid;
 
-  /* ---------------- SORT LINE ITEMS ---------------- */
+  /* ---------------- SORT ITEMS ---------------- */
 
   const sortedLineItems = [...(invoice.invoice_line_items || [])].sort(
     (a: any, b: any) => {
-
       const dateA = a.service_date
         ? new Date(a.service_date).getTime()
         : null;
@@ -85,17 +94,16 @@ export default async function Page({
 
       {/* HEADER */}
 
-      <div className="mb-10 flex flex-col sm:flex-row sm:items-start sm:justify-between gap-6">
+      <div className="mb-10 sm:mb-16 flex items-start justify-between">
 
-        <div>
-          <img
-            src="/logos/morgens-kitchen-light.svg"
-            alt="Morgen's Kitchen"
-            style={{ height: "60px", width: "auto" }}
-          />
-        </div>
+        <Image
+          src="/logos/morgens-kitchen-dark.svg"
+          alt="Morgen's Kitchen"
+          width={180}
+          height={60}
+        />
 
-        <div className="text-left sm:text-right">
+        <div className="text-right">
 
           <h1 className="text-lg font-semibold tracking-wider">
             {invoice.invoice_number}
@@ -125,7 +133,7 @@ export default async function Page({
 
       {/* BILL TO */}
 
-      <div className="mt-4 mb-16">
+      <div className="mt-4 mb-14 sm:mb-24">
 
         <p className="text-xs uppercase tracking-widest text-gray-400 mb-2">
           Bill To
@@ -139,18 +147,36 @@ export default async function Page({
 
       {/* LINE ITEMS */}
 
-      <div className="p-2 sm:p-6 overflow-x-auto">
+      <div className="p-2 sm:p-6">
 
-        <table className="w-full text-sm min-w-[600px]">
+        <table className="w-full text-sm">
 
           <thead>
+
             <tr>
-              <th className="text-left p-2 sm:p-3">Description</th>
-              <th className="text-left p-2 sm:p-3">Service Date</th>
-              <th className="text-left p-2 sm:p-3">Qty</th>
-              <th className="text-left p-2 sm:p-3">Rate</th>
-              <th className="text-right p-2 sm:p-3">Amount</th>
+
+              <th className="text-left p-2 sm:p-3">
+                Description
+              </th>
+
+              <th className="text-left p-2 sm:p-3">
+                Service Date
+              </th>
+
+              <th className="text-left p-2 sm:p-3">
+                Qty
+              </th>
+
+              <th className="text-left p-2 sm:p-3">
+                Rate
+              </th>
+
+              <th className="text-right p-2 sm:p-3">
+                Amount
+              </th>
+
             </tr>
+
           </thead>
 
           <tbody>
@@ -191,38 +217,47 @@ export default async function Page({
 
       {/* SUMMARY */}
 
-      <div className="p-6 mt-10 grid grid-cols-1 sm:grid-cols-3 gap-6 text-center">
+      <div className="p-4 sm:p-8 mt-8 sm:mt-12 flex justify-between text-center">
 
         <div>
-          <p className="text-sm text-gray-500">Total</p>
+
+          <p className="text-sm text-gray-500">
+            Total
+          </p>
+
           <p className="text-xl font-semibold">
             ${total.toFixed(2)}
           </p>
+
         </div>
 
         <div>
-          <p className="text-sm text-gray-500">Paid</p>
+
+          <p className="text-sm text-gray-500">
+            Paid
+          </p>
+
           <p className="text-xl font-semibold text-green-600">
             ${totalPaid.toFixed(2)}
           </p>
+
         </div>
 
         <div>
-          <p className="text-sm text-gray-500">Balance</p>
+
+          <p className="text-sm text-gray-500">
+            Balance
+          </p>
+
           <p className="text-xl font-semibold text-red-600">
             ${remaining.toFixed(2)}
           </p>
+
         </div>
 
       </div>
 
-      {/* PRINT BUTTON */}
-
-      {!isPrint && (
-        <div className="flex justify-center mt-6">
-          <PrintButton />
-        </div>
-      )}
+      {!isPrint && <PrintButton />}
 
     </div>
   );
