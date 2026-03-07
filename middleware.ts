@@ -10,19 +10,6 @@ export async function middleware(request: NextRequest) {
   });
 
   /* ======================================================
-     PUBLIC ROUTES
-  ====================================================== */
-
-  if (
-    pathname.startsWith("/login") ||
-    pathname.startsWith("/invite") ||
-    pathname.startsWith("/set-password") ||
-    pathname.startsWith("/invoice") // 👈 PUBLIC CLIENT INVOICE PAGE
-  ) {
-    return response;
-  }
-
-  /* ======================================================
      SUPABASE AUTH
   ====================================================== */
 
@@ -47,10 +34,17 @@ export async function middleware(request: NextRequest) {
     data: { user },
   } = await supabase.auth.getUser();
 
+  /* ======================================================
+     NOT LOGGED IN
+  ====================================================== */
+
   if (!user) {
+
     const url = request.nextUrl.clone();
     url.pathname = "/login";
+
     return NextResponse.redirect(url);
+
   }
 
   /* ======================================================
@@ -76,12 +70,16 @@ export async function middleware(request: NextRequest) {
   if (pathname.startsWith("/admin")) {
 
     if (profile?.role !== "admin") {
+
       const url = request.nextUrl.clone();
       url.pathname = "/portal";
+
       return NextResponse.redirect(url);
+
     }
 
     return response;
+
   }
 
   /* ======================================================
@@ -91,17 +89,29 @@ export async function middleware(request: NextRequest) {
   if (pathname.startsWith("/portal")) {
 
     if (!tenant) {
+
       const url = request.nextUrl.clone();
       url.pathname = "/login";
+
       return NextResponse.redirect(url);
+
     }
 
     return response;
+
   }
 
   return response;
+
 }
 
+/* ======================================================
+   ONLY RUN MIDDLEWARE ON PROTECTED ROUTES
+====================================================== */
+
 export const config = {
-  matcher: ["/((?!api|_next|favicon.ico|.*\\..*).*)"],
+  matcher: [
+    "/admin/:path*",
+    "/portal/:path*"
+  ],
 };
