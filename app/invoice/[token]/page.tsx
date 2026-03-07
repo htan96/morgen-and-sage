@@ -1,4 +1,3 @@
-import Image from "next/image";
 import { supabaseAdmin } from "@/lib/supabase/supabase-admin";
 import { notFound } from "next/navigation";
 import AutoPrint from "@/components/AutoPrint";
@@ -14,8 +13,6 @@ export default async function Page({
   searchParams: Promise<{ print?: string }>;
 }) {
 
-  console.log("===== PUBLIC INVOICE PAGE START =====");
-
   /* ---------------- RESOLVE PARAMS ---------------- */
 
   const resolvedParams = await params;
@@ -23,10 +20,7 @@ export default async function Page({
 
   const token = resolvedParams?.token?.trim();
 
-  console.log("Resolved token:", token);
-
   if (!token) {
-    console.error("Token missing -> returning 404");
     return notFound();
   }
 
@@ -45,11 +39,7 @@ export default async function Page({
     .eq("public_token", token)
     .maybeSingle();
 
-  console.log("Invoice result:", invoice);
-  console.log("Supabase error:", error);
-
   if (error || !invoice) {
-    console.error("Invoice not found for token:", token);
     return notFound();
   }
 
@@ -65,10 +55,11 @@ export default async function Page({
 
   const remaining = total - totalPaid;
 
-  /* ---------------- SORT ITEMS ---------------- */
+  /* ---------------- SORT LINE ITEMS ---------------- */
 
   const sortedLineItems = [...(invoice.invoice_line_items || [])].sort(
     (a: any, b: any) => {
+
       const dateA = a.service_date
         ? new Date(a.service_date).getTime()
         : null;
@@ -88,24 +79,30 @@ export default async function Page({
   /* ---------------- UI ---------------- */
 
   return (
-    <div className="px-8 py-8 max-w-4xl mx-auto bg-white">
+    <div className="px-4 sm:px-6 md:px-8 py-6 max-w-4xl mx-auto bg-white">
 
       {isPrint && <AutoPrint />}
 
-      <div className="mb-16 flex items-start justify-between">
+      {/* HEADER */}
 
-<Image
-  src="/logos/morgens-kitchen-dark.svg"
-  alt="Morgen's Kitchen"
-  width={180}
-  height={60}
-/>
-        <div className="text-right">
+      <div className="mb-10 flex flex-col sm:flex-row sm:items-start sm:justify-between gap-6">
+
+        <div>
+          <img
+            src="/logos/morgens-kitchen-light.svg"
+            alt="Morgen's Kitchen"
+            style={{ height: "60px", width: "auto" }}
+          />
+        </div>
+
+        <div className="text-left sm:text-right">
+
           <h1 className="text-lg font-semibold tracking-wider">
             {invoice.invoice_number}
           </h1>
 
           <div className="text-sm text-gray-500 mt-2 space-y-1">
+
             {invoice.invoice_date && (
               <p>
                 Issued:{" "}
@@ -119,12 +116,17 @@ export default async function Page({
                 {new Date(invoice.due_date).toLocaleDateString()}
               </p>
             )}
+
           </div>
+
         </div>
 
       </div>
 
-      <div className="mt-4 mb-24">
+      {/* BILL TO */}
+
+      <div className="mt-4 mb-16">
+
         <p className="text-xs uppercase tracking-widest text-gray-400 mb-2">
           Bill To
         </p>
@@ -132,19 +134,22 @@ export default async function Page({
         <p className="text-lg font-medium">
           {invoice.tenant?.name}
         </p>
+
       </div>
 
-      <div className="p-6">
+      {/* LINE ITEMS */}
 
-        <table className="w-full text-sm">
+      <div className="p-2 sm:p-6 overflow-x-auto">
+
+        <table className="w-full text-sm min-w-[600px]">
 
           <thead>
             <tr>
-              <th className="text-left p-3">Description</th>
-              <th className="text-left p-3">Service Date</th>
-              <th className="text-left p-3">Qty</th>
-              <th className="text-left p-3">Rate</th>
-              <th className="text-right p-3">Amount</th>
+              <th className="text-left p-2 sm:p-3">Description</th>
+              <th className="text-left p-2 sm:p-3">Service Date</th>
+              <th className="text-left p-2 sm:p-3">Qty</th>
+              <th className="text-left p-2 sm:p-3">Rate</th>
+              <th className="text-right p-2 sm:p-3">Amount</th>
             </tr>
           </thead>
 
@@ -153,21 +158,25 @@ export default async function Page({
             {sortedLineItems.map((item: any) => (
               <tr key={item.id} className="border-t">
 
-                <td className="p-3">{item.description}</td>
+                <td className="p-2 sm:p-3">
+                  {item.description}
+                </td>
 
-                <td className="p-3">
+                <td className="p-2 sm:p-3">
                   {item.service_date
                     ? new Date(item.service_date).toLocaleDateString()
                     : "-"}
                 </td>
 
-                <td className="p-3">{item.quantity}</td>
+                <td className="p-2 sm:p-3">
+                  {item.quantity}
+                </td>
 
-                <td className="p-3">
+                <td className="p-2 sm:p-3">
                   ${Number(item.rate).toFixed(2)}
                 </td>
 
-                <td className="p-3 text-right font-medium">
+                <td className="p-2 sm:p-3 text-right font-medium">
                   ${Number(item.amount).toFixed(2)}
                 </td>
 
@@ -180,7 +189,9 @@ export default async function Page({
 
       </div>
 
-      <div className="p-8 mt-12 flex justify-between text-center">
+      {/* SUMMARY */}
+
+      <div className="p-6 mt-10 grid grid-cols-1 sm:grid-cols-3 gap-6 text-center">
 
         <div>
           <p className="text-sm text-gray-500">Total</p>
@@ -205,7 +216,13 @@ export default async function Page({
 
       </div>
 
-      {!isPrint && <PrintButton />}
+      {/* PRINT BUTTON */}
+
+      {!isPrint && (
+        <div className="flex justify-center mt-6">
+          <PrintButton />
+        </div>
+      )}
 
     </div>
   );
