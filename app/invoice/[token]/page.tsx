@@ -1,4 +1,4 @@
-import { createClient } from "@/lib/supabase/server";
+import { supabaseAdmin } from "@/lib/supabase/supabase-admin";
 import { notFound } from "next/navigation";
 import AutoPrint from "@/components/AutoPrint";
 
@@ -18,9 +18,11 @@ export default async function Page({
 
   const isPrint = searchParams?.print === "true";
 
-  const supabase = await createClient();
+  /* -------------------------------- */
+  /* Get Invoice                      */
+  /* -------------------------------- */
 
-  const { data: invoice, error } = await supabase
+  const { data: invoice, error } = await supabaseAdmin
     .from("invoices")
     .select(`
       *,
@@ -36,6 +38,10 @@ export default async function Page({
     return notFound();
   }
 
+  /* -------------------------------- */
+  /* Calculations                     */
+  /* -------------------------------- */
+
   const total = Number(invoice.total_amount || 0);
 
   const totalPaid =
@@ -48,6 +54,7 @@ export default async function Page({
 
   const sortedLineItems = [...(invoice.invoice_line_items || [])].sort(
     (a: any, b: any) => {
+
       const dateA = a.service_date
         ? new Date(a.service_date).getTime()
         : null;
@@ -64,12 +71,17 @@ export default async function Page({
     }
   );
 
+  /* -------------------------------- */
+  /* Render                           */
+  /* -------------------------------- */
+
   return (
-    <div className="px-8 py-8 max-w-4xl mx-auto">
+    <div className="px-8 py-8 max-w-4xl mx-auto bg-white">
 
       {isPrint && <AutoPrint />}
 
       {/* HEADER */}
+
       <div className="mb-16 flex items-start justify-between">
 
         <div>
@@ -109,6 +121,7 @@ export default async function Page({
       </div>
 
       {/* BILL TO */}
+
       <div className="mt-4 mb-24">
 
         <p className="text-xs uppercase tracking-widest text-gray-400 mb-2">
@@ -122,6 +135,7 @@ export default async function Page({
       </div>
 
       {/* LINE ITEMS */}
+
       <div className="p-6">
 
         <table className="w-full text-sm">
@@ -173,6 +187,7 @@ export default async function Page({
       </div>
 
       {/* SUMMARY */}
+
       <div className="p-8 mt-12 flex justify-between text-center">
 
         <div>
