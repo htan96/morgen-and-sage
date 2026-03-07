@@ -5,38 +5,33 @@ import PrintButton from "@/components/PrintButton";
 
 export const revalidate = 0;
 
-export default async function Page(props: any) {
+export default async function Page({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ token: string }>;
+  searchParams: Promise<{ print?: string }>;
+}) {
 
   console.log("===== PUBLIC INVOICE PAGE START =====");
 
-  /* ---------------- GET PARAMS ---------------- */
+  /* ---------------- RESOLVE PARAMS ---------------- */
 
-  const params = props?.params;
-  const searchParams = props?.searchParams;
+  const resolvedParams = await params;
+  const resolvedSearch = await searchParams;
 
-  console.log("Props received:", props);
-  console.log("Params object:", params);
+  const token = resolvedParams?.token?.trim();
 
-  const rawToken = params?.token;
-
-  console.log("Raw token:", rawToken);
-
-  const token = rawToken?.trim();
-
-  console.log("Trimmed token:", token);
+  console.log("Resolved token:", token);
 
   if (!token) {
     console.error("Token missing -> returning 404");
     return notFound();
   }
 
-  const isPrint = searchParams?.print === "true";
-
-  console.log("Print mode:", isPrint);
+  const isPrint = resolvedSearch?.print === "true";
 
   /* ---------------- FETCH INVOICE ---------------- */
-
-  console.log("Running Supabase query...");
 
   const { data: invoice, error } = await supabaseAdmin
     .from("invoices")
@@ -49,21 +44,13 @@ export default async function Page(props: any) {
     .eq("public_token", token)
     .maybeSingle();
 
-  console.log("Supabase query finished");
-  console.log("Supabase error:", error);
   console.log("Invoice result:", invoice);
+  console.log("Supabase error:", error);
 
-  if (error) {
-    console.error("Supabase error:", error);
-  }
-
-  if (!invoice) {
-    console.error("No invoice found for token:", token);
+  if (error || !invoice) {
+    console.error("Invoice not found for token:", token);
     return notFound();
   }
-
-  console.log("Invoice ID:", invoice.id);
-  console.log("Invoice number:", invoice.invoice_number);
 
   /* ---------------- TOTALS ---------------- */
 
@@ -77,15 +64,10 @@ export default async function Page(props: any) {
 
   const remaining = total - totalPaid;
 
-  console.log("Total:", total);
-  console.log("Paid:", totalPaid);
-  console.log("Remaining:", remaining);
-
-  /* ---------------- SORT LINE ITEMS ---------------- */
+  /* ---------------- SORT ITEMS ---------------- */
 
   const sortedLineItems = [...(invoice.invoice_line_items || [])].sort(
     (a: any, b: any) => {
-
       const dateA = a.service_date
         ? new Date(a.service_date).getTime()
         : null;
@@ -102,10 +84,6 @@ export default async function Page(props: any) {
     }
   );
 
-  console.log("Line items count:", sortedLineItems.length);
-
-  console.log("===== PUBLIC INVOICE PAGE RENDER =====");
-
   /* ---------------- UI ---------------- */
 
   return (
@@ -113,26 +91,20 @@ export default async function Page(props: any) {
 
       {isPrint && <AutoPrint />}
 
-      {/* HEADER */}
-
       <div className="mb-16 flex items-start justify-between">
 
-        <div>
-          <img
-            src="/logos/morgens-kitchen-light.svg"
-            alt="Morgen's Kitchen"
-            style={{ height: "60px", width: "auto" }}
-          />
-        </div>
+        <img
+          src="/logos/morgens-kitchen-light.svg"
+          alt="Morgen's Kitchen"
+          style={{ height: "60px" }}
+        />
 
         <div className="text-right">
-
           <h1 className="text-lg font-semibold tracking-wider">
             {invoice.invoice_number}
           </h1>
 
           <div className="text-sm text-gray-500 mt-2 space-y-1">
-
             {invoice.invoice_date && (
               <p>
                 Issued:{" "}
@@ -146,17 +118,12 @@ export default async function Page(props: any) {
                 {new Date(invoice.due_date).toLocaleDateString()}
               </p>
             )}
-
           </div>
-
         </div>
 
       </div>
 
-      {/* BILL TO */}
-
       <div className="mt-4 mb-24">
-
         <p className="text-xs uppercase tracking-widest text-gray-400 mb-2">
           Bill To
         </p>
@@ -164,10 +131,7 @@ export default async function Page(props: any) {
         <p className="text-lg font-medium">
           {invoice.tenant?.name}
         </p>
-
       </div>
-
-      {/* LINE ITEMS */}
 
       <div className="p-6">
 
@@ -188,9 +152,7 @@ export default async function Page(props: any) {
             {sortedLineItems.map((item: any) => (
               <tr key={item.id} className="border-t">
 
-                <td className="p-3">
-                  {item.description}
-                </td>
+                <td className="p-3">{item.description}</td>
 
                 <td className="p-3">
                   {item.service_date
@@ -198,9 +160,7 @@ export default async function Page(props: any) {
                     : "-"}
                 </td>
 
-                <td className="p-3">
-                  {item.quantity}
-                </td>
+                <td className="p-3">{item.quantity}</td>
 
                 <td className="p-3">
                   ${Number(item.rate).toFixed(2)}
@@ -218,8 +178,6 @@ export default async function Page(props: any) {
         </table>
 
       </div>
-
-      {/* SUMMARY */}
 
       <div className="p-8 mt-12 flex justify-between text-center">
 

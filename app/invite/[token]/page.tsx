@@ -1,252 +1,221 @@
-import { supabaseAdmin } from "@/lib/supabase/supabase-admin";
-import { notFound } from "next/navigation";
-import AutoPrint from "@/components/AutoPrint";
-import PrintButton from "@/components/PrintButton";
+"use client";
 
-export const revalidate = 0;
+import { useEffect, useState } from "react";
+import { useParams, useRouter } from "next/navigation";
+import { createClient } from "@/lib/supabase/client";
 
-export default async function Page(props: any) {
+export default function InviteSetPasswordPage() {
+  const supabase = createClient();
+  const router = useRouter();
+const params = useParams();
 
-  console.log("===== PUBLIC INVOICE PAGE START =====");
+const token = Array.isArray(params?.token)
+  ? params.token[0]
+  : params?.token;
 
-  /* ---------------- GET PARAMS ---------------- */
+  const [email, setEmail] = useState("");
+  const [tenantId, setTenantId] = useState("");
+  const [password, setPassword] = useState("");
 
-  const params = await props.params;
-  const searchParams = await props.searchParams;
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
 
-  console.log("Props received:", props);
-  console.log("Params object:", params);
+  /*
+  --------------------------------
+  Load invite data
+  --------------------------------
+  */
 
-  const rawToken = params?.token;
+  useEffect(() => {
 
-  console.log("Raw token:", rawToken);
+    if (!token) return;
 
-  const token = rawToken?.trim();
+    async function loadInvite() {
 
-  console.log("Trimmed token:", token);
+      setLoading(true);
 
-  if (!token) {
-    console.error("Token missing -> returning 404");
-    return notFound();
-  }
+      const res = await fetch("/api/invites/get", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ token }),
+      });
 
-  const isPrint = searchParams?.print === "true";
+      const data = await res.json();
 
-  console.log("Print mode:", isPrint);
+      if (!res.ok) {
+        alert(data.error || "Invalid invite");
+        router.push("/login");
+        return;
+      }
 
-  /* ---------------- FETCH INVOICE ---------------- */
-
-  console.log("Running Supabase query...");
-
-  const { data: invoice, error } = await supabaseAdmin
-    .from("invoices")
-    .select(`
-      *,
-      tenant:tenants(name),
-      invoice_line_items(*),
-      payments(*)
-    `)
-    .eq("public_token", token)
-    .maybeSingle();
-
-  console.log("Supabase query finished");
-  console.log("Supabase error:", error);
-  console.log("Invoice result:", invoice);
-
-  if (error) {
-    console.error("Supabase error:", error);
-  }
-
-  if (!invoice) {
-    console.error("No invoice found for token:", token);
-    return notFound();
-  }
-
-  console.log("Invoice ID:", invoice.id);
-  console.log("Invoice number:", invoice.invoice_number);
-
-  /* ---------------- TOTALS ---------------- */
-
-  const total = Number(invoice.total_amount || 0);
-
-  const totalPaid =
-    invoice.payments?.reduce(
-      (sum: number, p: any) => sum + Number(p.amount),
-      0
-    ) || 0;
-
-  const remaining = total - totalPaid;
-
-  console.log("Total:", total);
-  console.log("Paid:", totalPaid);
-  console.log("Remaining:", remaining);
-
-  /* ---------------- SORT LINE ITEMS ---------------- */
-
-  const sortedLineItems = [...(invoice.invoice_line_items || [])].sort(
-    (a: any, b: any) => {
-
-      const dateA = a.service_date
-        ? new Date(a.service_date).getTime()
-        : null;
-
-      const dateB = b.service_date
-        ? new Date(b.service_date).getTime()
-        : null;
-
-      if (dateA && dateB) return dateA - dateB;
-      if (dateA && !dateB) return -1;
-      if (!dateA && dateB) return 1;
-
-      return (a.description || "").localeCompare(b.description || "");
+      setEmail(data.email);
+      setTenantId(data.tenantId);
+      setLoading(false);
     }
-  );
 
-  console.log("Line items count:", sortedLineItems.length);
+    loadInvite();
 
-  console.log("===== PUBLIC INVOICE PAGE RENDER =====");
+  }, [token, router]);
 
-  /* ---------------- UI ---------------- */
+  /*
+  --------------------------------
+  Create account
+  --------------------------------
+  */
+
+  async function handleCreateAccount(e: React.FormEvent) {
+
+    e.preventDefault();
+    setSaving(true);
+
+    let { data, error } = await supabase.auth.signUp({
+      email,
+      password,
+      options: {
+        data: {
+          role: "tenant",
+          tenant_id: tenantId,
+        },
+      },
+    });
+
+    /*
+    --------------------------------
+    Handle existing user
+    --------------------------------
+    */
+
+    if (error && error.message.includes("User already registered")) {
+
+      const login = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      });
+
+      if (login.error) {
+        alert(login.error.message);
+        setSaving(false);
+        return;
+      }
+
+      data = login.data;
+    }
+
+    if (error && !error.message.includes("User already registered")) {
+      alert(error.message);
+      setSaving(false);
+      return;
+    }
+
+    const userId = data.user?.id;
+
+    if (!userId) {
+      alert("Account created but user ID missing.");
+      setSaving(false);
+      return;
+    }
+
+    /*
+    --------------------------------
+    Ensure session exists
+    --------------------------------
+    */
+
+    await supabase.auth.refreshSession();
+
+    /*
+    --------------------------------
+    Link tenant + mark invite used
+    --------------------------------
+    */
+
+    const consumeRes = await fetch("/api/invites/consume", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        token,
+        userId,
+      }),
+    });
+
+    const consumeData = await consumeRes.json();
+
+    if (!consumeRes.ok) {
+      alert(consumeData.error || "Failed to complete invite");
+      setSaving(false);
+      return;
+    }
+
+    /*
+    --------------------------------
+    Redirect
+    --------------------------------
+    */
+
+    router.replace("/");
+  }
+
+  /*
+  --------------------------------
+  Loading state
+  --------------------------------
+  */
+
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        Loading invite...
+      </div>
+    );
+  }
+
+  /*
+  --------------------------------
+  Page UI
+  --------------------------------
+  */
 
   return (
-    <div className="px-8 py-8 max-w-4xl mx-auto bg-white">
+    <div className="min-h-screen flex items-center justify-center bg-[var(--bg)] p-6">
 
-      {isPrint && <AutoPrint />}
+      <form
+        onSubmit={handleCreateAccount}
+        className="w-full max-w-md p-6 rounded-2xl border border-[var(--border)] bg-[var(--surface)] space-y-4"
+      >
 
-      {/* HEADER */}
+        <h1 className="text-xl font-semibold text-[var(--text)]">
+          Set Your Password
+        </h1>
 
-      <div className="mb-16 flex items-start justify-between">
-
-        <div>
-          <img
-            src="/logos/morgens-kitchen-light.svg"
-            alt="Morgen's Kitchen"
-            style={{ height: "60px", width: "auto" }}
-          />
+        <div className="text-sm text-[var(--text-muted)]">
+          Account for:
+          <span className="font-medium text-[var(--text)] ml-1">
+            {email}
+          </span>
         </div>
 
-        <div className="text-right">
+        <input
+          type="password"
+          placeholder="Create password"
+          required
+          value={password}
+          onChange={(e) => setPassword(e.target.value)}
+          className="w-full px-4 py-3 rounded-xl border border-[var(--border)] bg-[var(--bg)]"
+        />
 
-          <h1 className="text-lg font-semibold tracking-wider">
-            {invoice.invoice_number}
-          </h1>
+        <button
+          type="submit"
+          disabled={saving}
+          className="w-full py-3 rounded-xl bg-[var(--text)] text-[var(--bg)] font-medium disabled:opacity-60"
+        >
+          {saving ? "Creating Account..." : "Create Account"}
+        </button>
 
-          <div className="text-sm text-gray-500 mt-2 space-y-1">
-
-            {invoice.invoice_date && (
-              <p>
-                Issued:{" "}
-                {new Date(invoice.invoice_date).toLocaleDateString()}
-              </p>
-            )}
-
-            {invoice.due_date && (
-              <p>
-                Due:{" "}
-                {new Date(invoice.due_date).toLocaleDateString()}
-              </p>
-            )}
-
-          </div>
-
-        </div>
-
-      </div>
-
-      {/* BILL TO */}
-
-      <div className="mt-4 mb-24">
-
-        <p className="text-xs uppercase tracking-widest text-gray-400 mb-2">
-          Bill To
-        </p>
-
-        <p className="text-lg font-medium">
-          {invoice.tenant?.name}
-        </p>
-
-      </div>
-
-      {/* LINE ITEMS */}
-
-      <div className="p-6">
-
-        <table className="w-full text-sm">
-
-          <thead>
-            <tr>
-              <th className="text-left p-3">Description</th>
-              <th className="text-left p-3">Service Date</th>
-              <th className="text-left p-3">Qty</th>
-              <th className="text-left p-3">Rate</th>
-              <th className="text-right p-3">Amount</th>
-            </tr>
-          </thead>
-
-          <tbody>
-
-            {sortedLineItems.map((item: any) => (
-              <tr key={item.id} className="border-t">
-
-                <td className="p-3">
-                  {item.description}
-                </td>
-
-                <td className="p-3">
-                  {item.service_date
-                    ? new Date(item.service_date).toLocaleDateString()
-                    : "-"}
-                </td>
-
-                <td className="p-3">
-                  {item.quantity}
-                </td>
-
-                <td className="p-3">
-                  ${Number(item.rate).toFixed(2)}
-                </td>
-
-                <td className="p-3 text-right font-medium">
-                  ${Number(item.amount).toFixed(2)}
-                </td>
-
-              </tr>
-            ))}
-
-          </tbody>
-
-        </table>
-
-      </div>
-
-      {/* SUMMARY */}
-
-      <div className="p-8 mt-12 flex justify-between text-center">
-
-        <div>
-          <p className="text-sm text-gray-500">Total</p>
-          <p className="text-xl font-semibold">
-            ${total.toFixed(2)}
-          </p>
-        </div>
-
-        <div>
-          <p className="text-sm text-gray-500">Paid</p>
-          <p className="text-xl font-semibold text-green-600">
-            ${totalPaid.toFixed(2)}
-          </p>
-        </div>
-
-        <div>
-          <p className="text-sm text-gray-500">Balance</p>
-          <p className="text-xl font-semibold text-red-600">
-            ${remaining.toFixed(2)}
-          </p>
-        </div>
-
-      </div>
-
-      {!isPrint && <PrintButton />}
+      </form>
 
     </div>
   );
