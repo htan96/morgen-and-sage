@@ -14,15 +14,21 @@ type CreateBookingSessionInput = {
   bookings: BookingInput[];
 };
 
-function generateInvoiceNumber(billingMonth: string) {
-  const month = new Date(`${billingMonth}T00:00:00Z`)
-    .toLocaleString("en-US", { month: "short", year: "numeric" })
-    .replace(" ", "")
-    .toUpperCase();
+function generateInvoiceNumber(billingMonth: Date) {
+
+  const year = billingMonth.getFullYear();
+  const monthIndex = billingMonth.getMonth();
+
+  const monthNames = [
+    "JAN","FEB","MAR","APR","MAY","JUN",
+    "JUL","AUG","SEP","OCT","NOV","DEC"
+  ];
+
+  const month = monthNames[monthIndex];
 
   const random = Math.floor(1000 + Math.random() * 9000);
 
-  return `INV-${month}-${random}`;
+  return `INV-${month}${year}-${random}`;
 }
 
 export async function createBookingSession({
@@ -31,6 +37,8 @@ export async function createBookingSession({
   kitchenSpaceId,
   bookings,
 }: CreateBookingSessionInput) {
+
+  console.log("START BOOKING SESSION");
 
   const supabase = supabaseAdmin;
 
@@ -45,6 +53,8 @@ export async function createBookingSession({
 
     const totalHours =
       (end.getTime() - start.getTime()) / 1000 / 60 / 60;
+
+    console.log("Creating booking:", start, end);
 
     const { data, error } = await supabase
       .from("bookings")
@@ -71,23 +81,31 @@ export async function createBookingSession({
     throw new Error("No bookings created");
   }
 
+  console.log("Bookings created:", createdBookings.length);
+
   /* ---------------- BILLING MONTH ---------------- */
 
-  const firstBooking = createdBookings[0];
-
-  const bookingDate = new Date(firstBooking.start_time);
+  const earliestBookingDate = new Date(
+    Math.min(
+      ...createdBookings.map((b) =>
+        new Date(b.start_time).getTime()
+      )
+    )
+  );
 
   const billingMonth = new Date(
-    bookingDate.getFullYear(),
-    bookingDate.getMonth(),
+    earliestBookingDate.getFullYear(),
+    earliestBookingDate.getMonth(),
     1
   );
 
   const billingMonthISO = billingMonth.toISOString().split("T")[0];
 
+  console.log("Billing month:", billingMonthISO);
+
   /* ---------------- CREATE INVOICE ---------------- */
 
-  const invoiceNumber = generateInvoiceNumber(billingMonthISO);
+  const invoiceNumber = generateInvoiceNumber(billingMonth);
 
   const invoiceDate = new Date();
 
@@ -98,7 +116,7 @@ export async function createBookingSession({
       tenant_id: tenantId,
       invoice_number: invoiceNumber,
       invoice_date: invoiceDate,
-      due_date: invoiceDate, // your rule
+      due_date: invoiceDate,
       billing_month: billingMonth,
       status: "draft",
       invoice_type: "manual",
@@ -107,9 +125,11 @@ export async function createBookingSession({
     .single();
 
   if (invoiceError) {
-    console.error("INVOICE INSERT ERROR:", invoiceError);
+    console.error("INVOICE ERROR:", invoiceError);
     throw invoiceError;
   }
+
+  console.log("Invoice created:", invoice.id);
 
   /* ---------------- GET TENANT SERVICES ---------------- */
 
@@ -135,78 +155,109 @@ export async function createBookingSession({
     throw servicesError;
   }
 
+  console.log("Tenant services:", tenantServices);
+
   if (!tenantServices || tenantServices.length === 0) {
     return { invoiceId: invoice.id };
   }
 
+  const lineItems: any[] = [];
+
   /* ---------------- HOURLY SERVICES ---------------- */
 
-const hourlyServices = tenantServices.filter(
-  (s: any) => s.frequency === "hourly"
-);
+  const hourlyServices = tenantServices.filter(
+    (s: any) => s.frequency === "hourly"
+  );
 
-for (const booking of createdBookings) {
+  for (const booking of createdBookings) {
 
-  for (const service of hourlyServices) {
+    for (const service of hourlyServices) {
 
-    const serviceRelation: any = service.services;
+      const relation = service.services as any;
 
-    const serviceName =
-      Array.isArray(serviceRelation)
-        ? serviceRelation[0]?.name
-        : serviceRelation?.name;
+      const serviceName =
+        Array.isArray(relation)
+          ? relation[0]?.name
+          : relation?.name ?? "Service";
 
-    const quantity = Number(booking.total_hours) || 1;
+      const quantity = Number(booking.total_hours) || 1;
 
-    const rate = Number(service.amount) || 0;
+      const rate = Number(service.amount) || 0;
 
-    const amount = quantity * rate;
+      const amount = quantity * rate;
 
-    const { error } = await supabase
-      .from("invoice_line_items")
-      .insert({
+      lineItems.push({
         organization_id: organizationId,
         tenant_id: tenantId,
         invoice_id: invoice.id,
         booking_id: booking.id,
         service_id: service.service_id,
-        description: serviceName ?? "Service",
+        description: serviceName,
         quantity,
         rate,
         amount,
         service_date: booking.start_time,
       });
 
-    if (error) {
-      console.error("HOURLY LINE ITEM ERROR:", error);
-      throw error;
     }
+
   }
-}
 
   /* ---------------- PER BOOKING SERVICES ---------------- */
-const perBookingServices = tenantServices.filter(
-  (s: any) => s.frequency === "per_booking"
-);
 
-const uniqueDates = new Set(
-  createdBookings.map((b: any) =>
-    new Date(b.start_time).toISOString().split("T")[0]
-  )
-);
+  const perBookingServices = tenantServices.filter(
+    (s: any) => s.frequency === "per_booking"
+  );
 
-for (const date of uniqueDates) {
-
-  const serviceDate = new Date(date);
+  const uniqueDates = new Set(
+    createdBookings.map((b: any) =>
+      new Date(b.start_time).toISOString().split("T")[0]
+    )
+  );
 
   for (const service of perBookingServices) {
 
-    const serviceRelation: any = service.services;
+    const relation = service.services as any;
 
     const serviceName =
-      Array.isArray(serviceRelation)
-        ? serviceRelation[0]?.name
-        : serviceRelation?.name;
+      Array.isArray(relation)
+        ? relation[0]?.name
+        : relation?.name ?? "Service";
+
+    const quantity = uniqueDates.size;
+
+    const rate = Number(service.amount) || 0;
+
+    const amount = quantity * rate;
+
+    lineItems.push({
+      organization_id: organizationId,
+      tenant_id: tenantId,
+      invoice_id: invoice.id,
+      service_id: service.service_id,
+      description: serviceName,
+      quantity,
+      rate,
+      amount,
+      service_date: billingMonth,
+    });
+
+  }
+
+  /* ---------------- MONTHLY SERVICES ---------------- */
+
+  const monthlyServices = tenantServices.filter(
+    (s: any) => s.frequency === "monthly"
+  );
+
+  for (const service of monthlyServices) {
+
+    const relation = service.services as any;
+
+    const serviceName =
+      Array.isArray(relation)
+        ? relation[0]?.name
+        : relation?.name ?? "Service";
 
     const quantity = Number(service.quantity) || 1;
 
@@ -214,92 +265,32 @@ for (const date of uniqueDates) {
 
     const amount = quantity * rate;
 
-    const { error } = await supabase
-      .from("invoice_line_items")
-      .insert({
-        organization_id: organizationId,
-        tenant_id: tenantId,
-        invoice_id: invoice.id,
-        service_id: service.service_id,
-        description: serviceName ?? "Service",
-        quantity,
-        rate,
-        amount,
-        service_date: serviceDate,
-      });
-
-    if (error) {
-      console.error("PER BOOKING LINE ITEM ERROR:", error);
-      throw error;
-    }
-  }
-}
-
-  /* ---------------- MONTHLY SERVICES ---------------- */
-
-const monthlyServices = tenantServices.filter(
-  (s: any) => s.frequency === "monthly"
-);
-
-const startOfMonth = new Date(
-  billingMonth.getFullYear(),
-  billingMonth.getMonth(),
-  1
-);
-
-const nextMonth = new Date(
-  billingMonth.getFullYear(),
-  billingMonth.getMonth() + 1,
-  1
-);
-
-const { data: existingMonthly } = await supabase
-  .from("invoice_line_items")
-  .select("service_id")
-  .eq("tenant_id", tenantId)
-  .gte("service_date", startOfMonth)
-  .lt("service_date", nextMonth);
-
-const billedSet = new Set(
-  existingMonthly?.map((i: any) => i.service_id)
-);
-
-for (const service of monthlyServices) {
-
-  if (billedSet.has(service.service_id)) continue;
-
-  const serviceRelation: any = service.services;
-
-  const serviceName =
-    Array.isArray(serviceRelation)
-      ? serviceRelation[0]?.name
-      : serviceRelation?.name;
-
-  const quantity = Number(service.quantity) || 1;
-
-  const rate = Number(service.amount) || 0;
-
-  const amount = quantity * rate;
-
-  const { error } = await supabase
-    .from("invoice_line_items")
-    .insert({
+    lineItems.push({
       organization_id: organizationId,
       tenant_id: tenantId,
       invoice_id: invoice.id,
       service_id: service.service_id,
-      description: serviceName ?? "Service",
+      description: serviceName,
       quantity,
       rate,
       amount,
-      service_date: startOfMonth,
+      service_date: billingMonth,
     });
 
-  if (error) {
-    console.error("MONTHLY LINE ITEM ERROR:", error);
-    throw error;
   }
-}
+
+  /* ---------------- INSERT LINE ITEMS ---------------- */
+
+  console.log("Line items:", lineItems);
+
+  const { error: lineItemError } = await supabase
+    .from("invoice_line_items")
+    .insert(lineItems);
+
+  if (lineItemError) {
+    console.error("LINE ITEM ERROR:", lineItemError);
+    throw lineItemError;
+  }
 
   /* ---------------- LINK BOOKINGS ---------------- */
 
@@ -316,7 +307,26 @@ for (const service of monthlyServices) {
       console.error("BOOKING UPDATE ERROR:", error);
       throw error;
     }
+
   }
+
+  /* ---------------- CALCULATE TOTALS ---------------- */
+
+  const subtotal = lineItems.reduce(
+    (sum, item) => sum + Number(item.amount),
+    0
+  );
+
+  await supabase
+    .from("invoices")
+    .update({
+      subtotal,
+      total_amount: subtotal,
+      balance_due: subtotal,
+    })
+    .eq("id", invoice.id);
+
+  console.log("Invoice totals updated:", subtotal);
 
   return {
     invoiceId: invoice.id,

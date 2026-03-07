@@ -1,54 +1,40 @@
-import chromium from "@sparticuz/chromium";
-import { chromium as playwright } from "playwright-core";
+import html_to_pdf from "html-pdf-node";
 
-export async function generateInvoicePdf(invoiceId: string) {
+export async function generateInvoicePdf(
+  invoiceId: string
+): Promise<Buffer> {
 
-  const executablePath = await chromium.executablePath(
-    "https://github.com/Sparticuz/chromium/releases/download/v143.0.0/chromium-v143.0.0-pack.tar"
-  );
+  const baseUrl =
+    process.env.NEXT_PUBLIC_APP_URL ||
+    "https://morgen-and-sage.vercel.app";
 
-  const browser = await playwright.launch({
-    args: chromium.args,
-    executablePath,
-    headless: true,
-  });
+  const url = `${baseUrl}/reports/invoice/${invoiceId}?print=true`;
 
-  try {
+  console.log("Generating invoice PDF from:", url);
 
-    const page = await browser.newPage();
+  const response = await fetch(url);
 
-    const baseUrl =
-      process.env.NEXT_PUBLIC_APP_URL ||
-      "https://morgen-and-sage.vercel.app";
+  if (!response.ok) {
+    throw new Error(`Failed to fetch invoice page: ${response.status}`);
+  }
 
-    const url = `${baseUrl}/reports/invoice/${invoiceId}?print=true`;
+  const html = await response.text();
 
-    console.log("Generating invoice PDF:", url);
-
-    await page.goto(url, {
-      waitUntil: "networkidle",
-    });
-
-    // wait for invoice table instead of body
-    await page.waitForSelector("table");
-
-    const pdf = await page.pdf({
+  const pdfBuffer = (await html_to_pdf.generatePdf(
+    { content: html },
+    {
       format: "A4",
       printBackground: true,
-    });
+      margin: {
+        top: "20px",
+        bottom: "20px",
+        left: "20px",
+        right: "20px",
+      },
+    }
+  )) as unknown as Buffer;
 
-    console.log("PDF generated successfully");
+  console.log("PDF generated successfully");
 
-    return Buffer.from(pdf);
-
-  } catch (err) {
-
-    console.error("PDF generation failed:", err);
-    throw err;
-
-  } finally {
-
-    await browser.close();
-
-  }
+  return pdfBuffer;
 }
