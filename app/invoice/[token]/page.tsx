@@ -1,3 +1,4 @@
+import Image from "next/image";
 import { supabaseAdmin } from "@/lib/supabase/supabase-admin";
 import { notFound } from "next/navigation";
 import AutoPrint from "@/components/AutoPrint";
@@ -93,12 +94,12 @@ export default async function Page({
 
       <div className="mb-16 flex items-start justify-between">
 
-        <img
-          src="/public/logos/morgens-kitchen-light.svg"
-          alt="Morgen's Kitchen"
-          style={{ height: "60px" }}
-        />
-
+<Image
+  src="/logos/morgens-kitchen-light.svg"
+  alt="Morgen's Kitchen"
+  width={180}
+  height={60}
+/>
         <div className="text-right">
           <h1 className="text-lg font-semibold tracking-wider">
             {invoice.invoice_number}
