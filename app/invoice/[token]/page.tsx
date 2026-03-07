@@ -94,7 +94,7 @@ export default async function Page({
       <div className="mb-16 flex items-start justify-between">
 
         <img
-          src="/logos/morgens-kitchen-light.svg"
+          src="/public/logos/morgens-kitchen-light.svg"
           alt="Morgen's Kitchen"
           style={{ height: "60px" }}
         />
