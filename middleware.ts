@@ -17,7 +17,7 @@ export async function middleware(request: NextRequest) {
     pathname.startsWith("/login") ||
     pathname.startsWith("/invite") ||
     pathname.startsWith("/set-password") ||
-    pathname.startsWith("/reports") // 👈 allow invoice rendering
+    pathname.startsWith("/invoice") // 👈 PUBLIC CLIENT INVOICE PAGE
   ) {
     return response;
   }

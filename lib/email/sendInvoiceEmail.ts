@@ -1,6 +1,5 @@
 import { supabaseAdmin } from "@/lib/supabase/supabase-admin";
 import { sendEmail } from "./sendEmail";
-import { generateInvoicePdf } from "@/lib/invoices/generateInvoicePdf";
 
 export async function sendInvoiceEmail(invoiceId: string) {
 
@@ -21,20 +20,100 @@ export async function sendInvoiceEmail(invoiceId: string) {
     throw new Error("Tenant email missing.");
   }
 
-  const pdf = await generateInvoicePdf(invoice.id);
-
+const invoiceUrl =
+`${process.env.NEXT_PUBLIC_APP_URL}/invoice/${invoice.public_token}?print=true`;
   const html = `
-  <div style="font-family:Arial;max-width:600px">
+  <div style="
+      font-family: Arial, Helvetica, sans-serif;
+      background:#f5f5f5;
+      padding:40px 20px;
+  ">
 
-    <img src="${process.env.NEXT_PUBLIC_APP_URL}/logos/morgens-kitchen-dark.svg" width="110"/>
+    <div style="
+        max-width:600px;
+        margin:auto;
+        background:white;
+        padding:30px;
+        border-radius:8px;
+        border:1px solid #e6e6e6;
+    ">
 
-    <h2>Invoice ${invoice.invoice_number}</h2>
+      <!-- LOGO -->
+      <div style="margin-bottom:25px">
+        <img
+          src="${process.env.NEXT_PUBLIC_APP_URL}/logos/morgens-kitchen-light.svg"
+          alt="Morgen's Kitchen"
+          width="150"
+          style="display:block"
+        />
+      </div>
 
-    <p>Hello ${invoice.tenant?.name},</p>
+      <!-- TITLE -->
+      <h2 style="
+          margin-top:0;
+          color:#111;
+          font-weight:600;
+      ">
+        Invoice ${invoice.invoice_number}
+      </h2>
 
-    <p>Your invoice is attached.</p>
+      <!-- GREETING -->
+      <p style="color:#333">
+        Hello ${invoice.tenant?.name},
+      </p>
 
-    <p>Thank you.</p>
+      <p style="color:#333">
+        Your invoice is ready. Click the button below to view or download it.
+      </p>
+
+      <!-- BUTTON -->
+      <div style="margin:30px 0">
+        <a
+          href="${invoiceUrl}"
+          style="
+            display:inline-block;
+            background:#000;
+            color:white;
+            padding:12px 22px;
+            border-radius:6px;
+            text-decoration:none;
+            font-weight:600;
+          "
+        >
+          View Invoice
+        </a>
+      </div>
+
+      <!-- FALLBACK LINK -->
+      <p style="
+          font-size:13px;
+          color:#777;
+          margin-top:20px;
+      ">
+        If the button above doesn't work, copy and paste this link into your browser:
+      </p>
+
+      <p style="
+          font-size:13px;
+          word-break:break-all;
+          color:#555;
+      ">
+        ${invoiceUrl}
+      </p>
+
+      <!-- FOOTER -->
+      <div style="
+          margin-top:40px;
+          padding-top:20px;
+          border-top:1px solid #eee;
+          font-size:13px;
+          color:#777;
+      ">
+        Morgen's Kitchen<br>
+        Commercial Kitchen Services
+      </div>
+
+    </div>
 
   </div>
   `;
@@ -44,12 +123,6 @@ export async function sendInvoiceEmail(invoiceId: string) {
     to: invoice.tenant.email,
     subject: `Invoice ${invoice.invoice_number}`,
     html,
-    attachments: [
-      {
-        filename: `${invoice.invoice_number}.pdf`,
-        content: pdf,
-      },
-    ],
   });
 
 }
