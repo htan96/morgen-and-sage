@@ -117,7 +117,7 @@ export async function sendEmail({
   const messageParts = [
     `From: "Morgan & Sage Billing" <${profile.google_email}>`,
     `Reply-To: ${profile.google_email}`,
-    `To: htprofitsllc@gmail.com`,
+    `To: ${to}`,
     `Subject: ${subject}`,
     "MIME-Version: 1.0",
     `Content-Type: multipart/mixed; boundary=${boundary}`,
