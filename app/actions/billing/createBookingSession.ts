@@ -15,7 +15,6 @@ type CreateBookingSessionInput = {
 };
 
 function generateInvoiceNumber(billingMonth: Date) {
-
   const year = billingMonth.getFullYear();
   const monthIndex = billingMonth.getMonth();
 
@@ -25,7 +24,6 @@ function generateInvoiceNumber(billingMonth: Date) {
   ];
 
   const month = monthNames[monthIndex];
-
   const random = Math.floor(1000 + Math.random() * 9000);
 
   return `INV-${month}${year}-${random}`;
@@ -181,9 +179,7 @@ export async function createBookingSession({
           : relation?.name ?? "Service";
 
       const quantity = Number(booking.total_hours) || 1;
-
       const rate = Number(service.amount) || 0;
-
       const amount = quantity * rate;
 
       lineItems.push({
@@ -225,9 +221,7 @@ export async function createBookingSession({
         : relation?.name ?? "Service";
 
     const quantity = uniqueDates.size;
-
     const rate = Number(service.amount) || 0;
-
     const amount = quantity * rate;
 
     lineItems.push({
@@ -244,6 +238,25 @@ export async function createBookingSession({
 
   }
 
+  /* ---------------- CHECK EXISTING MONTHLY CHARGES ---------------- */
+
+  const nextMonth = new Date(
+    billingMonth.getFullYear(),
+    billingMonth.getMonth() + 1,
+    1
+  );
+
+  const { data: existingMonthlyCharges } = await supabase
+    .from("invoice_line_items")
+    .select("service_id")
+    .eq("tenant_id", tenantId)
+    .gte("service_date", billingMonthISO)
+    .lt("service_date", nextMonth.toISOString().split("T")[0]);
+
+  const billedServiceIds = new Set(
+    existingMonthlyCharges?.map((i) => i.service_id) ?? []
+  );
+
   /* ---------------- MONTHLY SERVICES ---------------- */
 
   const monthlyServices = tenantServices.filter(
@@ -251,6 +264,14 @@ export async function createBookingSession({
   );
 
   for (const service of monthlyServices) {
+
+    if (billedServiceIds.has(service.service_id)) {
+      console.log(
+        "Skipping monthly service already billed:",
+        service.service_id
+      );
+      continue;
+    }
 
     const relation = service.services as any;
 
@@ -260,9 +281,7 @@ export async function createBookingSession({
         : relation?.name ?? "Service";
 
     const quantity = Number(service.quantity) || 1;
-
     const rate = Number(service.amount) || 0;
-
     const amount = quantity * rate;
 
     lineItems.push({
