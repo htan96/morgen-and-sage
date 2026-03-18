@@ -42,7 +42,17 @@ export default function ManualExpenseModal({
 
   const [notes, setNotes] = useState("");
 
+  const [applyToMultipleMonths, setApplyToMultipleMonths] = useState(false);
+  const [year, setYear] = useState(new Date().getFullYear());
+  const [selectedMonths, setSelectedMonths] = useState<number[]>([]);
+  const [dayOfMonth, setDayOfMonth] = useState<string>("");
+
   const [saving, setSaving] = useState(false);
+
+  const MONTH_NAMES = [
+    "Jan", "Feb", "Mar", "Apr", "May", "Jun",
+    "Jul", "Aug", "Sep", "Oct", "Nov", "Dec",
+  ];
 
   useEffect(() => {
     if (!open) return;
@@ -91,33 +101,79 @@ export default function ManualExpenseModal({
     onCreated(); // refresh org list in parent
   }
 
+  function getLastDayOfMonth(y: number, monthIndex: number): number {
+    return new Date(y, monthIndex + 1, 0).getDate();
+  }
+
+  function formatDocumentDate(y: number, monthIndex: number, day: number): string {
+    const lastDay = getLastDayOfMonth(y, monthIndex);
+    const d = Math.min(day, lastDay);
+    return `${y}-${String(monthIndex + 1).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
+  }
+
   async function handleSubmit() {
     const effectiveVendor = addingVendor ? newVendorName.trim() : vendor;
     const effectiveCategory = addingCategory ? newCategoryName.trim() : category || null;
 
-    if (!organizationId || !effectiveVendor || !amount || !date) {
+    const isValidSingle =
+      organizationId && effectiveVendor && amount && date;
+    const isValidMulti =
+      applyToMultipleMonths &&
+      organizationId &&
+      effectiveVendor &&
+      amount &&
+      selectedMonths.length > 0;
+
+    if (!isValidSingle && !isValidMulti) {
       alert("Please fill in all required fields.");
       return;
     }
 
     setSaving(true);
 
-    const { error } = await supabase.from("documents").insert({
-      organization_id: organizationId,
-      vendor_name: effectiveVendor,
-      document_date: date,
-      amount: Number(amount),
-      category: effectiveCategory || null,
-      notes: notes || null,
-      doc_type: "manual",
-      status: "complete",
-    });
+    const dayToUse = dayOfMonth ? Math.min(31, Math.max(1, parseInt(dayOfMonth, 10) || 1)) : 1;
+    const amountNum = Number(amount);
 
-    setSaving(false);
+    if (applyToMultipleMonths) {
+      const rows = selectedMonths.map((monthIndex) => ({
+        organization_id: organizationId,
+        vendor_name: effectiveVendor,
+        document_date: formatDocumentDate(year, monthIndex, dayToUse),
+        amount: amountNum,
+        category: effectiveCategory || null,
+        notes: notes || null,
+        doc_type: "manual",
+        status: "complete",
+      }));
 
-    if (error) {
-      alert(error.message);
-      return;
+      const { error } = await supabase.from("documents").insert(rows);
+
+      setSaving(false);
+
+      if (error) {
+        alert(error.message);
+        return;
+      }
+
+      alert(`Created ${rows.length} expense entries.`);
+    } else {
+      const { error } = await supabase.from("documents").insert({
+        organization_id: organizationId,
+        vendor_name: effectiveVendor,
+        document_date: date,
+        amount: amountNum,
+        category: effectiveCategory || null,
+        notes: notes || null,
+        doc_type: "manual",
+        status: "complete",
+      });
+
+      setSaving(false);
+
+      if (error) {
+        alert(error.message);
+        return;
+      }
     }
 
     // Reset form
@@ -131,6 +187,10 @@ export default function ManualExpenseModal({
     setAddingCategory(false);
     setNewCategoryName("");
     setNotes("");
+    setApplyToMultipleMonths(false);
+    setYear(new Date().getFullYear());
+    setSelectedMonths([]);
+    setDayOfMonth("");
 
     onCreated();
     onClose();
@@ -247,25 +307,111 @@ export default function ManualExpenseModal({
           )}
         </div>
 
-        {/* Amount & Date */}
-        <div className="grid grid-cols-2 gap-4 mb-5">
-          <div>
-            <label className="text-sm font-medium">
-              Amount *
-            </label>
-            <input
-              type="number"
-              step="0.01"
-              value={amount}
-              onChange={(e) => setAmount(e.target.value)}
-              className="w-full mt-2 p-2.5 rounded-md border bg-transparent"
-            />
-          </div>
+        {/* Amount */}
+        <div className="mb-5">
+          <label className="text-sm font-medium">Amount *</label>
+          <input
+            type="number"
+            step="0.01"
+            value={amount}
+            onChange={(e) => setAmount(e.target.value)}
+            className="w-full mt-2 p-2.5 rounded-md border bg-transparent"
+          />
+        </div>
 
-          <div>
-            <label className="text-sm font-medium">
-              Expense Date *
-            </label>
+        {/* Apply to multiple months */}
+        <div className="mb-5">
+          <label className="flex items-center gap-2 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={applyToMultipleMonths}
+              onChange={(e) => setApplyToMultipleMonths(e.target.checked)}
+              className="rounded"
+            />
+            <span className="text-sm font-medium">Apply to multiple months</span>
+          </label>
+          <p className="text-xs mt-1" style={{ color: "var(--text-muted)" }}>
+            Create this expense for each selected month (e.g. recurring rent, utilities)
+          </p>
+        </div>
+
+        {applyToMultipleMonths ? (
+          <div className="mb-5 space-y-4 p-4 rounded-lg" style={{ background: "var(--surface)", border: "1px solid var(--border)" }}>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="text-sm font-medium">Year *</label>
+                <select
+                  value={year}
+                  onChange={(e) => setYear(parseInt(e.target.value, 10))}
+                  className="w-full mt-2 p-2.5 rounded-md border bg-transparent"
+                >
+                  {Array.from({ length: 5 }, (_, i) => new Date().getFullYear() - 2 + i).map((y) => (
+                    <option key={y} value={y}>{y}</option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="text-sm font-medium">Day of month (optional)</label>
+                <input
+                  type="number"
+                  min={1}
+                  max={31}
+                  placeholder="1"
+                  value={dayOfMonth}
+                  onChange={(e) => setDayOfMonth(e.target.value)}
+                  className="w-full mt-2 p-2.5 rounded-md border bg-transparent"
+                />
+                <p className="text-xs mt-1" style={{ color: "var(--text-muted)" }}>
+                  Defaults to 1st if empty
+                </p>
+              </div>
+            </div>
+            <div>
+              <label className="text-sm font-medium">Months *</label>
+              <div className="flex flex-wrap gap-2 mt-2">
+                {MONTH_NAMES.map((name, i) => (
+                  <label
+                    key={i}
+                    className="flex items-center gap-1.5 px-3 py-2 rounded-md cursor-pointer"
+                    style={{
+                      background: selectedMonths.includes(i) ? "var(--hover)" : "transparent",
+                      border: "1px solid var(--border)",
+                    }}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={selectedMonths.includes(i)}
+                      onChange={(e) => {
+                        if (e.target.checked) {
+                          setSelectedMonths((prev) => [...prev, i].sort((a, b) => a - b));
+                        } else {
+                          setSelectedMonths((prev) => prev.filter((m) => m !== i));
+                        }
+                      }}
+                      className="rounded"
+                    />
+                    {name}
+                  </label>
+                ))}
+              </div>
+              <button
+                type="button"
+                onClick={() =>
+                  setSelectedMonths(
+                    selectedMonths.length === 12
+                      ? []
+                      : [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]
+                  )
+                }
+                className="text-xs mt-2 underline"
+              >
+                {selectedMonths.length === 12 ? "Clear all" : "Select all"}
+              </button>
+            </div>
+          </div>
+        ) : (
+          <div className="mb-5">
+            <label className="text-sm font-medium">Expense Date *</label>
             <input
               type="date"
               value={date}
@@ -273,7 +419,7 @@ export default function ManualExpenseModal({
               className="w-full mt-2 p-2.5 rounded-md border bg-transparent"
             />
           </div>
-        </div>
+        )}
 
         {/* Category */}
         <div className="mb-5">
