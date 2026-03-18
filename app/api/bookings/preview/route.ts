@@ -66,15 +66,26 @@ export async function POST(req: Request) {
     totalHours * hourlyRate;
 
   /* --------------------------
-     Billing Month Window
+     Billing Month (from earliest booking, matches createBookingSession)
   ---------------------------*/
 
-  const monthStart = new Date();
-  monthStart.setDate(1);
-  monthStart.setHours(0,0,0,0);
-
-  const nextMonthStart = new Date(monthStart);
-  nextMonthStart.setMonth(nextMonthStart.getMonth()+1);
+  const sortedForMonth = [...bookings].sort(
+    (a, b) =>
+      new Date(a.startTime).getTime() - new Date(b.startTime).getTime()
+  );
+  const earliestBookingDate = new Date(sortedForMonth[0].startTime);
+  const billingMonth = new Date(
+    earliestBookingDate.getFullYear(),
+    earliestBookingDate.getMonth(),
+    1
+  );
+  const billingMonthISO = billingMonth.toISOString().split("T")[0];
+  const nextMonthStart = new Date(
+    billingMonth.getFullYear(),
+    billingMonth.getMonth() + 1,
+    1
+  );
+  const nextMonthStartISO = nextMonthStart.toISOString().split("T")[0];
 
   /* --------------------------
      Check Already Billed
@@ -85,8 +96,8 @@ export async function POST(req: Request) {
       .from("invoice_line_items")
       .select("service_id")
       .eq("tenant_id", tenantId)
-      .gte("service_date", monthStart.toISOString())
-      .lt("service_date", nextMonthStart.toISOString());
+      .gte("service_date", billingMonthISO)
+      .lt("service_date", nextMonthStartISO);
 
   const billedServiceIds =
     new Set(
@@ -139,8 +150,14 @@ export async function POST(req: Request) {
   }
 
   /* --------------------------
-     Per Booking Services
+     Per Booking Services (uses unique dates, matches createBookingSession)
   ---------------------------*/
+
+  const uniqueDates = new Set(
+    bookings.map((b: { startTime: string }) =>
+      new Date(b.startTime).toISOString().split("T")[0]
+    )
+  );
 
   const perBookingServices =
     tenantServices?.filter(
@@ -153,7 +170,7 @@ export async function POST(req: Request) {
   for(const service of perBookingServices){
 
     const quantity =
-      bookings.length *
+      uniqueDates.size *
       (service.quantity ?? 1);
 
     const rate =

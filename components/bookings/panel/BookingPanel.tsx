@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { createBookingSession } from "@/app/actions/billing/createBookingSession";
+import { validateDraftBookings } from "@/lib/bookings/validateDraftBookings";
 import { Booking } from "@/types/booking";
 
 import BookingPanelHeader from "./BookingPanelHeader";
@@ -41,6 +42,8 @@ type Props = {
   organizationId: string;
   tenantIdFromPortal?: string;
   portalMode?: boolean;
+  panelKitchenId: string | null;
+  setPanelKitchenId: (id: string | null) => void;
 };
 
 export default function BookingPanel({
@@ -57,6 +60,8 @@ export default function BookingPanel({
   organizationId,
   tenantIdFromPortal,
   portalMode = false,
+  panelKitchenId,
+  setPanelKitchenId,
 }: Props) {
   const router = useRouter();
 
@@ -65,7 +70,6 @@ export default function BookingPanel({
   const [step, setStep] = useState<"build" | "confirm">("build");
 
   const [tenantId, setTenantId] = useState<string | null>(null);
-  const [panelKitchenId, setPanelKitchenId] = useState<string | null>(null);
   const [invoicePreview, setInvoicePreview] = useState<any | null>(null);
 
   const isViewMode = !!editingBooking;
@@ -79,14 +83,6 @@ export default function BookingPanel({
       setTenantId(tenantIdFromPortal);
     }
   }, [portalMode, tenantIdFromPortal]);
-
-  /* ---------------- Default Kitchen ---------------- */
-
-  useEffect(() => {
-    if (isOpen && !panelKitchenId && kitchens.length > 0) {
-      setPanelKitchenId(kitchens[0].id);
-    }
-  }, [isOpen, kitchens, panelKitchenId]);
 
   /* ---------------- Reset when panel closes ---------------- */
 
@@ -108,6 +104,12 @@ export default function BookingPanel({
   const handleReview = async () => {
     if (!effectiveTenantId || !panelKitchenId || draftBookings.length === 0)
       return;
+
+    const validation = validateDraftBookings(draftBookings);
+    if (!validation.valid) {
+      alert(validation.error);
+      return;
+    }
 
     try {
       setPreviewLoading(true);
@@ -155,6 +157,12 @@ export default function BookingPanel({
     if (loading || previewLoading) return;
     if (!effectiveTenantId || !panelKitchenId) return;
 
+    const validation = validateDraftBookings(draftBookings);
+    if (!validation.valid) {
+      alert(validation.error);
+      return;
+    }
+
     setLoading(true);
 
     try {
@@ -182,10 +190,9 @@ export default function BookingPanel({
       router.refresh();
 
     } catch (err) {
-
-      console.error("Submit failed:", err);
-      alert("Something went wrong");
-
+      const message =
+        err instanceof Error ? err.message : "Something went wrong";
+      alert(message);
     } finally {
 
       setLoading(false);
@@ -234,6 +241,41 @@ export default function BookingPanel({
 
         <div className="flex-1 overflow-y-auto p-6 space-y-6">
 
+          {isViewMode && editingBooking && (
+            <div className="space-y-4">
+              <div>
+                <span className="text-xs uppercase tracking-wide opacity-70">Tenant</span>
+                <p className="text-sm font-medium mt-1">
+                  {editingBooking.tenant?.name ?? "Unknown"}
+                </p>
+              </div>
+              <div>
+                <span className="text-xs uppercase tracking-wide opacity-70">Kitchen</span>
+                <p className="text-sm font-medium mt-1">
+                  {editingBooking.kitchen?.name ?? "Unknown"}
+                </p>
+              </div>
+              <div>
+                <span className="text-xs uppercase tracking-wide opacity-70">Start</span>
+                <p className="text-sm font-medium mt-1">
+                  {new Date(editingBooking.start_time).toLocaleString(undefined, {
+                    dateStyle: "medium",
+                    timeStyle: "short",
+                  })}
+                </p>
+              </div>
+              <div>
+                <span className="text-xs uppercase tracking-wide opacity-70">End</span>
+                <p className="text-sm font-medium mt-1">
+                  {new Date(editingBooking.end_time).toLocaleString(undefined, {
+                    dateStyle: "medium",
+                    timeStyle: "short",
+                  })}
+                </p>
+              </div>
+            </div>
+          )}
+
           {!isViewMode && step === "build" && (
             <>
               <BookingSelectors
@@ -267,6 +309,25 @@ export default function BookingPanel({
             </>
           )}
         </div>
+
+        {isViewMode && (
+          <div
+            className="p-6 border-t"
+            style={{ borderColor: "var(--border)" }}
+          >
+            <button
+              onClick={onClose}
+              className="w-full py-3 rounded-lg font-medium"
+              style={{
+                background: "var(--hover)",
+                border: "1px solid var(--border)",
+                color: "var(--text)",
+              }}
+            >
+              Close
+            </button>
+          </div>
+        )}
 
         {!isViewMode && (
           <BookingPanelFooter

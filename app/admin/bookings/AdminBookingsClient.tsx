@@ -52,9 +52,6 @@ export default function AdminBookingsClient({
   portalMode = false,
 }: Props) {
 
-    console.log("BOOKINGS PROP:", bookings); // 👈 ADD THIS
-
-
   const [selectedKitchenId, setSelectedKitchenId] = useState<string | null>(null);
   const [currentDate, setCurrentDate] = useState(new Date());
   const [isPanelOpen, setIsPanelOpen] = useState(false);
@@ -199,6 +196,7 @@ export default function AdminBookingsClient({
   const handleClosePanel = () => {
     setIsPanelOpen(false);
     setEditingBooking(null);
+    setPanelKitchenId(null);
     clearDrafts();
   };
 
@@ -245,6 +243,8 @@ export default function AdminBookingsClient({
         organizationId={organizationId}
         tenantIdFromPortal={tenantIdFromPortal}
         portalMode={portalMode}
+        panelKitchenId={panelKitchenId}
+        setPanelKitchenId={setPanelKitchenId}
       />
     </>
   );

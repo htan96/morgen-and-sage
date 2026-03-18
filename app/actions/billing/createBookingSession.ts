@@ -14,6 +14,29 @@ type CreateBookingSessionInput = {
   bookings: BookingInput[];
 };
 
+function intervalsOverlap(
+  startA: Date,
+  endA: Date,
+  startB: Date,
+  endB: Date
+): boolean {
+  return startA < endB && endA > startB;
+}
+
+function mapBookingError(error: { message?: string }): string {
+  const message = error?.message ?? "";
+  if (message.includes("bookings_no_overlap_per_kitchen")) {
+    return "One or more time slots overlap with an existing booking for this kitchen.";
+  }
+  if (message.includes("bookings_min_duration_4h")) {
+    return "Minimum booking duration is 4 hours.";
+  }
+  if (message.includes("bookings_start_before_end")) {
+    return "End time must be after start time.";
+  }
+  return "Unable to create booking. Please verify the details.";
+}
+
 function generateInvoiceNumber(billingMonth: Date) {
   const year = billingMonth.getFullYear();
   const monthIndex = billingMonth.getMonth();
@@ -35,51 +58,93 @@ export async function createBookingSession({
   kitchenSpaceId,
   bookings,
 }: CreateBookingSessionInput) {
-
-  console.log("START BOOKING SESSION");
-
   const supabase = supabaseAdmin;
 
-  const createdBookings: any[] = [];
+  if (bookings.length === 0) {
+    throw new Error("No bookings to create");
+  }
 
-  /* ---------------- CREATE BOOKINGS ---------------- */
+  /* ---------------- PREPARE BOOKING ROWS ---------------- */
 
-  for (const booking of bookings) {
-
+  const bookingRows = bookings.map((booking) => {
     const start = new Date(booking.startTime);
     const end = new Date(booking.endTime);
-
     const totalHours =
       (end.getTime() - start.getTime()) / 1000 / 60 / 60;
+    return {
+      organization_id: organizationId,
+      tenant_id: tenantId,
+      kitchen_space_id: kitchenSpaceId,
+      start_time: start.toISOString(),
+      end_time: end.toISOString(),
+      total_hours: totalHours,
+    };
+  });
 
-    console.log("Creating booking:", start, end);
+  /* ---------------- OVERLAP VALIDATION ---------------- */
 
-    const { data, error } = await supabase
-      .from("bookings")
-      .insert({
-        organization_id: organizationId,
-        tenant_id: tenantId,
-        kitchen_space_id: kitchenSpaceId,
-        start_time: start.toISOString(),
-        end_time: end.toISOString(),
-        total_hours: totalHours,
-      })
-      .select()
-      .single();
+  const rangeStart = new Date(
+    Math.min(...bookingRows.map((r) => new Date(r.start_time).getTime()))
+  );
+  const rangeEnd = new Date(
+    Math.max(...bookingRows.map((r) => new Date(r.end_time).getTime()))
+  );
 
-    if (error) {
-      console.error("BOOKING INSERT ERROR:", error);
-      throw error;
+  const { data: existingBookings } = await supabase
+    .from("bookings")
+    .select("start_time, end_time")
+    .eq("kitchen_space_id", kitchenSpaceId)
+    .lt("start_time", rangeEnd.toISOString())
+    .gt("end_time", rangeStart.toISOString());
+
+  const existing = (existingBookings ?? []).map((b: any) => ({
+    start: new Date(b.start_time),
+    end: new Date(b.end_time),
+  }));
+
+  for (const row of bookingRows) {
+    const start = new Date(row.start_time);
+    const end = new Date(row.end_time);
+    for (const ex of existing) {
+      if (intervalsOverlap(start, end, ex.start, ex.end)) {
+        throw new Error(mapBookingError({ message: "bookings_no_overlap_per_kitchen" }));
+      }
     }
-
-    createdBookings.push(data);
   }
 
-  if (createdBookings.length === 0) {
+  for (let i = 0; i < bookingRows.length; i++) {
+    for (let j = i + 1; j < bookingRows.length; j++) {
+      const a = bookingRows[i];
+      const b = bookingRows[j];
+      if (
+        intervalsOverlap(
+          new Date(a.start_time),
+          new Date(a.end_time),
+          new Date(b.start_time),
+          new Date(b.end_time)
+        )
+      ) {
+        throw new Error(
+          "Selected time slots overlap with each other. Please adjust."
+        );
+      }
+    }
+  }
+
+  /* ---------------- CREATE BOOKINGS (ATOMIC) ---------------- */
+
+  const { data: createdBookings, error: insertError } = await supabase
+    .from("bookings")
+    .insert(bookingRows)
+    .select();
+
+  if (insertError) {
+    throw new Error(mapBookingError(insertError));
+  }
+
+  if (!createdBookings || createdBookings.length === 0) {
     throw new Error("No bookings created");
   }
-
-  console.log("Bookings created:", createdBookings.length);
 
   /* ---------------- BILLING MONTH ---------------- */
 
@@ -98,8 +163,6 @@ export async function createBookingSession({
   );
 
   const billingMonthISO = billingMonth.toISOString().split("T")[0];
-
-  console.log("Billing month:", billingMonthISO);
 
   /* ---------------- CREATE INVOICE ---------------- */
 
@@ -123,11 +186,8 @@ export async function createBookingSession({
     .single();
 
   if (invoiceError) {
-    console.error("INVOICE ERROR:", invoiceError);
     throw invoiceError;
   }
-
-  console.log("Invoice created:", invoice.id);
 
   /* ---------------- GET TENANT SERVICES ---------------- */
 
@@ -149,11 +209,8 @@ export async function createBookingSession({
       .eq("is_active", true);
 
   if (servicesError) {
-    console.error("TENANT SERVICES ERROR:", servicesError);
     throw servicesError;
   }
-
-  console.log("Tenant services:", tenantServices);
 
   if (!tenantServices || tenantServices.length === 0) {
     return { invoiceId: invoice.id };
@@ -266,10 +323,6 @@ export async function createBookingSession({
   for (const service of monthlyServices) {
 
     if (billedServiceIds.has(service.service_id)) {
-      console.log(
-        "Skipping monthly service already billed:",
-        service.service_id
-      );
       continue;
     }
 
@@ -300,14 +353,11 @@ export async function createBookingSession({
 
   /* ---------------- INSERT LINE ITEMS ---------------- */
 
-  console.log("Line items:", lineItems);
-
   const { error: lineItemError } = await supabase
     .from("invoice_line_items")
     .insert(lineItems);
 
   if (lineItemError) {
-    console.error("LINE ITEM ERROR:", lineItemError);
     throw lineItemError;
   }
 
@@ -323,7 +373,6 @@ export async function createBookingSession({
       .eq("id", booking.id);
 
     if (error) {
-      console.error("BOOKING UPDATE ERROR:", error);
       throw error;
     }
 
@@ -344,8 +393,6 @@ export async function createBookingSession({
       balance_due: subtotal,
     })
     .eq("id", invoice.id);
-
-  console.log("Invoice totals updated:", subtotal);
 
   return {
     invoiceId: invoice.id,

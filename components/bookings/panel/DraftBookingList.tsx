@@ -27,6 +27,7 @@ export default function DraftBookingList({
         >
           <input
             type="datetime-local"
+            step="900"
             value={draft.startTime}
             onChange={(e) =>
               updateDraft(draft.id, { startTime: e.target.value })
@@ -40,6 +41,7 @@ export default function DraftBookingList({
 
           <input
             type="datetime-local"
+            step="900"
             value={draft.endTime}
             onChange={(e) =>
               updateDraft(draft.id, { endTime: e.target.value })
