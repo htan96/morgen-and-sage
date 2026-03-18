@@ -1,6 +1,11 @@
 import { createClient } from "@/lib/supabase/server";
 import { getActiveMonthlyServices } from "@/lib/db/tenantServices";
-import { insertInvoice, insertInvoiceLineItems } from "@/lib/db/invoices";
+import {
+  insertInvoice,
+  insertInvoiceLineItems,
+  deleteInvoiceLineItems,
+  updateInvoiceTotals,
+} from "@/lib/db/invoices";
 
 /* ---------------------------------- */
 /* Generate Invoice Number            */
@@ -36,6 +41,7 @@ export async function runCommissaryMonthlyEngine(params: {
 
   /* ---------------------------------- */
   /* Prevent duplicate active invoices  */
+  /* Allow regeneration if VOID         */
   /* ---------------------------------- */
 
   const { data: existingInvoices } = await supabase
@@ -54,6 +60,8 @@ export async function runCommissaryMonthlyEngine(params: {
       reason: "INVOICE_ALREADY_EXISTS",
     };
   }
+
+  const voidedInvoice = existingInvoices?.find((i) => i.status === "void");
 
   /* ---------------------------------- */
   /* Get tenant                         */
@@ -108,32 +116,49 @@ export async function runCommissaryMonthlyEngine(params: {
   }
 
   /* ---------------------------------- */
-  /* Create invoice                     */
+  /* Reuse voided invoice OR create new */
+  /* Prevents duplicate invoices & line items */
   /* ---------------------------------- */
 
-  const invoice = await insertInvoice({
-    organizationId: tenant.organization_id,
-    tenantId,
-    invoiceType: "commissary",
-    billingMonth,
-    generatedByType,
-    generatedById,
-    invoiceNumber: generateInvoiceNumber(billingMonth),
-    invoiceDate: new Date(),
-    dueDate: new Date(),
-    subtotal,
-    tax: 0,
-    totalAmount: subtotal,
-    balanceDue: subtotal,
-    status: "draft",
-  });
+  let invoiceId: string;
+
+  if (voidedInvoice) {
+    invoiceId = voidedInvoice.id;
+
+    await deleteInvoiceLineItems(invoiceId);
+
+    await updateInvoiceTotals(invoiceId, {
+      subtotal,
+      totalAmount: subtotal,
+      balanceDue: subtotal,
+      status: "draft",
+    });
+  } else {
+    const invoice = await insertInvoice({
+      organizationId: tenant.organization_id,
+      tenantId,
+      invoiceType: "commissary",
+      billingMonth,
+      generatedByType,
+      generatedById,
+      invoiceNumber: generateInvoiceNumber(billingMonth),
+      invoiceDate: new Date(),
+      dueDate: new Date(),
+      subtotal,
+      tax: 0,
+      totalAmount: subtotal,
+      balanceDue: subtotal,
+      status: "draft",
+    });
+    invoiceId = invoice.id;
+  }
 
   /* ---------------------------------- */
   /* Insert line items                  */
   /* ---------------------------------- */
 
   await insertInvoiceLineItems(
-    invoice.id,
+    invoiceId,
     tenant.organization_id,
     tenantId,
     lineItems
@@ -141,6 +166,6 @@ export async function runCommissaryMonthlyEngine(params: {
 
   return {
     success: true,
-    invoiceId: invoice.id,
+    invoiceId,
   };
 }

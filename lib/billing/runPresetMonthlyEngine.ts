@@ -4,6 +4,8 @@ import { attachBookingsToInvoiceForMonth } from "@/lib/db/bookings";
 import {
   insertInvoice,
   insertInvoiceLineItems,
+  deleteInvoiceLineItems,
+  updateInvoiceTotals,
 } from "@/lib/db/invoices";
 import {
   getActiveHourlyRate,
@@ -166,6 +168,7 @@ export async function runPresetMonthlyEngine(params: {
       rate: hourlyRate,
       amount,
       serviceDate: booking.start_time,
+      bookingId: booking.id,
     });
   }
 
@@ -240,32 +243,49 @@ export async function runPresetMonthlyEngine(params: {
     .map(({ sortOrder, ...item }) => item);
 
   /* ---------------------------------- */
-  /* Create invoice                     */
+  /* Reuse voided invoice OR create new */
+  /* Prevents duplicate invoices & line items */
   /* ---------------------------------- */
 
-  const invoice = await insertInvoice({
-    organizationId: tenant.organization_id,
-    tenantId,
-    invoiceType: "preset",
-    billingMonth,
-    generatedByType,
-    generatedById,
-    invoiceNumber: generateInvoiceNumber(billingMonth),
-    invoiceDate: new Date(),
-    dueDate: new Date(),
-    subtotal,
-    tax: 0,
-    totalAmount: subtotal,
-    balanceDue: subtotal,
-    status: "draft",
-  });
+  let invoiceId: string;
+
+  if (existingInvoice && existingInvoice.status === "void") {
+    invoiceId = existingInvoice.id;
+
+    await deleteInvoiceLineItems(invoiceId);
+
+    await updateInvoiceTotals(invoiceId, {
+      subtotal,
+      totalAmount: subtotal,
+      balanceDue: subtotal,
+      status: "draft",
+    });
+  } else {
+    const invoice = await insertInvoice({
+      organizationId: tenant.organization_id,
+      tenantId,
+      invoiceType: "preset",
+      billingMonth,
+      generatedByType,
+      generatedById,
+      invoiceNumber: generateInvoiceNumber(billingMonth),
+      invoiceDate: new Date(),
+      dueDate: new Date(),
+      subtotal,
+      tax: 0,
+      totalAmount: subtotal,
+      balanceDue: subtotal,
+      status: "draft",
+    });
+    invoiceId = invoice.id;
+  }
 
   /* ---------------------------------- */
   /* Insert line items                  */
   /* ---------------------------------- */
 
   await insertInvoiceLineItems(
-    invoice.id,
+    invoiceId,
     tenant.organization_id,
     tenantId,
     sortedLineItems
@@ -277,13 +297,13 @@ export async function runPresetMonthlyEngine(params: {
 
   await attachBookingsToInvoiceForMonth(
     tenantId,
-    invoice.id,
+    invoiceId,
     startISO,
     nextISO
   );
 
   return {
     success: true,
-    invoiceId: invoice.id,
+    invoiceId,
   };
 }

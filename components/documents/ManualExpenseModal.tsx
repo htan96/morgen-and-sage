@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 
 type Organization = {
@@ -28,12 +28,44 @@ export default function ManualExpenseModal({
   const [newOrgName, setNewOrgName] = useState("");
 
   const [vendor, setVendor] = useState("");
+  const [addingVendor, setAddingVendor] = useState(false);
+  const [newVendorName, setNewVendorName] = useState("");
+
   const [amount, setAmount] = useState("");
   const [date, setDate] = useState("");
   const [category, setCategory] = useState("");
-  const [notes, setNotes] = useState("");
+  const [addingCategory, setAddingCategory] = useState(false);
+  const [newCategoryName, setNewCategoryName] = useState("");
+
+  const [vendors, setVendors] = useState<string[]>([]);
+  const [categories, setCategories] = useState<string[]>([]);
 
   const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    if (!open) return;
+
+    async function fetchOptions() {
+      const { data } = await supabase
+        .from("documents")
+        .select("vendor_name, category")
+        .not("vendor_name", "is", null)
+        .not("vendor_name", "eq", "");
+
+      if (data) {
+        const vendorSet = new Set<string>();
+        const categorySet = new Set<string>();
+        data.forEach((d: any) => {
+          if (d.vendor_name) vendorSet.add(d.vendor_name.trim());
+          if (d.category) categorySet.add(d.category.trim());
+        });
+        setVendors(Array.from(vendorSet).sort());
+        setCategories(Array.from(categorySet).sort());
+      }
+    }
+
+    fetchOptions();
+  }, [open]);
 
   if (!open) return null;
 
@@ -58,7 +90,10 @@ export default function ManualExpenseModal({
   }
 
   async function handleSubmit() {
-    if (!organizationId || !vendor || !amount || !date) {
+    const effectiveVendor = addingVendor ? newVendorName.trim() : vendor;
+    const effectiveCategory = addingCategory ? newCategoryName.trim() : category || null;
+
+    if (!organizationId || !effectiveVendor || !amount || !date) {
       alert("Please fill in all required fields.");
       return;
     }
@@ -67,14 +102,13 @@ export default function ManualExpenseModal({
 
     const { error } = await supabase.from("documents").insert({
       organization_id: organizationId,
-      vendor_name: vendor.trim(),
+      vendor_name: effectiveVendor,
       document_date: date,
-      total_amount: Number(amount),
-      category: category || null,
+      amount: Number(amount),
+      category: effectiveCategory || null,
       notes: notes || null,
       doc_type: "manual",
       status: "complete",
-      file_path: null,
     });
 
     setSaving(false);
@@ -87,9 +121,13 @@ export default function ManualExpenseModal({
     // Reset form
     setOrganizationId("");
     setVendor("");
+    setAddingVendor(false);
+    setNewVendorName("");
     setAmount("");
     setDate("");
     setCategory("");
+    setAddingCategory(false);
+    setNewCategoryName("");
     setNotes("");
 
     onCreated();
@@ -160,12 +198,51 @@ export default function ManualExpenseModal({
           <label className="text-sm font-medium">
             Vendor *
           </label>
-          <input
-            value={vendor}
-            onChange={(e) => setVendor(e.target.value)}
-            placeholder="PG&E, Verizon..."
-            className="w-full mt-2 p-2.5 rounded-md border bg-transparent"
-          />
+          {!addingVendor ? (
+            <>
+              <select
+                value={vendor}
+                onChange={(e) => {
+                  const v = e.target.value;
+                  if (v === "__new__") setAddingVendor(true);
+                  else setVendor(v);
+                }}
+                className="w-full mt-2 p-2.5 rounded-md border bg-transparent"
+              >
+                <option value="">Select vendor</option>
+                {vendors.map((v) => (
+                  <option key={v} value={v}>{v}</option>
+                ))}
+                <option value="__new__">+ Add new vendor</option>
+              </select>
+            </>
+          ) : (
+            <div className="flex gap-2 mt-2">
+              <input
+                value={newVendorName}
+                onChange={(e) => setNewVendorName(e.target.value)}
+                placeholder="Vendor name (e.g. PG&E, Verizon)"
+                className="flex-1 p-2.5 rounded-md border bg-transparent"
+                autoFocus
+              />
+              <button
+                type="button"
+                onClick={() => {
+                  if (newVendorName.trim()) {
+                    setVendor(newVendorName.trim());
+                    if (!vendors.includes(newVendorName.trim())) {
+                      setVendors((prev) => [...prev, newVendorName.trim()].sort());
+                    }
+                  }
+                  setAddingVendor(false);
+                  setNewVendorName("");
+                }}
+                className="px-3 rounded-md border"
+              >
+                Use
+              </button>
+            </div>
+          )}
         </div>
 
         {/* Amount & Date */}
@@ -201,12 +278,51 @@ export default function ManualExpenseModal({
           <label className="text-sm font-medium">
             Category
           </label>
-          <input
-            value={category}
-            onChange={(e) => setCategory(e.target.value)}
-            placeholder="Utilities, Internet..."
-            className="w-full mt-2 p-2.5 rounded-md border bg-transparent"
-          />
+          {!addingCategory ? (
+            <>
+              <select
+                value={category}
+                onChange={(e) => {
+                  const v = e.target.value;
+                  if (v === "__new__") setAddingCategory(true);
+                  else setCategory(v);
+                }}
+                className="w-full mt-2 p-2.5 rounded-md border bg-transparent"
+              >
+                <option value="">Select category (optional)</option>
+                {categories.map((c) => (
+                  <option key={c} value={c}>{c}</option>
+                ))}
+                <option value="__new__">+ Add new category</option>
+              </select>
+            </>
+          ) : (
+            <div className="flex gap-2 mt-2">
+              <input
+                value={newCategoryName}
+                onChange={(e) => setNewCategoryName(e.target.value)}
+                placeholder="Category (e.g. Utilities, Internet)"
+                className="flex-1 p-2.5 rounded-md border bg-transparent"
+                autoFocus
+              />
+              <button
+                type="button"
+                onClick={() => {
+                  if (newCategoryName.trim()) {
+                    setCategory(newCategoryName.trim());
+                    if (!categories.includes(newCategoryName.trim())) {
+                      setCategories((prev) => [...prev, newCategoryName.trim()].sort());
+                    }
+                  }
+                  setAddingCategory(false);
+                  setNewCategoryName("");
+                }}
+                className="px-3 rounded-md border"
+              >
+                Use
+              </button>
+            </div>
+          )}
         </div>
 
         {/* Notes */}

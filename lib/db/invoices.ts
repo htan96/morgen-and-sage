@@ -107,3 +107,46 @@ export async function insertInvoiceLineItems(
 
   if (error) throw error;
 }
+
+/**
+ * Delete all line items for an invoice.
+ * Used when regenerating a voided invoice to replace line items.
+ */
+export async function deleteInvoiceLineItems(invoiceId: string) {
+  const supabase = await createClient();
+
+  const { error } = await supabase
+    .from("invoice_line_items")
+    .delete()
+    .eq("invoice_id", invoiceId);
+
+  if (error) throw error;
+}
+
+/**
+ * Update invoice totals and status.
+ * Used when regenerating a voided invoice.
+ */
+export async function updateInvoiceTotals(
+  invoiceId: string,
+  updates: {
+    subtotal: number;
+    total_amount: number;
+    balance_due: number;
+    status: string;
+  }
+) {
+  const supabase = await createClient();
+
+  const { error } = await supabase
+    .from("invoices")
+    .update({
+      subtotal: updates.subtotal,
+      total_amount: updates.totalAmount,
+      balance_due: updates.balanceDue,
+      status: updates.status,
+    })
+    .eq("id", invoiceId);
+
+  if (error) throw error;
+}
