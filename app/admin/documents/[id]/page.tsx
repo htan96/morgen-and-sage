@@ -43,7 +43,7 @@ export default function DocumentDetailPage() {
       setDocument(data);
       setFormData(data);
 
-      if (data.storage_path) {
+      if (data.storage_path && data.doc_type !== "manual") {
         const { data: signedData } = await supabase.storage
           .from(BUCKET_NAME)
           .createSignedUrl(data.storage_path, 60 * 60);
