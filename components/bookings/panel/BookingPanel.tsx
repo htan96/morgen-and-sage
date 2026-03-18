@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { createBookingSession } from "@/app/actions/billing/createBookingSession";
 import { validateDraftBookings } from "@/lib/bookings/validateDraftBookings";
+import { formatDateTimePacific } from "@/lib/datetime";
 import { Booking } from "@/types/booking";
 
 import BookingPanelHeader from "./BookingPanelHeader";
@@ -258,19 +259,13 @@ export default function BookingPanel({
               <div>
                 <span className="text-xs uppercase tracking-wide opacity-70">Start</span>
                 <p className="text-sm font-medium mt-1">
-                  {new Date(editingBooking.start_time).toLocaleString(undefined, {
-                    dateStyle: "medium",
-                    timeStyle: "short",
-                  })}
+                  {formatDateTimePacific(editingBooking.start_time)}
                 </p>
               </div>
               <div>
                 <span className="text-xs uppercase tracking-wide opacity-70">End</span>
                 <p className="text-sm font-medium mt-1">
-                  {new Date(editingBooking.end_time).toLocaleString(undefined, {
-                    dateStyle: "medium",
-                    timeStyle: "short",
-                  })}
+                  {formatDateTimePacific(editingBooking.end_time)}
                 </p>
               </div>
             </div>

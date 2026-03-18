@@ -1,5 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
+import { formatDatePacific, formatTimePacific } from "@/lib/datetime";
 
 export default async function PortalDashboardPage() {
   const supabase = await createClient();
@@ -177,7 +178,7 @@ export default async function PortalDashboardPage() {
               }}
             >
               <div>
-                {new Date(booking.start_time).toLocaleDateString()}
+                {formatDatePacific(booking.start_time)}
               </div>
 
               <div>
@@ -185,15 +186,8 @@ export default async function PortalDashboardPage() {
               </div>
 
               <div>
-                {new Date(booking.start_time).toLocaleTimeString([], {
-                  hour: "2-digit",
-                  minute: "2-digit",
-                })}{" "}
-                –{" "}
-                {new Date(booking.end_time).toLocaleTimeString([], {
-                  hour: "2-digit",
-                  minute: "2-digit",
-                })}
+                {formatTimePacific(booking.start_time)} –{" "}
+                {formatTimePacific(booking.end_time)}
               </div>
             </div>
           ))}

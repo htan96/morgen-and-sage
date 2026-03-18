@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { formatDatePacific } from "@/lib/datetime";
 
 export async function POST(req: Request) {
 
@@ -231,10 +232,10 @@ export async function POST(req: Request) {
       bookings.length,
 
     earliestDate:
-      earliestDate.toLocaleDateString(),
+      formatDatePacific(earliestDate),
 
     latestDate:
-      latestDate.toLocaleDateString(),
+      formatDatePacific(latestDate),
 
     totalHours:
       Number(totalHours.toFixed(2)),
@@ -254,7 +255,7 @@ export async function POST(req: Request) {
       Number(total.toFixed(2)),
 
     dueDateLabel:
-      new Date().toLocaleDateString()
+      formatDatePacific(new Date())
 
   });
 

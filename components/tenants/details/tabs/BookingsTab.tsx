@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useMemo } from "react";
 import { createClient } from "@/lib/supabase/client";
+import { formatDatePacific, formatTimePacific } from "@/lib/datetime";
 
 type Props = {
   tenantId: string;
@@ -53,14 +54,11 @@ export default function BookingsTab({ tenantId }: Props) {
   }
 
   function formatTime(dateString: string) {
-    return new Date(dateString).toLocaleTimeString([], {
-      hour: "2-digit",
-      minute: "2-digit",
-    });
+    return formatTimePacific(dateString);
   }
 
   function formatDate(dateString: string) {
-    return new Date(dateString).toLocaleDateString();
+    return formatDatePacific(dateString);
   }
 
   function calculateHours(start: string, end: string) {
