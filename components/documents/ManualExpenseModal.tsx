@@ -40,6 +40,8 @@ export default function ManualExpenseModal({
   const [vendors, setVendors] = useState<string[]>([]);
   const [categories, setCategories] = useState<string[]>([]);
 
+  const [notes, setNotes] = useState("");
+
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
