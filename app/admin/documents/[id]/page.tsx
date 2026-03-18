@@ -140,17 +140,79 @@ export default function DocumentDetailPage() {
             </div>
 
             {!isEditing && (
-              <button
-                onClick={() => setIsEditing(true)}
-                className="px-4 py-2 rounded-lg w-full sm:w-auto"
-                style={{
-                  background: "var(--hover)",
-                  border: "1px solid var(--border)",
-                }}
-              >
-                Edit
-              </button>
+              <div className="flex flex-wrap gap-2">
+                <button
+                  onClick={() => setIsEditing(true)}
+                  className="px-4 py-2 rounded-lg"
+                  style={{
+                    background: "var(--hover)",
+                    border: "1px solid var(--border)",
+                  }}
+                >
+                  Edit
+                </button>
+                <button
+                  onClick={async () => {
+                    if (!confirm("Delete this document? This cannot be undone.")) return;
+                    const { error } = await supabase
+                      .from("documents")
+                      .delete()
+                      .eq("id", document.id);
+                    if (error) {
+                      alert(error.message);
+                      return;
+                    }
+                    router.push("/admin/documents");
+                  }}
+                  className="px-4 py-2 rounded-lg"
+                  style={{
+                    background: "transparent",
+                    border: "1px solid #ef4444",
+                    color: "#ef4444",
+                  }}
+                >
+                  Delete
+                </button>
+              </div>
             )}
+          </div>
+
+          {/* Vendor */}
+          <div>
+            <label className="text-sm">Vendor</label>
+            <input
+              type="text"
+              value={formData?.vendor_name || ""}
+              disabled={!isEditing}
+              onChange={(e) =>
+                setFormData({ ...formData, vendor_name: e.target.value })
+              }
+              className="w-full mt-1 px-4 py-2 rounded-lg"
+              style={{
+                background: "var(--bg)",
+                border: "1px solid var(--border)",
+                color: "var(--text)",
+              }}
+            />
+          </div>
+
+          {/* Date */}
+          <div>
+            <label className="text-sm">Document Date</label>
+            <input
+              type="date"
+              value={formData?.document_date || ""}
+              disabled={!isEditing}
+              onChange={(e) =>
+                setFormData({ ...formData, document_date: e.target.value })
+              }
+              className="w-full mt-1 px-4 py-2 rounded-lg"
+              style={{
+                background: "var(--bg)",
+                border: "1px solid var(--border)",
+                color: "var(--text)",
+              }}
+            />
           </div>
 
           {/* Amount */}
@@ -225,15 +287,22 @@ export default function DocumentDetailPage() {
             <div className="flex flex-col sm:flex-row gap-4">
               <button
                 onClick={async () => {
-                  await supabase
+                  const { error } = await supabase
                     .from("documents")
                     .update({
+                      vendor_name: formData.vendor_name,
+                      document_date: formData.document_date,
                       amount: formData.amount,
                       category: formData.category,
                       is_depreciable: formData.is_depreciable,
                     })
                     .eq("id", document.id);
 
+                  if (error) {
+                    alert(error.message);
+                    return;
+                  }
+                  setDocument({ ...document, ...formData });
                   setIsEditing(false);
                   router.refresh();
                 }}
