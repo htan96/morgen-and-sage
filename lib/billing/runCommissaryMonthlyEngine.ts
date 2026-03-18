@@ -129,8 +129,8 @@ export async function runCommissaryMonthlyEngine(params: {
 
     await updateInvoiceTotals(invoiceId, {
       subtotal,
-      totalAmount: subtotal,
-      balanceDue: subtotal,
+      total_amount: subtotal,
+      balance_due: subtotal,
       status: "draft",
     });
   } else {

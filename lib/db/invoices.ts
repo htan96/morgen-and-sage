@@ -142,8 +142,8 @@ export async function updateInvoiceTotals(
     .from("invoices")
     .update({
       subtotal: updates.subtotal,
-      total_amount: updates.totalAmount,
-      balance_due: updates.balanceDue,
+      total_amount: updates.total_amount,
+      balance_due: updates.balance_due,
       status: updates.status,
     })
     .eq("id", invoiceId);
