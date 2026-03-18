@@ -132,16 +132,26 @@ export default function ManualExpenseModal({
     const dayToUse = dayOfMonth ? Math.min(31, Math.max(1, parseInt(dayOfMonth, 10) || 1)) : 1;
     const amountNum = Number(amount);
 
+    const sanitizeForFilename = (s: string) =>
+      s.replace(/[^a-zA-Z0-9-_]/g, "-").replace(/-+/g, "-").slice(0, 50);
+
+    const formatOriginalFilename = (vendor: string, docDate: string) =>
+      `manual-${sanitizeForFilename(vendor)}-${docDate}.txt`;
+
     if (applyToMultipleMonths) {
-      const rows = selectedMonths.map((monthIndex) => ({
-        organization_id: organizationId,
-        vendor_name: effectiveVendor,
-        document_date: formatDocumentDate(year, monthIndex, dayToUse),
-        amount: amountNum,
-        category: effectiveCategory || null,
-        doc_type: "manual",
-        status: "complete",
-      }));
+      const rows = selectedMonths.map((monthIndex) => {
+        const docDate = formatDocumentDate(year, monthIndex, dayToUse);
+        return {
+          organization_id: organizationId,
+          vendor_name: effectiveVendor,
+          document_date: docDate,
+          amount: amountNum,
+          category: effectiveCategory || null,
+          doc_type: "manual",
+          status: "complete",
+          original_filename: formatOriginalFilename(effectiveVendor, docDate),
+        };
+      });
 
       const { error } = await supabase.from("documents").insert(rows);
 
@@ -162,6 +172,7 @@ export default function ManualExpenseModal({
         category: effectiveCategory || null,
         doc_type: "manual",
         status: "complete",
+        original_filename: formatOriginalFilename(effectiveVendor, date),
       });
 
       setSaving(false);
