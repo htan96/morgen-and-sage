@@ -138,6 +138,9 @@ export default function ManualExpenseModal({
     const formatOriginalFilename = (vendor: string, docDate: string) =>
       `manual-${sanitizeForFilename(vendor)}-${docDate}.txt`;
 
+    const makeStoragePath = () =>
+      `manual-${Date.now()}-${Math.random().toString(36).substring(2, 9)}.txt`;
+
     if (applyToMultipleMonths) {
       const rows = selectedMonths.map((monthIndex) => {
         const docDate = formatDocumentDate(year, monthIndex, dayToUse);
@@ -150,6 +153,7 @@ export default function ManualExpenseModal({
           doc_type: "manual",
           status: "complete",
           original_filename: formatOriginalFilename(effectiveVendor, docDate),
+          storage_path: makeStoragePath(),
         };
       });
 
@@ -173,6 +177,7 @@ export default function ManualExpenseModal({
         doc_type: "manual",
         status: "complete",
         original_filename: formatOriginalFilename(effectiveVendor, date),
+        storage_path: makeStoragePath(),
       });
 
       setSaving(false);
