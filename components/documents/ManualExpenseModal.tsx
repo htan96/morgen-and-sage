@@ -40,8 +40,6 @@ export default function ManualExpenseModal({
   const [vendors, setVendors] = useState<string[]>([]);
   const [categories, setCategories] = useState<string[]>([]);
 
-  const [notes, setNotes] = useState("");
-
   const [applyToMultipleMonths, setApplyToMultipleMonths] = useState(false);
   const [year, setYear] = useState(new Date().getFullYear());
   const [selectedMonths, setSelectedMonths] = useState<number[]>([]);
@@ -141,7 +139,6 @@ export default function ManualExpenseModal({
         document_date: formatDocumentDate(year, monthIndex, dayToUse),
         amount: amountNum,
         category: effectiveCategory || null,
-        notes: notes || null,
         doc_type: "manual",
         status: "complete",
       }));
@@ -163,7 +160,6 @@ export default function ManualExpenseModal({
         document_date: date,
         amount: amountNum,
         category: effectiveCategory || null,
-        notes: notes || null,
         doc_type: "manual",
         status: "complete",
       });
@@ -186,7 +182,6 @@ export default function ManualExpenseModal({
     setCategory("");
     setAddingCategory(false);
     setNewCategoryName("");
-    setNotes("");
     setApplyToMultipleMonths(false);
     setYear(new Date().getFullYear());
     setSelectedMonths([]);
@@ -473,21 +468,8 @@ export default function ManualExpenseModal({
           )}
         </div>
 
-        {/* Notes */}
-        <div className="mb-6">
-          <label className="text-sm font-medium">
-            Notes
-          </label>
-          <textarea
-            value={notes}
-            onChange={(e) => setNotes(e.target.value)}
-            rows={3}
-            className="w-full mt-2 p-2.5 rounded-md border bg-transparent"
-          />
-        </div>
-
         {/* Actions */}
-        <div className="flex justify-end gap-3">
+        <div className="flex justify-end gap-3 mt-6">
           <button
             onClick={onClose}
             className="px-4 py-2 rounded-md border"
