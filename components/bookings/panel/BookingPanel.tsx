@@ -173,8 +173,8 @@ export default function BookingPanel({
         tenantId: effectiveTenantId,
         kitchenSpaceId: panelKitchenId,
         bookings: draftBookings.map((b) => ({
-          startTime: b.startTime,
-          endTime: b.endTime,
+          startTime: new Date(b.startTime).toISOString(),
+          endTime: new Date(b.endTime).toISOString(),
         })),
       });
 

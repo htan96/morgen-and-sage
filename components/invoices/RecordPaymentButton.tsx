@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { DollarSign } from "lucide-react";
 
@@ -15,11 +15,20 @@ export default function RecordPaymentButton({
 }) {
   const [open, setOpen] = useState(false);
   const [amount, setAmount] = useState("");
+  const [paymentDate, setPaymentDate] = useState(() =>
+    new Date().toISOString().slice(0, 10)
+  );
   const [method, setMethod] = useState("cash");
   const [notes, setNotes] = useState("");
   const [loading, setLoading] = useState(false);
 
   const router = useRouter();
+
+  useEffect(() => {
+    if (open) {
+      setPaymentDate(new Date().toISOString().slice(0, 10));
+    }
+  }, [open]);
 
   async function handleSubmit() {
     if (!amount || Number(amount) <= 0) {
@@ -42,6 +51,7 @@ export default function RecordPaymentButton({
           amount: Number(amount),
           method,
           notes,
+          paymentDate: paymentDate || new Date().toISOString().slice(0, 10),
         }),
       });
 
@@ -56,6 +66,7 @@ export default function RecordPaymentButton({
 
       setOpen(false);
       setAmount("");
+      setPaymentDate(new Date().toISOString().slice(0, 10));
       setNotes("");
       setMethod("cash");
       router.refresh();
@@ -93,6 +104,23 @@ export default function RecordPaymentButton({
             <h2 className="text-lg font-semibold mb-4">
               Record Payment
             </h2>
+
+            <div className="mb-3">
+              <label className="block text-xs text-[var(--text-muted)] mb-1">
+                Payment Date
+              </label>
+              <input
+                type="date"
+                value={paymentDate}
+                onChange={(e) => setPaymentDate(e.target.value)}
+                className="w-full px-3 py-2 rounded border"
+                style={{
+                  background: "var(--surface)",
+                  borderColor: "var(--border)",
+                  color: "var(--text)",
+                }}
+              />
+            </div>
 
             <input
               type="number"

@@ -13,6 +13,7 @@ export async function POST(request: NextRequest) {
       amount,
       method,
       notes,
+      paymentDate,
     } = body;
 
     const supabase = await createClient();
@@ -56,7 +57,9 @@ export async function POST(request: NextRequest) {
         amount: paymentAmount,
         payment_method: method,
         status: "completed",
-        payment_date: new Date().toISOString(),
+        payment_date: paymentDate
+          ? new Date(paymentDate + "T12:00:00.000Z").toISOString()
+          : new Date().toISOString(),
         notes,
       })
       .select();
