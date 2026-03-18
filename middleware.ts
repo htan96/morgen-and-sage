@@ -36,6 +36,7 @@ export async function middleware(request: NextRequest) {
 
   /* ======================================================
      NOT LOGGED IN
+     (Propagate cookies to redirect so session updates reach mobile clients)
   ====================================================== */
 
   if (!user) {
@@ -43,7 +44,11 @@ export async function middleware(request: NextRequest) {
     const url = request.nextUrl.clone();
     url.pathname = "/login";
 
-    return NextResponse.redirect(url);
+    const redirectRes = NextResponse.redirect(url, 302);
+    response.cookies.getAll().forEach((c) => {
+      redirectRes.cookies.set(c.name, c.value);
+    });
+    return redirectRes;
 
   }
 
@@ -74,7 +79,11 @@ export async function middleware(request: NextRequest) {
       const url = request.nextUrl.clone();
       url.pathname = "/portal";
 
-      return NextResponse.redirect(url);
+      const redirectRes = NextResponse.redirect(url, 302);
+      response.cookies.getAll().forEach((c) => {
+        redirectRes.cookies.set(c.name, c.value);
+      });
+      return redirectRes;
 
     }
 
@@ -93,7 +102,11 @@ export async function middleware(request: NextRequest) {
       const url = request.nextUrl.clone();
       url.pathname = "/login";
 
-      return NextResponse.redirect(url);
+      const redirectRes = NextResponse.redirect(url, 302);
+      response.cookies.getAll().forEach((c) => {
+        redirectRes.cookies.set(c.name, c.value);
+      });
+      return redirectRes;
 
     }
 
@@ -111,6 +124,7 @@ export async function middleware(request: NextRequest) {
 
 export const config = {
   matcher: [
+    "/",
     "/admin/:path*",
     "/portal/:path*"
   ],
