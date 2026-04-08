@@ -2,8 +2,7 @@ import { createClient } from "@/lib/supabase/server";
 import { getActiveMonthlyServices } from "@/lib/db/tenantServices";
 import {
   insertInvoice,
-  insertInvoiceLineItems,
-  deleteInvoiceLineItems,
+  replaceInvoiceLineItems,
   updateInvoiceTotals,
 } from "@/lib/db/invoices";
 
@@ -44,12 +43,15 @@ export async function runCommissaryMonthlyEngine(params: {
   /* Allow regeneration if VOID         */
   /* ---------------------------------- */
 
-  const { data: existingInvoices } = await supabase
+  const { data: existingInvoices, error: existingErr } = await supabase
     .from("invoices")
     .select("id, status")
     .eq("tenant_id", tenantId)
     .eq("billing_month", billingMonth)
-    .eq("invoice_type", "commissary");
+    .eq("invoice_type", "commissary")
+    .order("created_at", { ascending: false });
+
+  if (existingErr) throw existingErr;
 
   const hasActiveInvoice =
     existingInvoices?.some((i) => i.status !== "void");
@@ -125,8 +127,6 @@ export async function runCommissaryMonthlyEngine(params: {
   if (voidedInvoice) {
     invoiceId = voidedInvoice.id;
 
-    await deleteInvoiceLineItems(invoiceId);
-
     await updateInvoiceTotals(invoiceId, {
       subtotal,
       total_amount: subtotal,
@@ -154,10 +154,10 @@ export async function runCommissaryMonthlyEngine(params: {
   }
 
   /* ---------------------------------- */
-  /* Insert line items                  */
+  /* Line items (always replace)        */
   /* ---------------------------------- */
 
-  await insertInvoiceLineItems(
+  await replaceInvoiceLineItems(
     invoiceId,
     tenant.organization_id,
     tenantId,

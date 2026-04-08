@@ -109,6 +109,28 @@ export async function insertInvoiceLineItems(
 }
 
 /**
+ * Replace all line items for an invoice (delete then insert).
+ * Keeps a single writer path and avoids duplicate rows from stacked inserts.
+ */
+export async function replaceInvoiceLineItems(
+  invoiceId: string,
+  organizationId: string,
+  tenantId: string,
+  items: Array<{
+    description: string;
+    quantity: number;
+    rate: number;
+    amount: number;
+    serviceDate?: string | null;
+    bookingId?: string | null;
+    notes?: string | null;
+  }>
+) {
+  await deleteInvoiceLineItems(invoiceId);
+  await insertInvoiceLineItems(invoiceId, organizationId, tenantId, items);
+}
+
+/**
  * Delete all line items for an invoice.
  * Used when regenerating a voided invoice to replace line items.
  */

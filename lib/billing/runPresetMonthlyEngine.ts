@@ -3,8 +3,7 @@ import { generatePresetBookingsForMonth } from "./generatePresetBookingsForMonth
 import { attachBookingsToInvoiceForMonth } from "@/lib/db/bookings";
 import {
   insertInvoice,
-  insertInvoiceLineItems,
-  deleteInvoiceLineItems,
+  replaceInvoiceLineItems,
   updateInvoiceTotals,
 } from "@/lib/db/invoices";
 import {
@@ -71,21 +70,38 @@ export async function runPresetMonthlyEngine(params: {
   /* Allow regeneration if VOID         */
   /* ---------------------------------- */
 
-  const { data: existingInvoice } = await supabase
+  const { data: activeRow, error: activeErr } = await supabase
     .from("invoices")
-    .select("id, status")
+    .select("id")
     .eq("tenant_id", tenantId)
     .eq("billing_month", billingMonth)
     .eq("invoice_type", "preset")
+    .neq("status", "void")
     .maybeSingle();
 
-  if (existingInvoice && existingInvoice.status !== "void") {
+  if (activeErr) throw activeErr;
+
+  if (activeRow) {
     return {
       success: false,
       reason: "INVOICE_ALREADY_EXISTS",
-      invoiceId: existingInvoice.id,
+      invoiceId: activeRow.id,
     };
   }
+
+  const { data: voidRows, error: voidErr } = await supabase
+    .from("invoices")
+    .select("id")
+    .eq("tenant_id", tenantId)
+    .eq("billing_month", billingMonth)
+    .eq("invoice_type", "preset")
+    .eq("status", "void")
+    .order("created_at", { ascending: false })
+    .limit(1);
+
+  if (voidErr) throw voidErr;
+
+  const voidInvoiceId = voidRows?.[0]?.id ?? null;
 
   /* ---------------------------------- */
   /* Get tenant                         */
@@ -114,6 +130,22 @@ export async function runPresetMonthlyEngine(params: {
     .eq("tenant_id", tenantId)
     .gte("start_time", startISO)
     .lt("start_time", nextISO);
+
+  /* ---------------------------------- */
+  /* Drop auto-generated preset slots   */
+  /* Prevents duplicate rows after void */
+  /* + regenerate (time drift / re-run) */
+  /* ---------------------------------- */
+
+  const { error: delPresetBookingsErr } = await supabase
+    .from("bookings")
+    .delete()
+    .eq("tenant_id", tenantId)
+    .eq("submitted_via", "preset")
+    .gte("start_time", startISO)
+    .lt("start_time", nextISO);
+
+  if (delPresetBookingsErr) throw delPresetBookingsErr;
 
   /* ---------------------------------- */
   /* Generate preset bookings           */
@@ -249,10 +281,8 @@ export async function runPresetMonthlyEngine(params: {
 
   let invoiceId: string;
 
-  if (existingInvoice && existingInvoice.status === "void") {
-    invoiceId = existingInvoice.id;
-
-    await deleteInvoiceLineItems(invoiceId);
+  if (voidInvoiceId) {
+    invoiceId = voidInvoiceId;
 
     await updateInvoiceTotals(invoiceId, {
       subtotal,
@@ -281,10 +311,10 @@ export async function runPresetMonthlyEngine(params: {
   }
 
   /* ---------------------------------- */
-  /* Insert line items                  */
+  /* Line items (always replace)        */
   /* ---------------------------------- */
 
-  await insertInvoiceLineItems(
+  await replaceInvoiceLineItems(
     invoiceId,
     tenant.organization_id,
     tenantId,

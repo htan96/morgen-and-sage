@@ -17,7 +17,7 @@ export async function POST(
       );
     }
 
-    const { error } = await supabase
+    const { error: invoiceError } = await supabase
       .from("invoices")
       .update({
         status: "void",
@@ -25,9 +25,23 @@ export async function POST(
       })
       .eq("id", invoiceId);
 
-    if (error) {
+    if (invoiceError) {
       return NextResponse.json(
-        { error: error.message },
+        { error: invoiceError.message },
+        { status: 500 }
+      );
+    }
+
+    /* Bookings keep invoice_id unless we clear it; uninvoiced queries use
+       invoice_id IS NULL, so void alone left hours "stuck" on a dead invoice. */
+    const { error: bookingError } = await supabase
+      .from("bookings")
+      .update({ invoice_id: null })
+      .eq("invoice_id", invoiceId);
+
+    if (bookingError) {
+      return NextResponse.json(
+        { error: bookingError.message },
         { status: 500 }
       );
     }
