@@ -1,4 +1,4 @@
-import { supabaseAdmin } from "@/lib/supabase/supabase-admin";
+import { voidInvoiceAndDetachBookings } from "@/lib/db/invoices";
 import { NextRequest, NextResponse } from "next/server";
 
 export async function POST(
@@ -15,31 +15,11 @@ export async function POST(
       );
     }
 
-    /* Service role: avoids RLS that ties writes to JWT organization_id */
-    const { error: invoiceError } = await supabaseAdmin
-      .from("invoices")
-      .update({
-        status: "void",
-        balance_due: 0,
-      })
-      .eq("id", invoiceId);
-
-    if (invoiceError) {
+    try {
+      await voidInvoiceAndDetachBookings(invoiceId);
+    } catch (e: any) {
       return NextResponse.json(
-        { error: invoiceError.message },
-        { status: 500 }
-      );
-    }
-
-    /* Detach bookings (RLS often allows invoice update but not booking update). */
-    const { error: bookingError } = await supabaseAdmin
-      .from("bookings")
-      .update({ invoice_id: null })
-      .eq("invoice_id", invoiceId);
-
-    if (bookingError) {
-      return NextResponse.json(
-        { error: bookingError.message },
+        { error: e?.message ?? "Void failed" },
         { status: 500 }
       );
     }

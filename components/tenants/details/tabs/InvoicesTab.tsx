@@ -12,6 +12,7 @@ type Invoice = {
   id: string;
   invoice_number: string;
   invoice_date: string;
+  billing_month: string | null;
   total_amount: number;
   balance_due: number;
   status: string;
@@ -37,6 +38,7 @@ export default function InvoicesTab({ tenantId }: Props) {
         id,
         invoice_number,
         invoice_date,
+        billing_month,
         total_amount,
         balance_due,
         status
@@ -54,17 +56,23 @@ export default function InvoicesTab({ tenantId }: Props) {
     setLoading(false);
   }
 
-  async function handleRegenerate(invoiceDate: string, invoiceId: string) {
+  async function handleRegenerate(inv: Invoice) {
 
     try {
 
-      setRegenerating(invoiceId);
+      setRegenerating(inv.id);
 
-      const billingMonth = invoiceDate.slice(0, 7) + "-01";
+      const billingMonth =
+        inv.billing_month ||
+        inv.invoice_date.slice(0, 7) + "-01";
 
-      const res = await fetch(
-        `/api/billing/run-monthly?tenantId=${tenantId}&month=${billingMonth}`
-      );
+      const q = new URLSearchParams({
+        tenantId,
+        month: billingMonth,
+        voidInvoiceId: inv.id,
+      });
+
+      const res = await fetch(`/api/billing/run-monthly?${q.toString()}`);
 
       const data = await res.json();
 
@@ -73,7 +81,9 @@ export default function InvoicesTab({ tenantId }: Props) {
         const message =
           reason === "TENANT_MISSING_ORGANIZATION"
             ? "This tenant has no organization assigned. Set it on the tenant record, then try again."
-            : reason || data.error || "Failed to regenerate invoice";
+            : reason === "INVOICE_ALREADY_EXISTS"
+              ? "There is still an active invoice for that billing month (not void). Void or finish that invoice first, or remove any payments on it."
+              : reason || data.error || "Failed to regenerate invoice";
 
         alert(message);
 
@@ -198,9 +208,7 @@ export default function InvoicesTab({ tenantId }: Props) {
 
                   {inv.status === "void" && (
                     <button
-                      onClick={() =>
-                        handleRegenerate(inv.invoice_date, inv.id)
-                      }
+                      onClick={() => handleRegenerate(inv)}
                       disabled={regenerating === inv.id}
                       className="ui-btn ui-btn-primary"
                     >

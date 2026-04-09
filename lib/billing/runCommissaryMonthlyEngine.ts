@@ -1,9 +1,11 @@
 import { supabaseAdmin } from "@/lib/supabase/supabase-admin";
 import { getActiveMonthlyServices } from "@/lib/db/tenantServices";
 import {
+  countCompletedPaymentsForInvoice,
   insertInvoice,
   replaceInvoiceLineItems,
   updateInvoiceTotals,
+  voidInvoiceAndDetachBookings,
 } from "@/lib/db/invoices";
 
 /* ---------------------------------- */
@@ -27,35 +29,88 @@ export async function runCommissaryMonthlyEngine(params: {
   billingMonth: string;
   generatedByType?: "admin" | "system" | "tenant";
   generatedById?: string | null;
+  voidSourceInvoiceId?: string | null;
 }) {
 
   const {
     tenantId,
-    billingMonth,
+    billingMonth: billingMonthParam,
     generatedByType = "system",
     generatedById = null,
+    voidSourceInvoiceId = null,
   } = params;
 
   const supabase = supabaseAdmin;
+
+  let billingMonth = billingMonthParam;
+
+  if (voidSourceInvoiceId) {
+    const { data: src, error: srcErr } = await supabase
+      .from("invoices")
+      .select("tenant_id, status, billing_month, invoice_type")
+      .eq("id", voidSourceInvoiceId)
+      .maybeSingle();
+
+    if (srcErr) throw srcErr;
+
+    if (!src || src.tenant_id !== tenantId) {
+      return { success: false, reason: "INVALID_VOID_SOURCE" };
+    }
+
+    if (src.status !== "void") {
+      return { success: false, reason: "SOURCE_NOT_VOID" };
+    }
+
+    if (src.invoice_type !== "commissary") {
+      return { success: false, reason: "INVOICE_TYPE_MISMATCH" };
+    }
+
+    if (src.billing_month) {
+      billingMonth = src.billing_month;
+    }
+  }
 
   /* ---------------------------------- */
   /* Prevent duplicate active invoices  */
   /* Allow regeneration if VOID         */
   /* ---------------------------------- */
 
-  const { data: existingInvoices, error: existingErr } = await supabase
-    .from("invoices")
-    .select("id, status")
-    .eq("tenant_id", tenantId)
-    .eq("billing_month", billingMonth)
-    .eq("invoice_type", "commissary")
-    .order("invoice_date", { ascending: false })
-    .order("id", { ascending: false });
+  async function loadCommissaryInvoices() {
+    const { data, error } = await supabase
+      .from("invoices")
+      .select("id, status")
+      .eq("tenant_id", tenantId)
+      .eq("billing_month", billingMonth)
+      .eq("invoice_type", "commissary")
+      .order("invoice_date", { ascending: false })
+      .order("id", { ascending: false });
 
-  if (existingErr) throw existingErr;
+    if (error) throw error;
 
-  const hasActiveInvoice =
-    existingInvoices?.some((i) => i.status !== "void");
+    return data ?? [];
+  }
+
+  let existingInvoices = await loadCommissaryInvoices();
+
+  if (voidSourceInvoiceId) {
+    const activeDrafts = existingInvoices.filter(
+      (i) => i.status === "draft"
+    );
+
+    for (const inv of activeDrafts) {
+      const paid = await countCompletedPaymentsForInvoice(inv.id);
+
+      if (paid === 0) {
+        await voidInvoiceAndDetachBookings(inv.id);
+      }
+    }
+
+    if (activeDrafts.length > 0) {
+      existingInvoices = await loadCommissaryInvoices();
+    }
+  }
+
+  const hasActiveInvoice = existingInvoices.some((i) => i.status !== "void");
 
   if (hasActiveInvoice) {
     return {
@@ -64,7 +119,15 @@ export async function runCommissaryMonthlyEngine(params: {
     };
   }
 
-  const voidedInvoice = existingInvoices?.find((i) => i.status === "void");
+  const voidedInvoice = voidSourceInvoiceId
+    ? existingInvoices.find(
+        (i) => i.id === voidSourceInvoiceId && i.status === "void"
+      )
+    : existingInvoices.find((i) => i.status === "void");
+
+  if (voidSourceInvoiceId && !voidedInvoice) {
+    return { success: false, reason: "VOID_SOURCE_NOT_FOUND" };
+  }
 
   /* ---------------------------------- */
   /* Get tenant                         */

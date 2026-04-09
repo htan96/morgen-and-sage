@@ -11,12 +11,14 @@ export async function runMonthlyBilling(params: {
   billingMonth: string;
   generatedByType: "admin" | "system" | "tenant";
   generatedById?: string | null;
+  voidSourceInvoiceId?: string | null;
 }) {
   const result = await runMonthlyEngine({
     tenantId: params.tenantId,
     billingMonth: params.billingMonth,
     generatedByType: params.generatedByType,
     generatedById: params.generatedById ?? null,
+    voidSourceInvoiceId: params.voidSourceInvoiceId ?? null,
   });
 
   return result;

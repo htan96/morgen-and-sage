@@ -2,9 +2,11 @@ import { supabaseAdmin } from "@/lib/supabase/supabase-admin";
 import { generatePresetBookingsForMonth } from "./generatePresetBookingsForMonth";
 import { attachBookingsToInvoiceForMonth } from "@/lib/db/bookings";
 import {
+  countCompletedPaymentsForInvoice,
   insertInvoice,
   replaceInvoiceLineItems,
   updateInvoiceTotals,
+  voidInvoiceAndDetachBookings,
 } from "@/lib/db/invoices";
 import {
   getActiveHourlyRate,
@@ -54,16 +56,47 @@ export async function runPresetMonthlyEngine(params: {
   billingMonth: string;
   generatedByType?: "admin" | "system" | "tenant";
   generatedById?: string | null;
+  /** Row the user clicked Regenerate on — pins billing_month and can clear a stray draft. */
+  voidSourceInvoiceId?: string | null;
 }) {
 
   const {
     tenantId,
-    billingMonth,
+    billingMonth: billingMonthParam,
     generatedByType = "system",
     generatedById = null,
+    voidSourceInvoiceId = null,
   } = params;
 
   const supabase = supabaseAdmin;
+
+  let billingMonth = billingMonthParam;
+
+  if (voidSourceInvoiceId) {
+    const { data: src, error: srcErr } = await supabase
+      .from("invoices")
+      .select("tenant_id, status, billing_month, invoice_type")
+      .eq("id", voidSourceInvoiceId)
+      .maybeSingle();
+
+    if (srcErr) throw srcErr;
+
+    if (!src || src.tenant_id !== tenantId) {
+      return { success: false, reason: "INVALID_VOID_SOURCE" };
+    }
+
+    if (src.status !== "void") {
+      return { success: false, reason: "SOURCE_NOT_VOID" };
+    }
+
+    if (src.invoice_type !== "preset") {
+      return { success: false, reason: "INVOICE_TYPE_MISMATCH" };
+    }
+
+    if (src.billing_month) {
+      billingMonth = src.billing_month;
+    }
+  }
 
   /* ---------------------------------- */
   /* Prevent duplicate active invoices  */
@@ -72,7 +105,7 @@ export async function runPresetMonthlyEngine(params: {
 
   const { data: activeRow, error: activeErr } = await supabase
     .from("invoices")
-    .select("id")
+    .select("id, status")
     .eq("tenant_id", tenantId)
     .eq("billing_month", billingMonth)
     .eq("invoice_type", "preset")
@@ -81,28 +114,57 @@ export async function runPresetMonthlyEngine(params: {
 
   if (activeErr) throw activeErr;
 
-  if (activeRow) {
+  let blocking = activeRow;
+
+  if (blocking && voidSourceInvoiceId && blocking.status === "draft") {
+    const paid = await countCompletedPaymentsForInvoice(blocking.id);
+
+    if (paid === 0) {
+      await voidInvoiceAndDetachBookings(blocking.id);
+
+      const { data: after, error: afterErr } = await supabase
+        .from("invoices")
+        .select("id, status")
+        .eq("tenant_id", tenantId)
+        .eq("billing_month", billingMonth)
+        .eq("invoice_type", "preset")
+        .neq("status", "void")
+        .maybeSingle();
+
+      if (afterErr) throw afterErr;
+
+      blocking = after ?? null;
+    }
+  }
+
+  if (blocking) {
     return {
       success: false,
       reason: "INVOICE_ALREADY_EXISTS",
-      invoiceId: activeRow.id,
+      invoiceId: blocking.id,
     };
   }
 
-  const { data: voidRows, error: voidErr } = await supabase
-    .from("invoices")
-    .select("id")
-    .eq("tenant_id", tenantId)
-    .eq("billing_month", billingMonth)
-    .eq("invoice_type", "preset")
-    .eq("status", "void")
-    .order("invoice_date", { ascending: false })
-    .order("id", { ascending: false })
-    .limit(1);
+  let reuseTargetInvoiceId: string | null = null;
 
-  if (voidErr) throw voidErr;
+  if (voidSourceInvoiceId) {
+    reuseTargetInvoiceId = voidSourceInvoiceId;
+  } else {
+    const { data: voidRows, error: voidErr } = await supabase
+      .from("invoices")
+      .select("id")
+      .eq("tenant_id", tenantId)
+      .eq("billing_month", billingMonth)
+      .eq("invoice_type", "preset")
+      .eq("status", "void")
+      .order("invoice_date", { ascending: false })
+      .order("id", { ascending: false })
+      .limit(1);
 
-  const voidInvoiceId = voidRows?.[0]?.id ?? null;
+    if (voidErr) throw voidErr;
+
+    reuseTargetInvoiceId = voidRows?.[0]?.id ?? null;
+  }
 
   /* ---------------------------------- */
   /* Get tenant                         */
@@ -288,8 +350,8 @@ export async function runPresetMonthlyEngine(params: {
 
   let invoiceId: string;
 
-  if (voidInvoiceId) {
-    invoiceId = voidInvoiceId;
+  if (reuseTargetInvoiceId) {
+    invoiceId = reuseTargetInvoiceId;
 
     await updateInvoiceTotals(invoiceId, {
       subtotal,

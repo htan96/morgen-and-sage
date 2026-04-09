@@ -8,12 +8,14 @@ export async function runMonthlyEngine(params: {
   billingMonth: string;
   generatedByType?: "admin" | "system" | "tenant";
   generatedById?: string | null;
+  voidSourceInvoiceId?: string | null;
 }) {
   const {
     tenantId,
     billingMonth,
     generatedByType = "system",
     generatedById = null,
+    voidSourceInvoiceId = null,
   } = params;
 
   const tenant = await getTenantById(tenantId);
@@ -35,6 +37,7 @@ export async function runMonthlyEngine(params: {
       billingMonth,
       generatedByType,
       generatedById,
+      voidSourceInvoiceId,
     });
   }
 
@@ -45,6 +48,7 @@ export async function runMonthlyEngine(params: {
       billingMonth,
       generatedByType,
       generatedById,
+      voidSourceInvoiceId,
     });
   }
 

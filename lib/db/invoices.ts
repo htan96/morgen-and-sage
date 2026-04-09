@@ -170,3 +170,37 @@ export async function updateInvoiceTotals(
 
   if (error) throw error;
 }
+
+/** Same behavior as POST /api/invoices/[id]/void (status + booking detach). */
+export async function voidInvoiceAndDetachBookings(invoiceId: string) {
+  const { error: invErr } = await supabaseAdmin
+    .from("invoices")
+    .update({
+      status: "void",
+      balance_due: 0,
+    })
+    .eq("id", invoiceId);
+
+  if (invErr) throw invErr;
+
+  const { error: bookErr } = await supabaseAdmin
+    .from("bookings")
+    .update({ invoice_id: null })
+    .eq("invoice_id", invoiceId);
+
+  if (bookErr) throw bookErr;
+}
+
+export async function countCompletedPaymentsForInvoice(
+  invoiceId: string
+): Promise<number> {
+  const { count, error } = await supabaseAdmin
+    .from("payments")
+    .select("id", { count: "exact", head: true })
+    .eq("invoice_id", invoiceId)
+    .eq("status", "completed");
+
+  if (error) throw error;
+
+  return count ?? 0;
+}

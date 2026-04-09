@@ -41,6 +41,7 @@ export async function GET(req: Request) {
 
     const tenantId = url.searchParams.get("tenantId");
     const manualMonth = url.searchParams.get("month");
+    const voidInvoiceId = url.searchParams.get("voidInvoiceId");
 
     /**
      * ------------------------------------------------
@@ -124,6 +125,7 @@ export async function GET(req: Request) {
         billingMonth,
         generatedByType: "admin",
         generatedById: null,
+        voidSourceInvoiceId: voidInvoiceId,
       });
 
       if (!result.success) {
