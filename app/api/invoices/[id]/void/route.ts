@@ -1,4 +1,3 @@
-import { createClient } from "@/lib/supabase/server";
 import { supabaseAdmin } from "@/lib/supabase/supabase-admin";
 import { NextRequest, NextResponse } from "next/server";
 
@@ -9,8 +8,6 @@ export async function POST(
   try {
     const { id: invoiceId } = await context.params;
 
-    const supabase = await createClient();
-
     if (!invoiceId) {
       return NextResponse.json(
         { error: "Missing invoice ID" },
@@ -18,7 +15,8 @@ export async function POST(
       );
     }
 
-    const { error: invoiceError } = await supabase
+    /* Service role: avoids RLS that ties writes to JWT organization_id */
+    const { error: invoiceError } = await supabaseAdmin
       .from("invoices")
       .update({
         status: "void",

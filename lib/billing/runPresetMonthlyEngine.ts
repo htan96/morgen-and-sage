@@ -1,4 +1,3 @@
-import { createClient } from "@/lib/supabase/server";
 import { supabaseAdmin } from "@/lib/supabase/supabase-admin";
 import { generatePresetBookingsForMonth } from "./generatePresetBookingsForMonth";
 import { attachBookingsToInvoiceForMonth } from "@/lib/db/bookings";
@@ -64,7 +63,7 @@ export async function runPresetMonthlyEngine(params: {
     generatedById = null,
   } = params;
 
-  const supabase = await createClient();
+  const supabase = supabaseAdmin;
 
   /* ---------------------------------- */
   /* Prevent duplicate active invoices  */
@@ -117,6 +116,10 @@ export async function runPresetMonthlyEngine(params: {
 
   if (!tenant) {
     return { success: false, reason: "TENANT_NOT_FOUND" };
+  }
+
+  if (!tenant.organization_id) {
+    return { success: false, reason: "TENANT_MISSING_ORGANIZATION" };
   }
 
   const { startISO, nextISO } = getMonthBounds(billingMonth);

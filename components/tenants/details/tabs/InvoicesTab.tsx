@@ -69,11 +69,11 @@ export default function InvoicesTab({ tenantId }: Props) {
       const data = await res.json();
 
       if (!res.ok) {
-
+        const reason = data.reason ?? data.result?.reason;
         const message =
-          data.reason ||
-          data.error ||
-          "Failed to regenerate invoice";
+          reason === "TENANT_MISSING_ORGANIZATION"
+            ? "This tenant has no organization assigned. Set it on the tenant record, then try again."
+            : reason || data.error || "Failed to regenerate invoice";
 
         alert(message);
 

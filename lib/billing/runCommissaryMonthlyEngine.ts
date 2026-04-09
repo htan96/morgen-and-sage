@@ -1,4 +1,4 @@
-import { createClient } from "@/lib/supabase/server";
+import { supabaseAdmin } from "@/lib/supabase/supabase-admin";
 import { getActiveMonthlyServices } from "@/lib/db/tenantServices";
 import {
   insertInvoice,
@@ -36,7 +36,7 @@ export async function runCommissaryMonthlyEngine(params: {
     generatedById = null,
   } = params;
 
-  const supabase = await createClient();
+  const supabase = supabaseAdmin;
 
   /* ---------------------------------- */
   /* Prevent duplicate active invoices  */
@@ -80,6 +80,10 @@ export async function runCommissaryMonthlyEngine(params: {
 
   if (!tenant) {
     return { success: false, reason: "TENANT_NOT_FOUND" };
+  }
+
+  if (!tenant.organization_id) {
+    return { success: false, reason: "TENANT_MISSING_ORGANIZATION" };
   }
 
   /* ---------------------------------- */

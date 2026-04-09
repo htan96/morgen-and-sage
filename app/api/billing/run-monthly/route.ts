@@ -126,6 +126,20 @@ export async function GET(req: Request) {
         generatedById: null,
       });
 
+      if (!result.success) {
+        return NextResponse.json(
+          {
+            success: false,
+            mode: "single_tenant",
+            tenantId,
+            billingMonth,
+            reason: result.reason,
+            result,
+          },
+          { status: 422 }
+        );
+      }
+
       return NextResponse.json({
         success: true,
         mode: "single_tenant",

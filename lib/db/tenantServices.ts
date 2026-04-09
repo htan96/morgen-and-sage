@@ -1,7 +1,7 @@
-import { createClient } from "@/lib/supabase/server";
+import { supabaseAdmin } from "@/lib/supabase/supabase-admin";
 
 export async function getActiveMonthlyServices(tenantId: string) {
-  const supabase = await createClient();
+  const supabase = supabaseAdmin;
 
   const { data, error } = await supabase
     .from("tenant_services")
@@ -27,7 +27,7 @@ export async function getActiveMonthlyServices(tenantId: string) {
 }
 
 export async function getActivePerBookingServices(tenantId: string) {
-  const supabase = await createClient();
+  const supabase = supabaseAdmin;
 
   const { data, error } = await supabase
     .from("tenant_services")
@@ -53,7 +53,7 @@ export async function getActivePerBookingServices(tenantId: string) {
 }
 
 export async function getActiveHourlyRate(tenantId: string) {
-  const supabase = await createClient();
+  const supabase = supabaseAdmin;
 
   const { data, error } = await supabase
     .from("tenant_services")

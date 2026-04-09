@@ -1,4 +1,4 @@
-import { createClient } from "@/lib/supabase/server";
+import { supabaseAdmin } from "@/lib/supabase/supabase-admin";
 import type { InvoiceType, GeneratedByType } from "@/types/invoices";
 
 export type InvoiceInsertPayload = {
@@ -24,9 +24,7 @@ export async function findExistingMonthlyInvoice(
   billingMonth: string,
   invoiceType: InvoiceType
 ) {
-  const supabase = await createClient();
-
-  const { data, error } = await supabase
+  const { data, error } = await supabaseAdmin
     .from("invoices")
     .select("id")
     .eq("tenant_id", tenantId)
@@ -39,9 +37,11 @@ export async function findExistingMonthlyInvoice(
 }
 
 export async function insertInvoice(payload: InvoiceInsertPayload) {
-  const supabase = await createClient();
+  if (!payload.organizationId) {
+    throw new Error("Cannot create invoice: tenant has no organization_id");
+  }
 
-  const { data, error } = await supabase
+  const { data, error } = await supabaseAdmin
     .from("invoices")
     .insert({
       organization_id: payload.organizationId,
@@ -86,7 +86,9 @@ export async function insertInvoiceLineItems(
 ) {
   if (!items.length) return;
 
-  const supabase = await createClient();
+  if (!organizationId) {
+    throw new Error("Cannot create line items: missing organization_id");
+  }
 
   const rows = items.map((i) => ({
     invoice_id: invoiceId,
@@ -101,7 +103,7 @@ export async function insertInvoiceLineItems(
     notes: i.notes ?? null,
   }));
 
-  const { error } = await supabase
+  const { error } = await supabaseAdmin
     .from("invoice_line_items")
     .insert(rows);
 
@@ -135,9 +137,7 @@ export async function replaceInvoiceLineItems(
  * Used when regenerating a voided invoice to replace line items.
  */
 export async function deleteInvoiceLineItems(invoiceId: string) {
-  const supabase = await createClient();
-
-  const { error } = await supabase
+  const { error } = await supabaseAdmin
     .from("invoice_line_items")
     .delete()
     .eq("invoice_id", invoiceId);
@@ -158,9 +158,7 @@ export async function updateInvoiceTotals(
     status: string;
   }
 ) {
-  const supabase = await createClient();
-
-  const { error } = await supabase
+  const { error } = await supabaseAdmin
     .from("invoices")
     .update({
       subtotal: updates.subtotal,
