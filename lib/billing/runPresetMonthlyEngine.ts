@@ -2,6 +2,7 @@ import { supabaseAdmin } from "@/lib/supabase/supabase-admin";
 import { generatePresetBookingsForMonth } from "./generatePresetBookingsForMonth";
 import { attachBookingsToInvoiceForMonth } from "@/lib/db/bookings";
 import {
+  clearLineItemBookingRefsForBookings,
   countCompletedPaymentsForInvoice,
   insertInvoice,
   replaceInvoiceLineItems,
@@ -205,6 +206,23 @@ export async function runPresetMonthlyEngine(params: {
   /* Prevents duplicate rows after void */
   /* + regenerate (time drift / re-run) */
   /* ---------------------------------- */
+
+  const { data: presetBookingsToRemove, error: listPresetErr } =
+    await supabaseAdmin
+      .from("bookings")
+      .select("id")
+      .eq("tenant_id", tenantId)
+      .eq("submitted_via", "preset")
+      .gte("start_time", startISO)
+      .lt("start_time", nextISO);
+
+  if (listPresetErr) throw listPresetErr;
+
+  const presetIds = (presetBookingsToRemove ?? []).map((b) => b.id);
+
+  if (presetIds.length > 0) {
+    await clearLineItemBookingRefsForBookings(presetIds);
+  }
 
   const { error: delPresetBookingsErr } = await supabaseAdmin
     .from("bookings")

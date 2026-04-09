@@ -171,8 +171,32 @@ export async function updateInvoiceTotals(
   if (error) throw error;
 }
 
+export async function clearLineItemBookingRefsForInvoice(invoiceId: string) {
+  const { error } = await supabaseAdmin
+    .from("invoice_line_items")
+    .update({ booking_id: null })
+    .eq("invoice_id", invoiceId);
+
+  if (error) throw error;
+}
+
+export async function clearLineItemBookingRefsForBookings(
+  bookingIds: string[]
+) {
+  if (bookingIds.length === 0) return;
+
+  const { error } = await supabaseAdmin
+    .from("invoice_line_items")
+    .update({ booking_id: null })
+    .in("booking_id", bookingIds);
+
+  if (error) throw error;
+}
+
 /** Same behavior as POST /api/invoices/[id]/void (status + booking detach). */
 export async function voidInvoiceAndDetachBookings(invoiceId: string) {
+  await clearLineItemBookingRefsForInvoice(invoiceId);
+
   const { error: invErr } = await supabaseAdmin
     .from("invoices")
     .update({
