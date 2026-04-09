@@ -1,4 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
+import { supabaseAdmin } from "@/lib/supabase/supabase-admin";
 import { generatePresetBookingsForMonth } from "./generatePresetBookingsForMonth";
 import { attachBookingsToInvoiceForMonth } from "@/lib/db/bookings";
 import {
@@ -96,7 +97,8 @@ export async function runPresetMonthlyEngine(params: {
     .eq("billing_month", billingMonth)
     .eq("invoice_type", "preset")
     .eq("status", "void")
-    .order("created_at", { ascending: false })
+    .order("invoice_date", { ascending: false })
+    .order("id", { ascending: false })
     .limit(1);
 
   if (voidErr) throw voidErr;
@@ -124,12 +126,14 @@ export async function runPresetMonthlyEngine(params: {
   /* Allows regeneration after VOID     */
   /* ---------------------------------- */
 
-  await supabase
+  const { error: detachErr } = await supabaseAdmin
     .from("bookings")
     .update({ invoice_id: null })
     .eq("tenant_id", tenantId)
     .gte("start_time", startISO)
     .lt("start_time", nextISO);
+
+  if (detachErr) throw detachErr;
 
   /* ---------------------------------- */
   /* Drop auto-generated preset slots   */
@@ -137,7 +141,7 @@ export async function runPresetMonthlyEngine(params: {
   /* + regenerate (time drift / re-run) */
   /* ---------------------------------- */
 
-  const { error: delPresetBookingsErr } = await supabase
+  const { error: delPresetBookingsErr } = await supabaseAdmin
     .from("bookings")
     .delete()
     .eq("tenant_id", tenantId)

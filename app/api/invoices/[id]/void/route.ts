@@ -1,4 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
+import { supabaseAdmin } from "@/lib/supabase/supabase-admin";
 import { NextRequest, NextResponse } from "next/server";
 
 export async function POST(
@@ -32,9 +33,8 @@ export async function POST(
       );
     }
 
-    /* Bookings keep invoice_id unless we clear it; uninvoiced queries use
-       invoice_id IS NULL, so void alone left hours "stuck" on a dead invoice. */
-    const { error: bookingError } = await supabase
+    /* Detach bookings (RLS often allows invoice update but not booking update). */
+    const { error: bookingError } = await supabaseAdmin
       .from("bookings")
       .update({ invoice_id: null })
       .eq("invoice_id", invoiceId);

@@ -1,4 +1,4 @@
-import { createClient } from "@/lib/supabase/server";
+import { supabaseAdmin } from "@/lib/supabase/supabase-admin";
 
 function getAllDatesForWeekdayInMonth(
   billingMonth: string,
@@ -31,7 +31,7 @@ export async function generatePresetBookingsForMonth(
   tenantId: string,
   billingMonth: string
 ) {
-  const supabase = await createClient();
+  const supabase = supabaseAdmin;
 
   // 1️⃣ Get active preset schedules
   const { data: presets, error } = await supabase

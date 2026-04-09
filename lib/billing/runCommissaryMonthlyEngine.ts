@@ -49,7 +49,8 @@ export async function runCommissaryMonthlyEngine(params: {
     .eq("tenant_id", tenantId)
     .eq("billing_month", billingMonth)
     .eq("invoice_type", "commissary")
-    .order("created_at", { ascending: false });
+    .order("invoice_date", { ascending: false })
+    .order("id", { ascending: false });
 
   if (existingErr) throw existingErr;
 

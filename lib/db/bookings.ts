@@ -1,4 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
+import { supabaseAdmin } from "@/lib/supabase/supabase-admin";
 
 /**
  * Sum total booking value for uninvoiced bookings in a given month.
@@ -58,9 +59,7 @@ export async function attachBookingsToInvoiceForMonth(
   monthStartISO: string,
   nextMonthStartISO: string
 ) {
-  const supabase = await createClient();
-
-  const { error } = await supabase
+  const { error } = await supabaseAdmin
     .from("bookings")
     .update({ invoice_id: invoiceId })
     .eq("tenant_id", tenantId)
