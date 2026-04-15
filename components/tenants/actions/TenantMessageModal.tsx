@@ -18,6 +18,22 @@ type Props = {
   onClose: () => void;
 };
 
+function getGreetingName(
+  contactName: string | null | undefined,
+  tenantName: string
+) {
+  if (contactName && contactName.trim().length > 0) {
+    return contactName.trim();
+  }
+
+  const business = tenantName?.trim() ?? "";
+  if (business.length > 0 && !business.includes("@")) {
+    return business;
+  }
+
+  return "there";
+}
+
 export default function TenantMessageModal({
   tenantEmail,
   tenantName,
@@ -55,8 +71,7 @@ export default function TenantMessageModal({
       return;
     }
 
-    const greetingName =
-      (contactName && String(contactName).trim()) || tenantName;
+    const greetingName = getGreetingName(contactName, tenantName);
 
     setTo(tenantEmail);
     setSubject("");
