@@ -1,5 +1,9 @@
 import { supabaseAdmin } from "@/lib/supabase/supabase-admin";
 import { sendEmail } from "./sendEmail";
+import {
+  buildEmailLogoBlockHtml,
+  buildEmailSignature,
+} from "./emailSignature";
 
 export async function sendInvoiceEmail(invoiceId: string) {
 
@@ -39,14 +43,7 @@ export async function sendInvoiceEmail(invoiceId: string) {
         border:1px solid #e6e6e6;
     ">
 
-      <div style="margin-bottom:25px">
-        <img
-          src="${process.env.NEXT_PUBLIC_APP_URL}/logos/morgens-kitchen-dark.svg"
-          alt="Morgen's Kitchen"
-          width="150"
-          style="display:block"
-        />
-      </div>
+      ${buildEmailLogoBlockHtml()}
 
       <h2 style="
           margin-top:0;
@@ -97,16 +94,7 @@ export async function sendInvoiceEmail(invoiceId: string) {
         ${invoiceUrl}
       </p>
 
-      <div style="
-          margin-top:40px;
-          padding-top:20px;
-          border-top:1px solid #eee;
-          font-size:13px;
-          color:#777;
-      ">
-        Morgen's Kitchen<br>
-        Commercial Kitchen Services
-      </div>
+      ${buildEmailSignature()}
 
     </div>
 

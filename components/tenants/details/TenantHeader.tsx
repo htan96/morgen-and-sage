@@ -3,7 +3,9 @@
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
 import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import CreatePortalUserButton from "@/components/tenants/actions/CreatePortalUserButton";
+import TenantMessageModal from "@/components/tenants/actions/TenantMessageModal";
 
 type Kitchen = {
   id: string;
@@ -14,6 +16,7 @@ type Props = {
   tenant: {
     id: string;
     name: string;
+    contact_name?: string | null;
     email: string | null;
     phone: string | null;
     created_at: string;
@@ -24,18 +27,32 @@ type Props = {
 
 export default function TenantHeader({ tenant }: Props) {
   const supabase = createClient();
+  const router = useRouter();
 
   const [isActive, setIsActive] = useState(tenant.is_active);
   const [isEditing, setIsEditing] = useState(false);
   const [kitchens, setKitchens] = useState<Kitchen[]>([]);
   const [saving, setSaving] = useState(false);
+  const [messageOpen, setMessageOpen] = useState(false);
 
   const [form, setForm] = useState({
     name: tenant.name,
+    contact_name: tenant.contact_name || "",
     email: tenant.email || "",
     phone: tenant.phone || "",
     kitchen_space_id: tenant.kitchen_space_id,
   });
+
+  useEffect(() => {
+    if (isEditing) return;
+    setForm({
+      name: tenant.name,
+      contact_name: tenant.contact_name || "",
+      email: tenant.email || "",
+      phone: tenant.phone || "",
+      kitchen_space_id: tenant.kitchen_space_id,
+    });
+  }, [tenant, isEditing]);
 
   /* ---------------- Load Kitchens ---------------- */
 
@@ -66,12 +83,15 @@ export default function TenantHeader({ tenant }: Props) {
   /* ---------------- Save Edits ---------------- */
 
   async function handleSave() {
+    console.log("[TenantHeader] save start", { tenantId: tenant.id, form });
+
     setSaving(true);
 
     const { error } = await supabase
       .from("tenants")
       .update({
         name: form.name,
+        contact_name: form.contact_name.trim() || null,
         email: form.email || null,
         phone: form.phone || null,
         kitchen_space_id: form.kitchen_space_id,
@@ -80,7 +100,15 @@ export default function TenantHeader({ tenant }: Props) {
 
     setSaving(false);
 
-    if (!error) setIsEditing(false);
+    if (error) {
+      console.error("[TenantHeader] save error", error);
+      alert(error.message || "Could not save tenant.");
+      return;
+    }
+
+    console.log("[TenantHeader] save ok");
+    setIsEditing(false);
+    router.refresh();
   }
 
   /* ---------------- Cancel Editing ---------------- */
@@ -88,6 +116,7 @@ export default function TenantHeader({ tenant }: Props) {
   function handleCancel() {
     setForm({
       name: tenant.name,
+      contact_name: tenant.contact_name || "",
       email: tenant.email || "",
       phone: tenant.phone || "",
       kitchen_space_id: tenant.kitchen_space_id,
@@ -135,11 +164,11 @@ export default function TenantHeader({ tenant }: Props) {
       {/* ===================== INFO GRID ===================== */}
 
       <div
-        className={`grid ${
+        className={`grid gap-8 text-sm ${
           isEditing
             ? "grid-cols-1 md:grid-cols-2"
-            : "grid-cols-1 md:grid-cols-4"
-        } gap-8 text-sm`}
+            : "grid-cols-1 sm:grid-cols-2 lg:grid-cols-3"
+        }`}
       >
 
         {/* Business Name */}
@@ -159,6 +188,29 @@ export default function TenantHeader({ tenant }: Props) {
             />
           ) : (
             <div>{tenant.name}</div>
+          )}
+        </div>
+
+        {/* Contact Name */}
+
+        <div>
+          <div className="text-[var(--text-muted)] mb-2">
+            Contact Name
+          </div>
+
+          {isEditing ? (
+            <input
+              value={form.contact_name || ""}
+              onChange={(e) =>
+                setForm({ ...form, contact_name: e.target.value })
+              }
+              placeholder="Enter primary contact name"
+              className="w-full bg-[var(--surface)] border border-[var(--border)] rounded-xl px-4 py-3 text-[var(--text)] focus:outline-none focus:ring-2 focus:ring-[var(--primary)] transition"
+            />
+          ) : (
+            <div className="break-all">
+              {tenant.contact_name || tenant.email || "—"}
+            </div>
           )}
         </div>
 
@@ -276,6 +328,14 @@ export default function TenantHeader({ tenant }: Props) {
               email={tenant.email}
             />
 
+            <button
+              type="button"
+              onClick={() => setMessageOpen(true)}
+              className="px-5 py-2.5 rounded-xl border border-[var(--border)] bg-[var(--surface)] hover:bg-[var(--hover)] transition text-sm"
+            >
+              Message Tenant
+            </button>
+
           </div>
 
           {/* Right Buttons */}
@@ -311,6 +371,15 @@ export default function TenantHeader({ tenant }: Props) {
         </div>
 
       </div>
+
+      <TenantMessageModal
+        tenantEmail={tenant.email || ""}
+        tenantName={tenant.name}
+        tenantId={tenant.id}
+        contactName={tenant.contact_name}
+        open={messageOpen}
+        onClose={() => setMessageOpen(false)}
+      />
 
     </div>
   );

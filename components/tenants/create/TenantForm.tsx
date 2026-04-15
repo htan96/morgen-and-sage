@@ -4,6 +4,7 @@ import BillingTypeSelector from "./BillingTypeSelector";
 
 type Props = {
   name: string;
+  contactName: string;
   email: string;
   phone: string;
   billingType: "standard" | "commissary";
@@ -32,6 +33,7 @@ function Section({
 
 export default function TenantForm({
   name,
+  contactName,
   email,
   phone,
   billingType,
@@ -50,6 +52,18 @@ export default function TenantForm({
             onChange={(e) => onChange("name", e.target.value)}
             className="w-full px-4 py-2.5 rounded-md border border-[var(--border)] bg-[var(--bg)] text-[var(--text)] focus:outline-none focus:ring-2 focus:ring-[var(--primary)] transition"
           />
+
+          <div>
+            <div className="text-xs font-medium text-[var(--text-muted)] mb-1.5">
+              Contact Name
+            </div>
+            <input
+              placeholder="Enter primary contact name"
+              value={contactName}
+              onChange={(e) => onChange("contact_name", e.target.value)}
+              className="w-full px-4 py-2.5 rounded-md border border-[var(--border)] bg-[var(--bg)] text-[var(--text)] focus:outline-none focus:ring-2 focus:ring-[var(--primary)] transition"
+            />
+          </div>
 
           <input
             placeholder="Email (optional)"

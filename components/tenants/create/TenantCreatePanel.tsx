@@ -23,6 +23,7 @@ export default function TenantCreatePanel({ open, onClose, onCreated }: Props) {
   const supabase = createClient();
 
   const [name, setName] = useState("");
+  const [contactName, setContactName] = useState("");
   const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
   const [billingType, setBillingType] =
@@ -33,6 +34,7 @@ export default function TenantCreatePanel({ open, onClose, onCreated }: Props) {
   useEffect(() => {
     if (!open) return;
     setName("");
+    setContactName("");
     setEmail("");
     setPhone("");
     setBillingType("standard");
@@ -102,6 +104,7 @@ export default function TenantCreatePanel({ open, onClose, onCreated }: Props) {
       .insert({
         organization_id: ORG_ID,
         name: name.trim(),
+        contact_name: contactName.trim() || null,
         email: email.trim() || null,
         phone: phone.trim() || null,
         is_active: active,
@@ -183,12 +186,14 @@ export default function TenantCreatePanel({ open, onClose, onCreated }: Props) {
         <div className="flex-1 overflow-y-auto px-6 py-6">
           <TenantForm
             name={name}
+            contactName={contactName}
             email={email}
             phone={phone}
             billingType={billingType}
             active={active}
             onChange={(field, value) => {
               if (field === "name") setName(String(value));
+              if (field === "contact_name") setContactName(String(value));
               if (field === "email") setEmail(String(value));
               if (field === "phone") setPhone(String(value));
               if (field === "billingType") setBillingType(value);
