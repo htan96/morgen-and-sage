@@ -3,6 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
+    "migrate:storage-to-s3": "node scripts/migrate-supabase-storage-to-s3.mjs",
     "dev": "next dev",
     "dev:fresh": "node -e \"try{require('fs').rmSync('.next',{recursive:true,force:true})}catch(e){}\" && next dev",
     "build": "next build",
@@ -26,6 +27,7 @@
     "uuid": "^13.0.0"
   },
   "devDependencies": {
+    "@aws-sdk/client-s3": "^3.787.0",
     "@tailwindcss/postcss": "^4",
     "@types/html-pdf-node": "^1.0.2",
     "@types/node": "^20",
